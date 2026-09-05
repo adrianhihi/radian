@@ -64,9 +64,22 @@ cast send $FACTORY "createToken(string,string,string)" "My Token" "MTK" "ipfs://
 
 (`1ether` = 1e18 native units = 1 USDC launch fee.)
 
+## Deployed (Arc testnet, 2026-09-05)
+
+| Contract | Address |
+|---|---|
+| `LaunchpadFactory` | [`0x112923dec686b647d140ee58c17b0e4b6f804149`](https://testnet.arcscan.app/address/0x112923dec686b647d140ee58c17b0e4b6f804149) |
+| PTEST smoke-test token | `0x9eca6733e1844b5391a501c8112331ac3164bb40` |
+| PTEST pool | `0x2697dd5b00e127a66e76c35484644d333ccc0c2a` |
+
+Smoke test passed end-to-end on-chain: launch (1 USDC fee) → buy 5 USDC → sell half back.
+Curve math matched theory exactly; pool native balance == realUsdc + unclaimed fees at
+every step. Note: Arc emits ERC20-style `Transfer` logs from `0xff…fe` for native USDC
+moves — useful for indexing.
+
 ## Status / roadmap
 
 - [x] Phase 1 — contracts + 14-test suite (incl. fuzz solvency invariant), all passing
-- [ ] Phase 2 — deploy to Arc testnet (needs funded key)
+- [x] Phase 2 — deployed to Arc testnet + live smoke test (launch/buy/sell verified)
 - [ ] Phase 3 — indexer + web frontend (launch form, token list, trade UI)
 - [ ] Phase 4 — $PONS-style protocol token & buyback/burn loop (design open)
