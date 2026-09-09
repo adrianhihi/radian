@@ -1,6 +1,66 @@
 # ponsOnCircle
 
-Pons-style memecoin launchpad for **Circle's Arc chain**, quoted in Arc's **native USDC**.
+Pons memecoin launchpad ported to **Circle's Arc chain**, quoted in Arc's **native USDC**.
+
+Two generations live in this repo:
+
+- **`src/v2/` — faithful Pons V2 port (the real thing).** Verified production sources
+  fetched from Sourcify (exact_match of the live Robinhood Chain factory
+  `0x7eD5...EC7e`), deployed on Arc testnet against our own Uniswap V4 base.
+  Bonding curve → graduation into a permanently locked full-range V4 pool with the
+  singleton `PonsV2MemeHook`, snipe tax, creator tax, fee escrow, five-year buyback
+  vault. Quote asset: native USDC (`pairToken = 0`).
+- **`src/` — v0 simplified launchpad** (our first Arc deployment, kept as a working
+  baseline; see the v0 section below).
+
+## Pons V2 on Arc testnet (deployed 2026-09-09)
+
+| Contract | Address |
+|---|---|
+| `PoolManager` (Uniswap V4) | `0x24219d0F3611fE4E438850bB7DB165439957dc9f` |
+| `PositionManager` (Uniswap V4) | `0x76099b39E6678018FB5B65c4e977C93e27fa9aF1` |
+| `PoolSwapTest` (test router) | `0xD29ee84A8ad72A510D9dF9cB7A5021546431D97E` |
+| `PonsV2FeeEscrow` | `0x6133392C976d5160CBDE63815f7cd63122f3841C` |
+| `PonsV2MemeHook` | `0x15eB3aeE2f96A199165dc58e6C8dc3Ce2e02e044` |
+| `PonsV2BuybackVault` | `0xe84D81C3d4f3E12123C9F934AB3Cb8238772b39e` |
+| `PonsV2LaunchLocker` | `0x7efb5B773BBbf69Bd163b52b1BA88C529a0f123c` |
+| `PonsV2LaunchFactory` | `0x90022cC2107De9c070F889E3A67009FcA270E4E2` |
+| `PonsV2GraduationExecutor` | `0x1b888f930c6a855D015cB21F81a289EA7b7b4a69` |
+| `PonsV2LaunchDeployer` | `0xa8D3DFEE672ee92663298300030a1DFB078Cb552` |
+| Permit2 (canonical, pre-existing) | `0x000000000022D473030F116dDEE9F6B43aC78BA3` |
+
+Launch config 0: supply 1B, curve fee 1%, phantom quote **8 USDC**, graduation at
+**20 USDC** (production Robinhood shape 1.68 : 4.2 scaled for faucet wallets),
+V4 pool fee 0 (the hook takes the fee), tickSpacing 200. Launch fee 1 USDC.
+Hook policy defaults: protocol 30% / buyback 50% of the remainder, hook fee 1%,
+max internal price impact 3%.
+
+E2E verified on-chain (launch `APONE` `0xA1d3...ee3A`): curve buy → `sweepFees`
+(escrow credited, buyback bought + locked in the 5-year vault) → oversized buy
+auto-graduates with refund → full-range V4 position minted to the locker →
+swaps both directions through `PonsV2MemeHook`.
+
+### Build note
+
+`lib/v4-core` and `lib/v4-periphery` are full official Uniswap clones (needed for
+`PoolManager`/`PositionManager` deployment) and are git-ignored. Restore with:
+
+```bash
+git clone --depth 1 https://github.com/Uniswap/v4-core lib/v4-core && git -C lib/v4-core submodule update --init --depth 1 lib/solmate lib/forge-std
+```
+
+```bash
+git clone --depth 1 --recurse-submodules --shallow-submodules https://github.com/Uniswap/v4-periphery lib/v4-periphery
+```
+
+Compiler: solc 0.8.26, `evm_version = cancun` (TSTORE probed live on Arc testnet ✓),
+viaIR, optimizer 200 — matching the production Pons V2 build (which used 0.8.35).
+Licensing: first-party Pons contracts are MIT; Uniswap v4-core is BUSL-1.1 (testnet
+use fine; review before any production mainnet deployment), v4-periphery MIT/GPL.
+
+---
+
+# v0 — simplified launchpad (first deployment)
 
 Anyone can launch a fixed-supply (1B) token in one transaction; it trades immediately on a
 constant-product bonding curve against native USDC. Liquidity is locked forever — no one

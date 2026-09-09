@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.26;
+pragma solidity ^0.8.26;
 
 import {LaunchToken} from "./LaunchToken.sol";
 import {CurvePool} from "./CurvePool.sol";
