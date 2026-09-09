@@ -1,0 +1,149 @@
+"use client";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { formatUnits, type Address } from "viem";
+import { Nav } from "@/components/Nav";
+import { useReveal } from "@/lib/useReveal";
+import { useRadianWallet } from "@/lib/useRadianWallet";
+import { useLaunches } from "@/lib/useLaunches";
+import { publicClient, RADIAN, tokenAbi, escrowAbi } from "@/lib/radian";
+
+export default function PortfolioPage() {
+  useReveal();
+  const { authenticated, login, address } = useRadianWallet();
+  const { rows } = useLaunches();
+  const [holdings, setHoldings] = useState<{ sym: string; name: string; token: Address; bal: bigint }[]>([]);
+  const [claimable, setClaimable] = useState<bigint>(0n);
+
+  useEffect(() => {
+    if (!address || rows.length === 0) return;
+    (async () => {
+      const hs = await Promise.all(
+        rows.map(async (r) => {
+          const bal = (await publicClient.readContract({
+            address: r.token,
+            abi: tokenAbi,
+            functionName: "balanceOf",
+            args: [address],
+          })) as bigint;
+          return { sym: r.symbol, name: r.name, token: r.token, bal };
+        })
+      );
+      setHoldings(hs.filter((h) => h.bal > 0n));
+      const c = (await publicClient.readContract({
+        address: RADIAN.escrow,
+        abi: escrowAbi,
+        functionName: "balanceOf",
+        args: [address],
+      })) as bigint;
+      setClaimable(c);
+    })();
+  }, [address, rows]);
+
+  const created = address
+    ? rows.filter((r) => r.deployer.toLowerCase() === address.toLowerCase())
+    : [];
+
+  return (
+    <>
+      <Nav />
+      <main className="wrap" style={{ padding: "48px 24px 0" }}>
+        <div className="reveal">
+          <h1 style={{ fontSize: 34 }}>Portfolio</h1>
+          <p style={{ color: "var(--fg-dim)", marginTop: 10 }}>
+            Your Radian tokens, creator fees, and launches — read live from Arc.
+          </p>
+        </div>
+
+        {!authenticated ? (
+          <div className="panel reveal" style={{ marginTop: 26, textAlign: "center", padding: 40 }}>
+            <p style={{ color: "var(--fg-dim)" }}>Sign in to see your portfolio.</p>
+            <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={login}>
+              Sign in
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="stats" style={{ marginTop: 26, gridTemplateColumns: "repeat(3,1fr)" }}>
+              <div className="stat reveal">
+                <div className="k">{holdings.length}</div>
+                <div className="l">Tokens held</div>
+              </div>
+              <div className="stat reveal" data-reveal-delay={70}>
+                <div className="k">{created.length}</div>
+                <div className="l">Tokens created</div>
+              </div>
+              <div className="stat reveal" data-reveal-delay={140}>
+                <div className="k">
+                  {Number(formatUnits(claimable, 18)).toLocaleString(undefined, { maximumFractionDigits: 4 })}
+                </div>
+                <div className="l">Claimable fees (USDC)</div>
+              </div>
+            </div>
+
+            <div className="section" style={{ paddingTop: 34 }}>
+              <div className="section-head reveal">
+                <div>
+                  <h2 style={{ fontSize: 22 }}>Holdings</h2>
+                  <p>Tokens you currently hold on Radian.</p>
+                </div>
+              </div>
+              <div className="panel reveal" style={{ padding: 0, overflow: "hidden" }}>
+                {holdings.length === 0 ? (
+                  <div className="empty">No holdings yet. Buy a token to get started.</div>
+                ) : (
+                  holdings.map((h) => (
+                    <Link key={h.token} href={`/token/${h.token}`} className="kv live-row" style={{ padding: "14px 20px", alignItems: "center" }}>
+                      <span style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <span className="avatar" style={{ width: 32, height: 32, fontSize: 13 }}>
+                          {h.sym.slice(0, 2).toUpperCase()}
+                        </span>
+                        <span>
+                          <span style={{ fontWeight: 600 }}>{h.name}</span>{" "}
+                          <span style={{ color: "var(--fg-faint)", fontSize: 13 }}>${h.sym}</span>
+                        </span>
+                      </span>
+                      <span className="v">
+                        {Number(formatUnits(h.bal, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })} {h.sym}
+                      </span>
+                    </Link>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {created.length > 0 && (
+              <div className="section" style={{ paddingTop: 20 }}>
+                <div className="section-head reveal">
+                  <div>
+                    <h2 style={{ fontSize: 22 }}>Your launches</h2>
+                    <p>Tokens you created. You earn 50% of every trade fee.</p>
+                  </div>
+                </div>
+                <div className="grid">
+                  {created.map((r, i) => (
+                    <Link key={r.token} href={`/token/${r.token}`} className="card reveal" data-reveal-delay={(i % 3) * 80}>
+                      <div className="card-top">
+                        <div className="avatar">{r.symbol.slice(0, 2).toUpperCase()}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div className="card-name">{r.name}</div>
+                          <div className="card-sym">${r.symbol}</div>
+                        </div>
+                        <span className={`badge ${r.graduated ? "badge-grad" : "badge-live"}`}>
+                          {r.graduated ? "Graduated" : "Live"}
+                        </span>
+                      </div>
+                      <div className="prog">
+                        <span style={{ width: `${Math.max(2, Math.round(r.progress * 100))}%` }} />
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </main>
+    </>
+  );
+}

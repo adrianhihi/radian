@@ -74,6 +74,21 @@ export const tokenAbi = parseAbi([
   "function approve(address spender, uint256 value) returns (bool)",
 ]);
 
+// extra curve reads for stats/portfolio
+export const curveStatsAbi = parseAbi([
+  "function quoteFeeBalance() view returns (uint256)",
+  "function creator() view returns (address)",
+]);
+
+export const vaultAbi = parseAbi([
+  "function totalLocked(address token) view returns (uint256)",
+  "function releasable(address token) view returns (uint256)",
+]);
+
+export const escrowAbi = parseAbi([
+  "function balanceOf(address recipient) view returns (uint256)",
+]);
+
 export type LaunchRow = {
   token: Address;
   curve: Address;

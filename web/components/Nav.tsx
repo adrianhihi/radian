@@ -32,14 +32,12 @@ export function Nav() {
         </Link>
         <div className="nav-links">
           <Link href="/#explore">Explore</Link>
+          <Link href="/live">Live</Link>
+          <Link href="/stats">Stats</Link>
           <Link href="/launch">Launch</Link>
-          <a
-            href="https://testnet.arcscan.app/address/0x90022cC2107De9c070F889E3A67009FcA270E4E2"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Contracts
-          </a>
+          <Link href="/builders">Builders</Link>
+          <Link href="/portfolio">Portfolio</Link>
+          <Link href="/docs">Docs</Link>
           {!ready ? (
             <button className="btn btn-ghost" disabled>
               …
