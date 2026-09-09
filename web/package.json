@@ -1,0 +1,24 @@
+{
+  "name": "radian-web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3040",
+    "build": "next build",
+    "start": "next start -p 3040",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@privy-io/react-auth": "^2.25.0",
+    "next": "15.1.6",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "viem": "^2.56.3"
+  },
+  "devDependencies": {
+    "@types/node": "22.13.1",
+    "@types/react": "19.0.8",
+    "@types/react-dom": "19.0.3",
+    "typescript": "5.7.3"
+  }
+}
