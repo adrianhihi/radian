@@ -1,6 +1,18 @@
-# ponsOnCircle
+# Radian
 
-Pons memecoin launchpad ported to **Circle's Arc chain**, quoted in Arc's **native USDC**.
+**Radian** — the memecoin launchpad for **Circle's Arc chain**, quoted in Arc's
+**native USDC**. A radian is the unit that measures an arc; Radian is how tokens
+get measured out onto Arc.
+
+> Naming & provenance: the trading engine is a faithful port of Pons V2
+> (Robinhood Chain's leading launchpad). Their first-party contracts are MIT;
+> we keep the original `PonsV2*` contract names and license headers in
+> `src/v2/` **unchanged** so anyone can diff our sources byte-for-byte against
+> the verified upstream on Sourcify (chain 4663, factory `0x7eD5...EC7e`) and
+> confirm the logic is untampered. "Pons" and "ponsfamily" are Pons-Labs'
+> brand; Radian is an independent deployment on Arc, not affiliated with
+> Pons-Labs, Robinhood, or Circle. All product-level branding (frontend,
+> docs, protocol token) uses Radian.
 
 Two generations live in this repo:
 
