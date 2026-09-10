@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import { createHash } from "node:crypto";
-import { mkdirSync, writeFileSync, existsSync, readFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { formatUnits } from "viem";
 import { store } from "./store.js";
 import { fmt } from "./scanner.js";
@@ -32,23 +32,54 @@ export function startServer() {
   // Token logo upload: store the image, return a stable URL that goes into
   // the token's on-chain `logo` metadata. (Testnet: disk-backed; production
   // should point UPLOAD_DIR at a volume or swap for S3/IPFS.)
+  // Abuse limits for an unauthenticated, CORS-open endpoint: a per-IP budget, a
+  // disk quota shared with the snapshot volume, and the file's real type is
+  // sniffed from its bytes — the Content-Type header only picks the extension.
+  const UPLOADS_PER_HOUR = Number(process.env.UPLOADS_PER_HOUR ?? 20);
+  const UPLOAD_QUOTA_BYTES = Number(process.env.UPLOAD_QUOTA_MB ?? 500) * 1024 * 1024;
+  const uploadHits = new Map<string, number[]>();
+  const sniff = (b: Buffer): string | null => {
+    if (b.length > 8 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return "png";
+    if (b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "jpg";
+    if (b.length > 6 && b.subarray(0, 6).toString("latin1").startsWith("GIF8")) return "gif";
+    if (b.length > 12 && b.subarray(0, 4).toString("latin1") === "RIFF" && b.subarray(8, 12).toString("latin1") === "WEBP") return "webp";
+    return null;
+  };
+  const uploadDirBytes = () => {
+    try {
+      return readdirSync(UPLOAD_DIR).reduce((s, f) => s + (statSync(`${UPLOAD_DIR}/${f}`).size || 0), 0);
+    } catch {
+      return 0;
+    }
+  };
+
   app.post("/upload", express.raw({ type: "image/*", limit: "2mb" }), (req, res) => {
-    const ext = EXT[req.headers["content-type"] ?? ""];
-    if (!ext || !req.body?.length) return res.status(400).json({ error: "send a png/jpg/webp/gif body" });
+    const ip = (req.headers["x-forwarded-for"]?.toString().split(",")[0] ?? req.socket.remoteAddress ?? "?").trim();
+    const now = Date.now();
+    const hits = (uploadHits.get(ip) ?? []).filter((t) => now - t < 3_600_000);
+    if (hits.length >= UPLOADS_PER_HOUR) return res.status(429).json({ error: "too many uploads, try later" });
+    const declared = EXT[req.headers["content-type"] ?? ""];
+    if (!declared || !req.body?.length) return res.status(400).json({ error: "send a png/jpg/webp/gif body" });
+    const actual = sniff(req.body as Buffer);
+    if (!actual || actual !== declared) return res.status(400).json({ error: "body is not the declared image type" });
+    if (uploadDirBytes() + req.body.length > UPLOAD_QUOTA_BYTES) return res.status(507).json({ error: "upload storage full" });
+    hits.push(now);
+    uploadHits.set(ip, hits);
     const hash = createHash("sha256").update(req.body).digest("hex").slice(0, 24);
-    const file = `${hash}.${ext}`;
-    writeFileSync(`${UPLOAD_DIR}/${file}`, req.body);
+    const file = `${hash}.${actual}`;
+    if (!existsSync(`${UPLOAD_DIR}/${file}`)) writeFileSync(`${UPLOAD_DIR}/${file}`, req.body);
     res.json({ url: `${PUBLIC_URL}/img/${file}` });
   });
 
   app.get("/img/:file", (req, res) => {
-    // keep hex hash + lowercase ext; strip anything else (blocks traversal)
-    const safe = req.params.file.replace(/[^a-z0-9.]/g, "");
-    if (safe.includes("..")) return res.status(400).end();
-    const path = `${UPLOAD_DIR}/${safe}`;
+    // Only names this server can have written: 24 hex chars + a known extension.
+    // Anything else is 404 — no traversal, no directory reads, no header spoofing.
+    const m = /^([0-9a-f]{24})\.(png|jpg|webp|gif)$/.exec(req.params.file);
+    if (!m) return res.status(404).end();
+    const path = `${UPLOAD_DIR}/${m[0]}`;
     if (!existsSync(path)) return res.status(404).end();
-    const ext = req.params.file.split(".").pop();
-    res.setHeader("Content-Type", `image/${ext === "jpg" ? "jpeg" : ext}`);
+    res.setHeader("Content-Type", `image/${m[2] === "jpg" ? "jpeg" : m[2]}`);
+    res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
     res.end(readFileSync(path));
   });
