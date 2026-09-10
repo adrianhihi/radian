@@ -8,7 +8,7 @@ import { defineChain, type Address } from "viem";
 // config re-derives from the chosen network. Mainnet is a placeholder until
 // Arc mainnet is live (2026-09-16) and we fill its addresses + flip `live`.
 
-export type NetworkKey = "testnet" | "mainnet";
+export type NetworkKey = "testnet" | "mainnet" | "base";
 
 export type QuoteAssetDef = {
   key: string;
@@ -23,6 +23,7 @@ export type NetworkConfig = {
   key: NetworkKey;
   label: string;
   live: boolean;
+  hidden?: boolean; // config-ready but not surfaced in the switcher yet
   chainId: number;
   chainName: string;
   rpc: string;
@@ -103,6 +104,37 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
     radian: { token: ZERO, curve: ZERO, staking: ZERO, treasury: ZERO },
     quoteAssets: [
       { key: "usdc", symbol: "USDC", address: ZERO, decimals: 18, native: true, blurb: "Native dollar — the Arc gas coin" },
+    ],
+  },
+  // Multi-chain scaffolding. Base has canonical Uniswap V4 and Ondo tokenized
+  // stocks, so launches are quoted in Base USDC (ERC-20, 6-dec) — the "priced in
+  // real dollars" USP survives even though Base's gas coin is ETH. Hidden until
+  // deployed: flip live+hidden, fill the Pons addresses + PositionManager, and
+  // set NEXT_PUBLIC_BASE_RPC / NEXT_PUBLIC_BASE_INDEXER_URL in Vercel.
+  base: {
+    key: "base",
+    label: "Base",
+    live: false,
+    hidden: true,
+    chainId: 8453,
+    chainName: "Base",
+    rpc: process.env.NEXT_PUBLIC_BASE_RPC ?? "https://mainnet.base.org",
+    explorer: "https://basescan.org",
+    deployBlock: 0n,
+    indexerUrl: process.env.NEXT_PUBLIC_BASE_INDEXER_URL?.replace(/\/$/, "") ?? "",
+    contracts: {
+      factory: ZERO,
+      locker: ZERO,
+      vault: ZERO,
+      escrow: ZERO,
+      hook: ZERO,
+      // canonical Uniswap V4 PoolManager on Base (verified on BaseScan)
+      poolManager: "0x498581fF718922c3f8e6A244956aF099B2652b2b",
+    },
+    radian: { token: ZERO, curve: ZERO, staking: ZERO, treasury: ZERO },
+    quoteAssets: [
+      // Base USDC (native Circle USDC on Base, 6-dec) — the featured quote.
+      { key: "usdc", symbol: "USDC", address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", decimals: 6, native: false, blurb: "Circle USDC on Base" },
     ],
   },
 };

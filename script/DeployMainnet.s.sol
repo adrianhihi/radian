@@ -98,6 +98,20 @@ contract DeployMainnet is Script {
                 enabled: true
             })
         );
+        // On a chain where the native gas coin is NOT USDC (Base=ETH, BSC=BNB…),
+        // approve that chain's USDC ERC-20 as a quote asset so launches keep the
+        // "priced in real dollars" USP. Set QUOTE_TOKEN to the chain's USDC.
+        // (On Arc, USDC is native — leave QUOTE_TOKEN unset.)
+        address quoteToken = vm.envOr("QUOTE_TOKEN", address(0));
+        if (quoteToken != address(0)) {
+            uint8 qd = uint8(vm.envOr("QUOTE_DECIMALS", uint256(6)));
+            uint256 qPhantom = vm.envOr("QUOTE_PHANTOM_USDC", uint256(4_000)) * (10 ** qd);
+            uint256 qGrad = vm.envOr("QUOTE_GRADUATION_USDC", uint256(10_000)) * (10 ** qd);
+            factory.setPairTokenEconomics(quoteToken, qPhantom, qGrad, qd);
+            factory.setPairTokenApproved(quoteToken, true);
+            console.log("approved USDC quote token:", quoteToken, "decimals", qd);
+        }
+
         // Launch DISABLED at deploy — enable only after the smoke test passes.
         factory.setLaunchEnabled(false);
 

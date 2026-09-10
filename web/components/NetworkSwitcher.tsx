@@ -27,7 +27,9 @@ export function NetworkSwitcher() {
       </button>
       {open && (
         <div className="netsw-menu">
-          {(Object.keys(NETWORKS) as NetworkKey[]).map((k) => {
+          {(Object.keys(NETWORKS) as NetworkKey[])
+            .filter((k) => !NETWORKS[k].hidden || k === active)
+            .map((k) => {
             const n = NETWORKS[k];
             return (
               <button
