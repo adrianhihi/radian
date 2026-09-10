@@ -62,3 +62,29 @@ export const tokenReadAbi = parseAbi([
 export const vaultAbi = parseAbi([
   "function totalLocked(address token) view returns (uint256)",
 ]);
+
+// ---- $RADIAN flywheel ----
+export const RADIAN = {
+  token: "0x0B764B1e50E4D17A897Cdd9494CaC3355579fDcD" as Address,
+  curve: "0x8925494f3cfB34cD0df2b4Bf83328928Fe22F126" as Address,
+  staking: "0x1da4Ebf52892Fb209701a8E6cFF06058e89c21Cc" as Address,
+  treasury: "0xbFf760f35F421cAE2E9650aF1571FDd618e206a7" as Address,
+};
+
+export const stakingAbi = parseAbi([
+  "function totalStaked() view returns (uint256)",
+  "function rewardRate() view returns (uint256)",
+  "function periodFinish() view returns (uint256)",
+  "function totalDistributed() view returns (uint256)",
+]);
+
+export const treasuryAbi = parseAbi([
+  "function totalBurned() view returns (uint256)",
+  "function totalToStakers() view returns (uint256)",
+  "function totalFlushed() view returns (uint256)",
+  "function buybackBps() view returns (uint16)",
+]);
+
+export const radianTokenAbi = parseAbi([
+  "function totalSupply() view returns (uint256)",
+]);

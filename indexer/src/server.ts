@@ -2,8 +2,17 @@ import express from "express";
 import cors from "cors";
 import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync, existsSync, readFileSync } from "node:fs";
+import { formatUnits } from "viem";
 import { store } from "./store.js";
 import { fmt } from "./scanner.js";
+import {
+  publicClient,
+  RADIAN,
+  stakingAbi,
+  treasuryAbi,
+  radianTokenAbi,
+  curveReadAbi,
+} from "./config.js";
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR ?? "./uploads";
 const PUBLIC_URL = (process.env.PUBLIC_URL ?? "https://radian-indexer-production.up.railway.app").replace(/\/$/, "");
@@ -157,6 +166,56 @@ export function startServer() {
       hourlyVolume: buckets,
       ranked,
     });
+  });
+
+  // $RADIAN flywheel state — staked, APR, buyback burned, revenue distributed.
+  app.get("/radian", async (_req, res) => {
+    try {
+      const r = await publicClient.multicall({
+        allowFailure: true,
+        contracts: [
+          { address: RADIAN.staking, abi: stakingAbi, functionName: "totalStaked" },
+          { address: RADIAN.staking, abi: stakingAbi, functionName: "rewardRate" },
+          { address: RADIAN.staking, abi: stakingAbi, functionName: "periodFinish" },
+          { address: RADIAN.staking, abi: stakingAbi, functionName: "totalDistributed" },
+          { address: RADIAN.treasury, abi: treasuryAbi, functionName: "totalBurned" },
+          { address: RADIAN.treasury, abi: treasuryAbi, functionName: "totalToStakers" },
+          { address: RADIAN.treasury, abi: treasuryAbi, functionName: "buybackBps" },
+          { address: RADIAN.token, abi: radianTokenAbi, functionName: "totalSupply" },
+          { address: RADIAN.curve, abi: curveReadAbi, functionName: "getReserves" },
+        ],
+      });
+      const num = (i: number) => Number(formatUnits((r[i].result as bigint | undefined) ?? 0n, 18));
+      const totalStaked = num(0);
+      const rewardRate = num(1); // USDC/sec
+      const reserves = r[8].result as [bigint, bigint] | undefined;
+      const quoteReserve = reserves ? Number(formatUnits(reserves[0], 18)) : 0;
+      const tokenReserve = reserves ? Number(formatUnits(reserves[1], 18)) : 1;
+      const radianPrice = tokenReserve > 0 ? quoteReserve / tokenReserve : 0; // USDC per RADIAN
+      const annualRewards = rewardRate * 365 * 86400; // USDC/yr
+      const stakedValue = totalStaked * radianPrice;
+      const treasuryBal = Number(formatUnits(await publicClient.getBalance({ address: RADIAN.treasury }), 18));
+      res.json({
+        token: RADIAN.token,
+        curve: RADIAN.curve,
+        staking: RADIAN.staking,
+        treasury: RADIAN.treasury,
+        totalStaked,
+        radianPrice,
+        stakedValueUsdc: stakedValue,
+        apr: stakedValue > 0 ? (annualRewards / stakedValue) * 100 : 0,
+        periodFinish: Number((r[2].result as bigint | undefined) ?? 0n),
+        rewardRatePerSec: rewardRate,
+        distributedToStakers: num(5),
+        totalDistributedStaking: num(3),
+        buybackBurned: num(4),
+        radianSupply: num(7),
+        buybackBps: Number((r[6].result as number | undefined) ?? 0),
+        treasuryBalance: treasuryBal,
+      });
+    } catch (e: any) {
+      res.status(500).json({ error: e?.shortMessage ?? String(e) });
+    }
   });
 
   const port = Number(process.env.PORT ?? 8080);

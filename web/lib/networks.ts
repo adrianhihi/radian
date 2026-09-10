@@ -38,6 +38,12 @@ export type NetworkConfig = {
     hook: Address;
     poolManager: Address;
   };
+  radian: {
+    token: Address;
+    curve: Address;
+    staking: Address;
+    treasury: Address;
+  };
   quoteAssets: QuoteAssetDef[];
 };
 
@@ -64,6 +70,12 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
       hook: "0x15eB3aeE2f96A199165dc58e6C8dc3Ce2e02e044",
       poolManager: "0x24219d0F3611fE4E438850bB7DB165439957dc9f",
     },
+    radian: {
+      token: "0x0B764B1e50E4D17A897Cdd9494CaC3355579fDcD",
+      curve: "0x8925494f3cfB34cD0df2b4Bf83328928Fe22F126",
+      staking: "0x1da4Ebf52892Fb209701a8E6cFF06058e89c21Cc",
+      treasury: "0xbFf760f35F421cAE2E9650aF1571FDd618e206a7",
+    },
     quoteAssets: [
       { key: "usdc", symbol: "USDC", address: ZERO, decimals: 18, native: true, blurb: "Native dollar — the Arc gas coin" },
       { key: "eurc", symbol: "EURC", address: "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a", decimals: 6, native: false, blurb: "Circle's euro stablecoin" },
@@ -88,6 +100,7 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
       // canonical Uniswap V4 on Arc mainnet (verify on Arcscan at launch)
       poolManager: "0x8366a39cc670b4001a1121b8f6a443a643e40951",
     },
+    radian: { token: ZERO, curve: ZERO, staking: ZERO, treasury: ZERO },
     quoteAssets: [
       { key: "usdc", symbol: "USDC", address: ZERO, decimals: 18, native: true, blurb: "Native dollar — the Arc gas coin" },
     ],
