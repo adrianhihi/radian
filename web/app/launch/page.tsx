@@ -1,6 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { formatUnits, parseEther, parseUnits, decodeEventLog } from "viem";
 import { Nav } from "@/components/Nav";
 import { StockTag, StockRef } from "@/components/StockRef";
@@ -10,7 +10,9 @@ import { useRadianWallet } from "@/lib/useRadianWallet";
 import { addLocalLaunch } from "@/lib/registry";
 import { INDEXER_URL, hasIndexer } from "@/lib/indexer";
 
-const LAUNCH_FEE = parseEther("1"); // 1 USDC
+// Display default until the factory's current launchFee() is read on mount —
+// the owner can change the fee, and a hardcoded value would make every launch revert.
+const DEFAULT_LAUNCH_FEE = parseEther("1");
 
 export default function LaunchPage() {
   useReveal();
@@ -30,6 +32,19 @@ export default function LaunchPage() {
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [launchFee, setLaunchFee] = useState<bigint>(DEFAULT_LAUNCH_FEE);
+
+  useEffect(() => {
+    if (!activeNetwork.live) return;
+    let alive = true;
+    publicClient
+      .readContract({ address: RADIAN.factory, abi: factoryAbi, functionName: "launchFee" })
+      .then((v) => alive && setLaunchFee(v as bigint))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const FEE_MODES = [
     { id: "buyback", icon: "🔥", title: "Buyback & Lock", desc: "Route the fee's buyback share into buying the token back and locking it in the 5-year vault.", live: true },
@@ -123,7 +138,7 @@ export default function LaunchPage() {
           0n,
           quote.address,
         ],
-        value: LAUNCH_FEE,
+        value: launchFee,
       });
 
       setToast("Launching… waiting for confirmation.");
@@ -131,7 +146,9 @@ export default function LaunchPage() {
       // find the new token + curve from the TokenLaunched event in our own receipt
       let tokenAddr: string | null = null;
       let curveAddr: string | null = null;
-      let gthr = "20000000000000000000";
+      // Fallback if the TokenLaunched log can't be decoded: the goal for the chosen
+      // quote asset in its own decimals (the indexer overrides this once it has seen the launch).
+      let gthr = parseUnits(String(quote.gradGoal), quote.decimals).toString();
       for (const log of receipt.logs) {
         try {
           const parsed = decodeEventLog({ abi: factoryAbi, data: log.data, topics: log.topics });
@@ -202,7 +219,7 @@ export default function LaunchPage() {
           <h1 style={{ fontSize: 34 }}>Launch a token</h1>
           <p style={{ color: "var(--fg-dim)", marginTop: 10 }}>
             One transaction. Fixed 1B supply, {quote.stock ? <>priced in <strong>{quote.stock.refSymbol} shares</strong></> : `priced in ${quote.symbol}`}, liquidity locked forever.
-            Launch fee {formatUnits(LAUNCH_FEE, 18)} USDC.
+            Launch fee {formatUnits(launchFee, 18)} USDC.
           </p>
         </div>
 
@@ -357,7 +374,7 @@ export default function LaunchPage() {
           <div className="kv"><span>Trade fee</span><span className="v">{feeMode === "buyback" ? "1% (35% to you · 35% buyback · 30% protocol)" : "1% (70% to you · 30% protocol)"}</span></div>
 
           <button className="btn btn-primary" style={{ width: "100%", marginTop: 20, justifyContent: "center" }} onClick={launch} disabled={busy}>
-            {busy ? <span className="spinner" /> : authenticated ? "Launch for 1 USDC" : "Sign in to launch"}
+            {busy ? <span className="spinner" /> : authenticated ? `Launch for ${formatUnits(launchFee, 18)} USDC` : "Sign in to launch"}
           </button>
           <p className="hint" style={{ textAlign: "center" }}>
             Need testnet USDC?{" "}

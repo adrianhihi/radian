@@ -114,7 +114,21 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
     const sellable = (mc[8].result as bigint | undefined) ?? 0n;
     const pair = (mc[9].result as Address | undefined) ?? ("0x0000000000000000000000000000000000000000" as Address);
     const r = (mc[4].result as [bigint, bigint] | undefined) ?? [0n, 0n];
-    const qa = quoteByAddress(pair as string);
+    let qa = quoteByAddress(pair as string);
+    if (!qa) {
+      // An owner-approved pair token we have no config for: read its metadata
+      // from chain rather than guessing (a wrong "native" guess would send
+      // msg.value to an ERC-20 curve and revert).
+      const [sym, dec] = await Promise.all([
+        publicClient.readContract({ address: pair as Address, abi: erc20Abi, functionName: "symbol" }).catch(() => "PAIR"),
+        publicClient.readContract({ address: pair as Address, abi: erc20Abi, functionName: "decimals" }).catch(() => 18),
+      ]);
+      const decimals = Number(dec);
+      qa = {
+        key: (pair as string).toLowerCase(), symbol: String(sym), address: pair as Address, decimals, native: false,
+        blurb: "Approved pair asset", gradGoal: Number(formatUnits(gthr, decimals)),
+      };
+    }
     setSt({
       name: name as string,
       symbol: symbol as string,

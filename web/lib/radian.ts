@@ -28,8 +28,14 @@ export type QuoteAsset = {
   stock?: { refSymbol: string; standIn: boolean };
 };
 export const QUOTE_ASSETS: QuoteAsset[] = NET.quoteAssets;
-export const quoteByAddress = (a?: string): QuoteAsset =>
-  QUOTE_ASSETS.find((q) => q.address.toLowerCase() === (a ?? "").toLowerCase()) ?? QUOTE_ASSETS[0];
+// Native (zero address) → USDC. A known ERC-20 → its config. An ERC-20 we have no
+// config for → undefined, so callers read its symbol/decimals from chain instead of
+// silently treating it as native (which would send msg.value to an ERC-20 curve).
+export const quoteByAddress = (a?: string): QuoteAsset | undefined => {
+  const addr = (a ?? "").toLowerCase();
+  if (!addr || addr === NATIVE_QUOTE) return QUOTE_ASSETS[0];
+  return QUOTE_ASSETS.find((q) => q.address.toLowerCase() === addr);
+};
 
 export const publicClient = createPublicClient({ chain: arcTestnet, transport: http() });
 
@@ -81,6 +87,7 @@ export const vaultAbi = parseAbi([
 
 export const escrowAbi = parseAbi([
   "function balanceOf(address recipient) view returns (uint256)",
+  "function balanceOfToken(address recipient, address token) view returns (uint256)",
   "function claim() returns (uint256 amount)",
   "function claimToken(address token) returns (uint256 amount)",
 ]);

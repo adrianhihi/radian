@@ -8,7 +8,7 @@ import { useNetwork } from "@/lib/networks";
 import { useReveal } from "@/lib/useReveal";
 import { useRadianWallet } from "@/lib/useRadianWallet";
 import { useLaunches } from "@/lib/useLaunches";
-import { publicClient, RADIAN, tokenAbi, escrowAbi, arcTestnet } from "@/lib/radian";
+import { publicClient, RADIAN, tokenAbi, escrowAbi, arcTestnet, QUOTE_ASSETS, type QuoteAsset } from "@/lib/radian";
 
 export default function PortfolioPage() {
   useReveal();
@@ -18,6 +18,9 @@ export default function PortfolioPage() {
   const [holdings, setHoldings] = useState<{ sym: string; name: string; token: Address; bal: bigint }[]>([]);
   const [claimable, setClaimable] = useState<bigint>(0n);
   const [claiming, setClaiming] = useState(false);
+  // Creator fees on ERC-20-quoted launches (EURC, stock stand-ins) accrue per token in the escrow.
+  const [tokenClaims, setTokenClaims] = useState<{ asset: QuoteAsset; amount: bigint }[]>([]);
+  const [claimingToken, setClaimingToken] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   const loadClaimable = async (addr: Address) =>
@@ -29,6 +32,24 @@ export default function PortfolioPage() {
         args: [addr],
       })) as bigint
     );
+
+  const loadTokenClaims = async (addr: Address) => {
+    const assets = QUOTE_ASSETS.filter((q) => !q.native);
+    if (assets.length === 0) return setTokenClaims([]);
+    try {
+      const res = await publicClient.multicall({
+        allowFailure: true,
+        contracts: assets.map((q) => ({
+          address: RADIAN.escrow, abi: escrowAbi, functionName: "balanceOfToken" as const, args: [addr, q.address] as const,
+        })),
+      });
+      setTokenClaims(
+        assets
+          .map((asset, i) => ({ asset, amount: res[i].status === "success" ? (res[i].result as bigint) : 0n }))
+          .filter((c) => c.amount > 0n),
+      );
+    } catch {}
+  };
 
   async function claim() {
     if (!address) return;
@@ -50,6 +71,26 @@ export default function PortfolioPage() {
     }
   }
 
+  async function claimToken(asset: QuoteAsset) {
+    if (!address) return;
+    setClaimingToken(asset.key);
+    try {
+      const wc = await getWalletClient();
+      if (!wc) { setToast("Sign in again."); return; }
+      setToast(`Confirm ${asset.symbol} claim…`);
+      const hash = await wc.client.writeContract({
+        account: wc.account, chain: arcTestnet, address: RADIAN.escrow, abi: escrowAbi, functionName: "claimToken", args: [asset.address],
+      });
+      await publicClient.waitForTransactionReceipt({ hash });
+      setToast(`Claimed ${asset.symbol} ✓`);
+      await loadTokenClaims(address);
+    } catch (e: any) {
+      setToast(e?.shortMessage ?? e?.message ?? "Claim failed.");
+    } finally {
+      setClaimingToken(null);
+    }
+  }
+
   useEffect(() => {
     if (!address || rows.length === 0) return;
     (async () => {
@@ -65,13 +106,8 @@ export default function PortfolioPage() {
         })
       );
       setHoldings(hs.filter((h) => h.bal > 0n));
-      const c = (await publicClient.readContract({
-        address: RADIAN.escrow,
-        abi: escrowAbi,
-        functionName: "balanceOf",
-        args: [address],
-      })) as bigint;
-      setClaimable(c);
+      await loadClaimable(address);
+      await loadTokenClaims(address);
     })();
   }, [address, rows]);
 
@@ -128,6 +164,29 @@ export default function PortfolioPage() {
               </div>
             </div>
 
+            {tokenClaims.length > 0 && (
+              <div className="panel reveal" style={{ marginTop: 16, padding: "14px 20px" }}>
+                <div style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--fg-faint)", marginBottom: 6 }}>
+                  Claimable fees in other quote assets
+                </div>
+                {tokenClaims.map((c) => (
+                  <div key={c.asset.key} className="kv" style={{ alignItems: "center" }}>
+                    <span>
+                      {Number(formatUnits(c.amount, c.asset.decimals)).toLocaleString(undefined, { maximumFractionDigits: 4 })}{" "}
+                      {c.asset.symbol}
+                    </span>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => claimToken(c.asset)}
+                      disabled={claimingToken !== null}
+                    >
+                      {claimingToken === c.asset.key ? <span className="spinner" /> : `Claim ${c.asset.symbol}`}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="section" style={{ paddingTop: 34 }}>
               <div className="section-head reveal">
                 <div>
@@ -164,7 +223,7 @@ export default function PortfolioPage() {
                 <div className="section-head reveal">
                   <div>
                     <h2 style={{ fontSize: 22 }}>Your launches</h2>
-                    <p>Tokens you created. You earn 50% of every trade fee.</p>
+                    <p>Tokens you created. You earn 70% of every trade fee (35% with Buyback &amp; Lock on).</p>
                   </div>
                 </div>
                 <div className="grid">
