@@ -237,8 +237,17 @@ label.filepick { display: flex; align-items: center; gap: 14px; margin-bottom: 0
 
 @media (max-width: 900px) { .nav-links a:not(.btn) { font-size: 13px; gap: 14px; } }
 
+/* mobile nav */
+.nav-mobile { display: none; align-items: center; gap: 12px; }
+.nav-burger { display: inline-flex; flex-direction: column; justify-content: center; gap: 4px; width: 38px; height: 38px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); cursor: pointer; padding: 0 9px; }
+.nav-burger span { display: block; height: 2px; background: var(--fg-dim); border-radius: 2px; }
+.nav-drawer { display: flex; flex-direction: column; padding: 8px 24px 16px; gap: 2px; border-bottom: 1px solid var(--border-soft); background: rgba(10,14,26,0.96); backdrop-filter: blur(14px); }
+.nav-drawer a { padding: 11px 12px; border-radius: 9px; color: var(--fg-dim); font-weight: 500; font-size: 15px; }
+.nav-drawer a:hover { background: var(--panel); color: var(--fg); }
+
 @media (max-width: 760px) {
   .stats { grid-template-columns: repeat(2, 1fr); }
   .steps { grid-template-columns: 1fr; }
-  .nav-links a:not(.btn) { display: none; }
+  .nav-links { display: none; }
+  .nav-mobile { display: flex; }
 }

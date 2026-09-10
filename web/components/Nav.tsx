@@ -1,6 +1,17 @@
 "use client";
 import Link from "next/link";
+import { useState } from "react";
 import { useRadianWallet } from "@/lib/useRadianWallet";
+
+const LINKS = [
+  { href: "/#explore", label: "Explore" },
+  { href: "/live", label: "Live" },
+  { href: "/stats", label: "Stats" },
+  { href: "/launch", label: "Launch" },
+  { href: "/builders", label: "Builders" },
+  { href: "/portfolio", label: "Portfolio" },
+  { href: "/docs", label: "Docs" },
+];
 
 export function BrandMark({ size = 26 }: { size?: number }) {
   return (
@@ -23,36 +34,45 @@ export function BrandMark({ size = 26 }: { size?: number }) {
 export function Nav() {
   const { ready, authenticated, login, logout, address } = useRadianWallet();
 
+  const [open, setOpen] = useState(false);
+
+  const authBtn = !ready ? (
+    <button className="btn btn-ghost" disabled>…</button>
+  ) : authenticated ? (
+    <button className="btn btn-ghost" onClick={logout} title="Log out">
+      {address ? `${address.slice(0, 6)}…${address.slice(-4)}` : "Account"}
+    </button>
+  ) : (
+    <button className="btn btn-primary" onClick={login}>Sign in</button>
+  );
+
   return (
     <nav className="nav">
       <div className="wrap nav-inner">
-        <Link href="/" className="brand">
+        <Link href="/" className="brand" onClick={() => setOpen(false)}>
           <BrandMark />
           Radian
         </Link>
         <div className="nav-links">
-          <Link href="/#explore">Explore</Link>
-          <Link href="/live">Live</Link>
-          <Link href="/stats">Stats</Link>
-          <Link href="/launch">Launch</Link>
-          <Link href="/builders">Builders</Link>
-          <Link href="/portfolio">Portfolio</Link>
-          <Link href="/docs">Docs</Link>
-          {!ready ? (
-            <button className="btn btn-ghost" disabled>
-              …
-            </button>
-          ) : authenticated ? (
-            <button className="btn btn-ghost" onClick={logout} title="Log out">
-              {address ? `${address.slice(0, 6)}…${address.slice(-4)}` : "Account"}
-            </button>
-          ) : (
-            <button className="btn btn-primary" onClick={login}>
-              Sign in
-            </button>
-          )}
+          {LINKS.map((l) => (
+            <Link key={l.href} href={l.href}>{l.label}</Link>
+          ))}
+          {authBtn}
+        </div>
+        <div className="nav-mobile">
+          {authBtn}
+          <button className="nav-burger" aria-label="Menu" onClick={() => setOpen((o) => !o)}>
+            <span /><span /><span />
+          </button>
         </div>
       </div>
+      {open && (
+        <div className="nav-drawer">
+          {LINKS.map((l) => (
+            <Link key={l.href} href={l.href} onClick={() => setOpen(false)}>{l.label}</Link>
+          ))}
+        </div>
+      )}
     </nav>
   );
 }
