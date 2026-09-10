@@ -24,30 +24,23 @@ export function useStats(): Stats {
   useEffect(() => {
     (async () => {
       const reg = getRegistry();
-      let buyback = 0;
-      let fees = 0;
-      await Promise.all(
-        reg.map(async (e) => {
-          try {
-            const [locked, fee] = await Promise.all([
-              publicClient.readContract({
-                address: RADIAN.vault,
-                abi: vaultAbi,
-                functionName: "totalLocked",
-                args: [e.token],
-              }),
-              publicClient.readContract({
-                address: e.curve,
-                abi: curveStatsAbi,
-                functionName: "quoteFeeBalance",
-              }),
-            ]);
-            buyback += Number(formatUnits(locked as bigint, 18));
-            fees += Number(formatUnits(fee as bigint, 18));
-          } catch {}
-        })
-      );
-      setExtra({ buybackLocked: buyback, pendingFees: fees });
+      if (reg.length === 0) return;
+      const contracts = reg.flatMap((e) => [
+        { address: RADIAN.vault, abi: vaultAbi, functionName: "totalLocked", args: [e.token] } as const,
+        { address: e.curve, abi: curveStatsAbi, functionName: "quoteFeeBalance" } as const,
+      ]);
+      try {
+        const res = await publicClient.multicall({ contracts, allowFailure: true });
+        let buyback = 0;
+        let fees = 0;
+        reg.forEach((_, i) => {
+          const locked = res[i * 2].result as bigint | undefined;
+          const fee = res[i * 2 + 1].result as bigint | undefined;
+          if (locked) buyback += Number(formatUnits(locked, 18));
+          if (fee) fees += Number(formatUnits(fee, 18));
+        });
+        setExtra({ buybackLocked: buyback, pendingFees: fees });
+      } catch {}
     })();
   }, [rows.length]);
 

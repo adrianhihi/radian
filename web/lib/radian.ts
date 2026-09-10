@@ -17,6 +17,11 @@ export const arcTestnet = defineChain({
   blockExplorers: {
     default: { name: "Arcscan", url: "https://testnet.arcscan.app" },
   },
+  // Multicall3 is canonically deployed on Arc — lets viem batch dozens of
+  // reads into ONE eth_call, so the grid doesn't hammer the public RPC (429s).
+  contracts: {
+    multicall3: { address: "0xcA11bde05977b3631167028862bE2a173976CA11" },
+  },
   testnet: true,
 });
 
