@@ -1,11 +1,11 @@
 import type { LaunchRow } from "./radian";
+import { getActiveNetwork } from "./networks";
 import type { Address } from "viem";
 
-// Optional indexer (Phase 4b). When NEXT_PUBLIC_INDEXER_URL is set, the app
-// reads launches/activity/stats from it (one fast request, reliable) instead
-// of hammering Arc's public RPC from every client. Falls back to on-chain
-// reads when unset or unreachable.
-export const INDEXER_URL = process.env.NEXT_PUBLIC_INDEXER_URL?.replace(/\/$/, "") ?? "";
+// Optional indexer (Phase 4b): one fast, reliable request instead of hammering
+// Arc's public RPC from every client. URL comes from the active network; falls
+// back to on-chain reads when unset or unreachable.
+export const INDEXER_URL = getActiveNetwork().indexerUrl.replace(/\/$/, "");
 
 export const hasIndexer = () => INDEXER_URL.length > 0;
 

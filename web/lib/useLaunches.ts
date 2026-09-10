@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { formatUnits } from "viem";
-import { publicClient, curveAbi, tokenAbi, type LaunchRow } from "./radian";
+import { publicClient, curveAbi, tokenAbi, activeNetwork, type LaunchRow } from "./radian";
 import { getRegistry } from "./registry";
 import { hasIndexer, fetchLaunches } from "./indexer";
 
@@ -15,6 +15,12 @@ export function useLaunches() {
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
+    // Network not live yet (e.g. mainnet before launch) — nothing to read.
+    if (!activeNetwork.live) {
+      setRows([]);
+      setLoading(false);
+      return;
+    }
     try {
       setError(null);
       // Prefer the indexer (one fast, reliable request); fall back to chain.

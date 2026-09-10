@@ -4,7 +4,7 @@ import { useState } from "react";
 import { formatUnits, parseEther, parseUnits, decodeEventLog } from "viem";
 import { Nav } from "@/components/Nav";
 import { useReveal } from "@/lib/useReveal";
-import { publicClient, RADIAN, factoryAbi, curveAbi, erc20Abi, arcTestnet, QUOTE_ASSETS, type QuoteAsset } from "@/lib/radian";
+import { publicClient, RADIAN, factoryAbi, curveAbi, erc20Abi, arcTestnet, activeNetwork, QUOTE_ASSETS, type QuoteAsset } from "@/lib/radian";
 import { useRadianWallet } from "@/lib/useRadianWallet";
 import { addLocalLaunch } from "@/lib/registry";
 import { INDEXER_URL, hasIndexer } from "@/lib/indexer";
@@ -65,6 +65,10 @@ export default function LaunchPage() {
   }
 
   async function launch() {
+    if (!activeNetwork.live) {
+      setToast("Radian mainnet launches September 16. Switch to Testnet to launch now.");
+      return;
+    }
     if (!authenticated) {
       login();
       return;

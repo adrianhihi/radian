@@ -1,10 +1,12 @@
 import type { Address } from "viem";
+import { getActiveNetworkKey } from "./networks";
 
-// Seeded launches (verified on-chain). Inlined rather than JSON-imported to
-// avoid default-export shape ambiguity in the client bundle.
+// Seeded launches (verified on-chain), testnet only. Mainnet discovers its own
+// via the indexer once live. Inlined (not JSON-imported) to avoid client-bundle
+// default-export shape ambiguity.
 const DEV = "0x13E6b6C635CAcD4B27C9309251A4D083457eb11C" as Address;
 const G = "20000000000000000000";
-const seed: RegistryEntry[] = [
+const testnetSeed: RegistryEntry[] = [
   // newest first; all launched + funded on Arc testnet via the live factory
   { token: "0xF10B44F56AA4D92081e62311102E78EB39fe74DF", curve: "0xcEF395CCd9f79c11b459BB7bA1afd94227fE7Fd4", deployer: DEV, graduationThreshold: "20000000" }, // EDOGE — EURC-paired (6-dec)
   { token: "0xDe25b6d469f5607F830e4340FF7f70C2C362537f", curve: "0x0c1fd7F6838F2B73Cd035D73ae5619E05bF34b77", deployer: DEV, graduationThreshold: G },
@@ -14,6 +16,8 @@ const seed: RegistryEntry[] = [
   { token: "0xfE829A204B07FFb7f3454077fc7c9B3f8a2d3c45", curve: "0x12a9598cF9680046F2F6Cb10DE8707F535D584e1", deployer: DEV, graduationThreshold: G },
   { token: "0xA1d3797855B9e248F27b3a172F31EF7AA5d8ee3A", curve: "0x641ba58E316479CB25Eaf348a6B231D604d82404", deployer: DEV, graduationThreshold: G },
 ];
+
+const seed: RegistryEntry[] = getActiveNetworkKey() === "testnet" ? testnetSeed : [];
 
 // Arc testnet's public RPCs serve eth_call reliably but eth_getLogs
 // inconsistently (lagging / sharded nodes). So launch DISCOVERY uses a

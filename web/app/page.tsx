@@ -6,12 +6,14 @@ import { Nav } from "@/components/Nav";
 import { TokenCard } from "@/components/TokenCard";
 import { useReveal } from "@/lib/useReveal";
 import { useLaunches } from "@/lib/useLaunches";
+import { useNetwork } from "@/lib/networks";
 
 type Sort = "new" | "top" | "graduating";
 type Filter = "all" | "live" | "graduated";
 
 export default function Home() {
   const { rows, loading, error } = useLaunches();
+  const net = useNetwork();
   const [sort, setSort] = useState<Sort>("new");
   const [filter, setFilter] = useState<Filter>("all");
   const [q, setQ] = useState("");
@@ -91,7 +93,17 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="explore-controls reveal">
+          {!net.live && (
+            <div className="soon-banner reveal">
+              <h3>Radian on Arc mainnet — September 16, 2026</h3>
+              <p>
+                Mainnet launches with Circle&apos;s Arc public mainnet. Switch to Testnet (top
+                right) to explore and trade live now.
+              </p>
+            </div>
+          )}
+
+          <div className="explore-controls reveal" hidden={!net.live}>
             <input
               className="input"
               style={{ maxWidth: 260 }}
@@ -125,7 +137,7 @@ export default function Home() {
             </div>
           </div>
 
-          {loading && rows.length === 0 ? (
+          {!net.live ? null : loading && rows.length === 0 ? (
             <div className="empty">Loading launches from Arc…</div>
           ) : error ? (
             <div className="empty">Couldn&apos;t reach Arc RPC: {error}</div>

@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRadianWallet } from "@/lib/useRadianWallet";
+import { NetworkSwitcher } from "./NetworkSwitcher";
 
 const LINKS = [
   { href: "/#explore", label: "Explore" },
@@ -57,6 +58,7 @@ export function Nav() {
           {LINKS.map((l) => (
             <Link key={l.href} href={l.href}>{l.label}</Link>
           ))}
+          <NetworkSwitcher />
           {authBtn}
         </div>
         <div className="nav-mobile">
@@ -71,6 +73,9 @@ export function Nav() {
           {LINKS.map((l) => (
             <Link key={l.href} href={l.href} onClick={() => setOpen(false)}>{l.label}</Link>
           ))}
+          <div style={{ padding: "8px 12px 2px" }}>
+            <NetworkSwitcher />
+          </div>
         </div>
       )}
     </nav>

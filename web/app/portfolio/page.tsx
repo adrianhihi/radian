@@ -3,6 +3,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { formatUnits, type Address } from "viem";
 import { Nav } from "@/components/Nav";
+import { SoonBanner } from "@/components/SoonBanner";
+import { useNetwork } from "@/lib/networks";
 import { useReveal } from "@/lib/useReveal";
 import { useRadianWallet } from "@/lib/useRadianWallet";
 import { useLaunches } from "@/lib/useLaunches";
@@ -10,6 +12,7 @@ import { publicClient, RADIAN, tokenAbi, escrowAbi, arcTestnet } from "@/lib/rad
 
 export default function PortfolioPage() {
   useReveal();
+  const net = useNetwork();
   const { authenticated, login, address, getWalletClient } = useRadianWallet();
   const { rows } = useLaunches();
   const [holdings, setHoldings] = useState<{ sym: string; name: string; token: Address; bal: bigint }[]>([]);
@@ -80,6 +83,8 @@ export default function PortfolioPage() {
     <>
       <Nav />
       <main className="wrap" style={{ padding: "48px 24px 0" }}>
+        <SoonBanner />
+        {net.live && (<>
         <div className="reveal">
           <h1 style={{ fontSize: 34 }}>Portfolio</h1>
           <p style={{ color: "var(--fg-dim)", marginTop: 10 }}>
@@ -185,6 +190,7 @@ export default function PortfolioPage() {
             )}
           </>
         )}
+      </>)}
       </main>
       {toast && <div className="toast" onClick={() => setToast(null)}>{toast}</div>}
     </>

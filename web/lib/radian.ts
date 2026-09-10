@@ -1,65 +1,33 @@
-import {
-  createPublicClient,
-  createWalletClient,
-  custom,
-  defineChain,
-  http,
-  parseAbi,
-  type Address,
-} from "viem";
+import { createPublicClient, http, parseAbi, type Address } from "viem";
+import { getActiveNetwork, toViemChain } from "./networks";
 
-// ---- Arc testnet (Circle) ----
-export const arcTestnet = defineChain({
-  id: 5042002,
-  name: "Arc Testnet",
-  nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
-  rpcUrls: { default: { http: ["https://rpc.testnet.arc.io"] } },
-  blockExplorers: {
-    default: { name: "Arcscan", url: "https://testnet.arcscan.app" },
-  },
-  // Multicall3 is canonically deployed on Arc — lets viem batch dozens of
-  // reads into ONE eth_call, so the grid doesn't hammer the public RPC (429s).
-  contracts: {
-    multicall3: { address: "0xcA11bde05977b3631167028862bE2a173976CA11" },
-  },
-  testnet: true,
-});
+// Everything below derives from the active network (testnet/mainnet). Switching
+// networks reloads the page, so these module-level values re-read the choice.
+const NET = getActiveNetwork();
 
-// ---- Radian deployment on Arc testnet (Pons V2 port) ----
+// `arcTestnet` is kept as the export name (many callers use it as the chain to
+// switch/sign against) but it is the ACTIVE network's chain.
+export const arcTestnet = toViemChain(NET);
+export const activeNetwork = NET;
+
 export const RADIAN = {
-  factory: "0x90022cC2107De9c070F889E3A67009FcA270E4E2" as Address,
-  locker: "0x7efb5B773BBbf69Bd163b52b1BA88C529a0f123c" as Address,
-  vault: "0xe84D81C3d4f3E12123C9F934AB3Cb8238772b39e" as Address,
-  escrow: "0x6133392C976d5160CBDE63815f7cd63122f3841C" as Address,
-  hook: "0x15eB3aeE2f96A199165dc58e6C8dc3Ce2e02e044" as Address,
-  poolManager: "0x24219d0F3611fE4E438850bB7DB165439957dc9f" as Address,
-  deployBlock: 61305678n,
+  factory: NET.contracts.factory,
+  locker: NET.contracts.locker,
+  vault: NET.contracts.vault,
+  escrow: NET.contracts.escrow,
+  hook: NET.contracts.hook,
+  poolManager: NET.contracts.poolManager,
+  deployBlock: NET.deployBlock,
 } as const;
 
-// Quote assets a token can be paired against. Native USDC is the gas coin
-// (pairToken = 0, 18-dec msg.value). EURC is an approved ERC-20 (6-dec) —
-// the "born paired to a real asset" story, on Arc's native Circle primitives.
+// Quote assets a token can be paired against (native USDC + any approved ERC-20).
 export const NATIVE_QUOTE = "0x0000000000000000000000000000000000000000" as Address;
 export type QuoteAsset = { key: string; symbol: string; address: Address; decimals: number; native: boolean; blurb: string };
-export const QUOTE_ASSETS: QuoteAsset[] = [
-  { key: "usdc", symbol: "USDC", address: NATIVE_QUOTE, decimals: 18, native: true, blurb: "Native dollar — the Arc gas coin" },
-  { key: "eurc", symbol: "EURC", address: "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a", decimals: 6, native: false, blurb: "Circle's euro stablecoin" },
-];
+export const QUOTE_ASSETS: QuoteAsset[] = NET.quoteAssets;
 export const quoteByAddress = (a?: string): QuoteAsset =>
   QUOTE_ASSETS.find((q) => q.address.toLowerCase() === (a ?? "").toLowerCase()) ?? QUOTE_ASSETS[0];
 
-export const publicClient = createPublicClient({
-  chain: arcTestnet,
-  transport: http(),
-});
-
-export function getWalletClient() {
-  if (typeof window === "undefined" || !(window as any).ethereum) return null;
-  return createWalletClient({
-    chain: arcTestnet,
-    transport: custom((window as any).ethereum),
-  });
-}
+export const publicClient = createPublicClient({ chain: arcTestnet, transport: http() });
 
 // ---- ABIs (only what the UI needs) ----
 export const factoryAbi = parseAbi([

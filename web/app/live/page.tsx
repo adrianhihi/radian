@@ -3,12 +3,15 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { formatUnits } from "viem";
 import { Nav } from "@/components/Nav";
+import { SoonBanner } from "@/components/SoonBanner";
+import { useNetwork } from "@/lib/networks";
 import { useReveal } from "@/lib/useReveal";
 import { useLaunches } from "@/lib/useLaunches";
 import { hasIndexer, fetchActivity, type Activity } from "@/lib/indexer";
 
 export default function LivePage() {
   useReveal();
+  const net = useNetwork();
   const { rows, loading } = useLaunches();
   const [trades, setTrades] = useState<Activity[]>([]);
 
@@ -31,6 +34,8 @@ export default function LivePage() {
     <>
       <Nav />
       <main className="wrap" style={{ padding: "48px 24px 0" }}>
+        <SoonBanner />
+        {net.live && (<>
         <div className="reveal" style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <span className="live-dot" />
           <h1 style={{ fontSize: 34 }}>Live</h1>
@@ -149,6 +154,7 @@ export default function LivePage() {
         <p className="hint" style={{ marginTop: 12 }}>
           {hasIndexer() ? "Indexed live from Arc." : "Auto-refreshes every 30s."}
         </p>
+      </>)}
       </main>
     </>
   );

@@ -2,6 +2,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Nav } from "@/components/Nav";
+import { SoonBanner } from "@/components/SoonBanner";
+import { useNetwork } from "@/lib/networks";
 import { AnimatedNumber } from "@/components/AnimatedNumber";
 import { useReveal } from "@/lib/useReveal";
 import { useStats } from "@/lib/useStats";
@@ -31,6 +33,7 @@ function VolumeChart({ data }: { data: number[] }) {
 
 export default function StatsPage() {
   useReveal();
+  const net = useNetwork();
   const chain = useStats(); // on-chain fallback (launches/graduated/tvl/buyback)
   const [win, setWin] = useState<"24h" | "all">("all");
   const [s, setS] = useState<ProtocolStats | null>(null);
@@ -52,6 +55,8 @@ export default function StatsPage() {
     <>
       <Nav />
       <main className="wrap" style={{ padding: "48px 24px 0" }}>
+        <SoonBanner />
+        {net.live && (<>
         <div className="reveal" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 16, flexWrap: "wrap" }}>
           <div>
             <h1 style={{ fontSize: 34 }}>Protocol analytics</h1>
@@ -144,6 +149,7 @@ export default function StatsPage() {
           <div className="kv"><span>Tokens bought back and locked</span><span className="v"><AnimatedNumber value={buyback} decimals={0} /> tokens</span></div>
           <div className="kv" style={{ border: "none" }}><span>USDC currently in curves</span><span className="v">${tvl.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></div>
         </div>
+      </>)}
       </main>
     </>
   );
