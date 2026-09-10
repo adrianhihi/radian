@@ -3,6 +3,7 @@ import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { formatUnits, parseEther, type Address } from "viem";
 import { Nav } from "@/components/Nav";
+import { TradePanel } from "@/components/TradePanel";
 import { publicClient, curveAbi, tokenAbi, explorer, arcTestnet } from "@/lib/radian";
 import { useRadianWallet } from "@/lib/useRadianWallet";
 import { findCurve } from "@/lib/registry";
@@ -221,6 +222,8 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
               <div className="kv"><span>Token</span><a className="v mono" href={explorer.address(token)} target="_blank" rel="noreferrer" style={{ color: "var(--radian-2)" }}>{token.slice(0, 8)}…{token.slice(-6)}</a></div>
               <div className="kv"><span>Curve</span><a className="v mono" href={explorer.address(st.curve)} target="_blank" rel="noreferrer" style={{ color: "var(--radian-2)" }}>{st.curve.slice(0, 8)}…{st.curve.slice(-6)}</a></div>
             </div>
+
+            <TradePanel token={token} symbol={st.symbol} />
           </div>
 
           <div className="panel" style={{ position: "sticky", top: 84 }}>

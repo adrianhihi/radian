@@ -65,3 +65,17 @@ export async function fetchActivity(limit = 60): Promise<Activity[]> {
   const { trades } = await get<{ trades: Activity[] }>(`/activity?limit=${limit}`);
   return trades;
 }
+
+export type TokenTrade = {
+  txHash: string;
+  ts: number;
+  side: "buy" | "sell";
+  trader: Address;
+  quote: string;
+  tokens: string;
+};
+
+export async function fetchTokenTrades(token: string): Promise<TokenTrade[]> {
+  const { trades } = await get<{ trades: TokenTrade[] }>(`/token/${token}`);
+  return trades;
+}

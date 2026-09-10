@@ -4,7 +4,7 @@ import { useState } from "react";
 import { formatUnits, parseEther, decodeEventLog } from "viem";
 import { Nav } from "@/components/Nav";
 import { useReveal } from "@/lib/useReveal";
-import { publicClient, RADIAN, factoryAbi, arcTestnet } from "@/lib/radian";
+import { publicClient, RADIAN, factoryAbi, curveAbi, arcTestnet } from "@/lib/radian";
 import { useRadianWallet } from "@/lib/useRadianWallet";
 import { addLocalLaunch } from "@/lib/registry";
 import { INDEXER_URL, hasIndexer } from "@/lib/indexer";
@@ -21,6 +21,7 @@ export default function LaunchPage() {
   const [description, setDescription] = useState("");
   const [website, setWebsite] = useState("");
   const [twitter, setTwitter] = useState("");
+  const [devBuy, setDevBuy] = useState("");
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -135,6 +136,25 @@ export default function LaunchPage() {
           graduationThreshold: gthr,
         });
       }
+
+      // Optional dev buy: creator seeds the first buy on the new curve. The
+      // creator is snipe-tax-exempt, so this settles untaxed.
+      const dev = Number(devBuy);
+      if (curveAddr && dev > 0) {
+        setToast("Confirm your first buy…");
+        const buyWei = parseEther(devBuy);
+        const bh = await client.writeContract({
+          account,
+          chain: arcTestnet,
+          address: curveAddr as `0x${string}`,
+          abi: curveAbi,
+          functionName: "buy",
+          args: [buyWei, 0n, account],
+          value: buyWei,
+        });
+        await publicClient.waitForTransactionReceipt({ hash: bh });
+      }
+
       setToast("Launched! Redirecting…");
       if (tokenAddr) router.push(`/token/${tokenAddr}`);
       else router.push("/#explore");
@@ -208,6 +228,23 @@ export default function LaunchPage() {
               <label>Twitter / X</label>
               <input className="input" value={twitter} onChange={(e) => setTwitter(e.target.value)} placeholder="@handle" />
             </div>
+          </div>
+
+          <div className="field">
+            <label>First buy (optional)</label>
+            <input
+              className="input"
+              type="number"
+              min="0"
+              step="0.1"
+              value={devBuy}
+              onChange={(e) => setDevBuy(e.target.value)}
+              placeholder="0"
+            />
+            <p className="hint">
+              Buy your own token right after launch, in the same flow (untaxed — you&apos;re the
+              creator). Sets the opening price and shows conviction. Amount in USDC.
+            </p>
           </div>
 
           <div style={{ borderTop: "1px solid var(--border-soft)", margin: "6px 0 16px" }} />
