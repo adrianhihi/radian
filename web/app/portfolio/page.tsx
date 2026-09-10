@@ -6,14 +6,46 @@ import { Nav } from "@/components/Nav";
 import { useReveal } from "@/lib/useReveal";
 import { useRadianWallet } from "@/lib/useRadianWallet";
 import { useLaunches } from "@/lib/useLaunches";
-import { publicClient, RADIAN, tokenAbi, escrowAbi } from "@/lib/radian";
+import { publicClient, RADIAN, tokenAbi, escrowAbi, arcTestnet } from "@/lib/radian";
 
 export default function PortfolioPage() {
   useReveal();
-  const { authenticated, login, address } = useRadianWallet();
+  const { authenticated, login, address, getWalletClient } = useRadianWallet();
   const { rows } = useLaunches();
   const [holdings, setHoldings] = useState<{ sym: string; name: string; token: Address; bal: bigint }[]>([]);
   const [claimable, setClaimable] = useState<bigint>(0n);
+  const [claiming, setClaiming] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const loadClaimable = async (addr: Address) =>
+    setClaimable(
+      (await publicClient.readContract({
+        address: RADIAN.escrow,
+        abi: escrowAbi,
+        functionName: "balanceOf",
+        args: [addr],
+      })) as bigint
+    );
+
+  async function claim() {
+    if (!address) return;
+    setClaiming(true);
+    try {
+      const wc = await getWalletClient();
+      if (!wc) { setToast("Sign in again."); setClaiming(false); return; }
+      setToast("Confirm claim…");
+      const hash = await wc.client.writeContract({
+        account: wc.account, chain: arcTestnet, address: RADIAN.escrow, abi: escrowAbi, functionName: "claim",
+      });
+      await publicClient.waitForTransactionReceipt({ hash });
+      setToast("Claimed ✓");
+      await loadClaimable(address);
+    } catch (e: any) {
+      setToast(e?.shortMessage ?? e?.message ?? "Claim failed.");
+    } finally {
+      setClaiming(false);
+    }
+  }
 
   useEffect(() => {
     if (!address || rows.length === 0) return;
@@ -78,6 +110,16 @@ export default function PortfolioPage() {
                   {Number(formatUnits(claimable, 18)).toLocaleString(undefined, { maximumFractionDigits: 4 })}
                 </div>
                 <div className="l">Claimable fees (USDC)</div>
+                {claimable > 0n && (
+                  <button
+                    className="btn btn-primary"
+                    style={{ marginTop: 12, width: "100%", justifyContent: "center", padding: "9px" }}
+                    onClick={claim}
+                    disabled={claiming}
+                  >
+                    {claiming ? <span className="spinner" /> : "Claim"}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -144,6 +186,7 @@ export default function PortfolioPage() {
           </>
         )}
       </main>
+      {toast && <div className="toast" onClick={() => setToast(null)}>{toast}</div>}
     </>
   );
 }

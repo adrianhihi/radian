@@ -105,6 +105,8 @@ export const vaultAbi = parseAbi([
 
 export const escrowAbi = parseAbi([
   "function balanceOf(address recipient) view returns (uint256)",
+  "function claim() returns (uint256 amount)",
+  "function claimToken(address token) returns (uint256 amount)",
 ]);
 
 export const erc20Abi = parseAbi([
