@@ -30,12 +30,16 @@ deploy time (not all are memorized here — do not guess).
 
 ## Why Base / BSC matter for the RWA (stock) play
 
-**Ondo Global Markets tokenized stocks live on Base (8453), BSC (56), and Ethereum (1)** — not on
-Arc (Arc has USDC + EURC + USYC treasuries, but no tokenized US stocks confirmed). So the
-"launch a token paired to a real stock" play (PAIR / BTCNVDA-style) is **doable today on Base/BSC**
-using Ondo stock tokens as the quote/pair asset, priced via Pyth feeds. **Open risk to verify per
-issuer:** tokenized equities are often transfer-restricted / KYC-gated — confirm the specific Ondo
-token is freely transferable and usable in a permissionless curve/AMM before building on it.
+**Ondo Global Markets tokenized stocks trade on BSC (chain 56).** Verified from our own `outpost`
+code: its 263-instrument universe is all `chainId: 56`; Base/Ethereum addresses are stored as
+metadata but "not traded yet". Ondo stock tokens are standard **freely-transferable 18-dec BSC
+ERC-20s** that already sit in permissionless PancakeSwap V3 pools. The KYC gate is only on Ondo's
+**primary mint/redeem** (the `GMTokenManager` checks an `ondoIDRegistry`); **acquiring inventory on
+secondary (DEX / RFQ) needs no KYC**. So "launch a memecoin paired to a real stock token" (approve
+the stock token as a pair asset, exactly like we did EURC) is **feasible today on BSC**. Prices come
+from **Pyth Hermes** feeds (feed order `[regular, POST, PRE, ON]`, newest publish_time wins).
+**Honest caveat:** the stock ERC-20's source isn't in outpost — verify the specific token on
+BscScan for a transfer hook/allowlist before building; empirically they move freely.
 
 ## Deploy to a new chain (e.g. Base)
 
