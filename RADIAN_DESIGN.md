@@ -16,46 +16,62 @@ more burn → more reason to hold → more launches and trading. That's the flyw
 - **BSP / FCoin "trade-to-mine"** emits new tokens for trading volume. That subsidizes wash
   volume and collapses at the first halving. **We deliberately do not do this.** Our rewards are
   paid from **fees actually collected**, so they can never exceed real revenue.
-- **PAIR / BTCNVDA** anchor to real assets. That's our Phase-6 RWA path; orthogonal to this.
+- **PAIR / BTCNVDA** anchor to real assets. That's the stock-denominated path (see The Wall);
+  orthogonal to this.
 
 Micro-innovation vs. all of them: **real-yield revenue share + buyback/burn, and the protocol
-token is itself launched fair on Radian's own launchpad** (no VC allocation, no team unlock — it
-lives on a bonding curve like every other token, and the treasury buys it back on that same curve).
+token is itself launched fair on Radian's own launchpad** — it lives on a bonding curve like every
+other token, and the treasury buys it back on that same curve. Honest footnote: $RADIAN's
+*creator* fee share (like any launch's) goes to whoever launched it — on testnet the deployer.
+On mainnet point `creatorFeeRecipient` at the treasury or the multisig so there is no team stream.
 
-## Mechanism
+## Mechanism (v2, live on Arc testnet)
 
 ```
    platform fees (launch fees + protocol's cut of every 1% trade fee, all tokens)
-        │  accrue as USDC in
-        ▼
+        │  accrue in PonsV2FeeEscrow under the treasury's address
+        ▼   anyone calls treasury.claimFees()  (funds can only land in the treasury)
    ┌──────────────────────────────┐
-   │        RadianTreasury         │   flush() splits the balance:
+   │        RadianTreasury         │   keeper calls flush(minRadianOut, deadline):
    └──────────────────────────────┘
         │                    │
    buybackBps%          the rest
-        ▼                    ▼
-   buy $RADIAN on       RadianStaking.notifyReward()
-   its curve + BURN         │  streamed over 7 days
-        │                    ▼
-   supply ↓ (deflation)  stakers earn USDC (real yield)
+   (capped at 5% of     ▼
+    the curve's quote   RadianStaking.notifyReward()
+    reserve per flush,      │  streamed over 7 days
+    ≥ 1 h apart)            ▼
+        ▼               stakers earn USDC (real yield)
+   buy $RADIAN on its curve + BURN
+        │
+   total supply ↓ (deflation)
 ```
 
-- **$RADIAN**: launched on Radian's launchpad — a normal 1B fixed-supply curve token. Its market
-  *is* its bonding curve, so the treasury buyback trades against that curve and the burn shrinks
-  the tradeable supply, pushing price up on the curve.
-- **RadianStaking** (Synthetix-style): stake $RADIAN, earn native USDC proportional to stake ×
-  time. `getReward()` pays out real USDC. Rewards only exist when the treasury funds them.
-- **RadianTreasury**: receives protocol fees (USDC). `flush(minOut)` sends `buybackBps` to a
-  curve buy + burn and the remainder to staking. Owner tunes `buybackBps`. *Extension (BSP nod):*
-  make `buybackBps` a price band — buy more aggressively when $RADIAN is cheap. v1 keeps it fixed.
+- **$RADIAN**: launched on Radian's launchpad — a normal 1B fixed-supply curve token whose
+  graduation threshold is set so high it effectively never graduates, so its bonding curve stays
+  the buyback venue. The *buy* is what moves the curve price; the *burn* removes the bought tokens
+  from existence (lower total supply / FDV). Burning does not by itself change the curve price —
+  the curve only sees its reserves.
+- **RadianStaking** (Synthetix-style, `Ownable2Step`): stake $RADIAN, earn native USDC
+  proportional to stake × time. `getReward()` pays out real USDC. Rewards only exist when the
+  treasury funds them. Rewards streamed while nobody is staked are not recoverable (Synthetix
+  semantics) — fund the first period only once someone has staked.
+- **RadianTreasury** (`Ownable2Step`, cannot be renounced): holds the platform escrow address.
+  `claimFees()` / `claimTokenFees(token)` are permissionless. `flush(minRadianOut, deadline)`
+  requires an off-chain quote whenever a buyback executes, caps the buy at `maxBuybackReserveBps`
+  of the curve's quote reserve (excess waits for the next flush so the long-run split holds), and
+  is rate-limited by `minFlushInterval`. Native USDC has no other way out. `setStaking` checks the
+  pool's `stakingToken` is $RADIAN. ERC-20 fee balances (EURC, stock quotes) can be claimed and
+  routed by the owner via `rescueERC20`; $RADIAN itself can never be rescued.
+  *Extension (BSP nod):* make `buybackBps` a price band — buy more aggressively when $RADIAN is
+  cheap. v2 keeps it fixed.
 
 ## Fee routing (how real fees reach the treasury)
 
-The hook already sends the protocol's fee share to `FeeEscrow` under `protocolFeeRecipient`.
-- **Mainnet:** set `PROTOCOL_RECIPIENT = RadianTreasury` at deploy → fees land in escrow for the
-  treasury, which claims + flushes on a keeper cadence.
-- **Testnet demo:** the deployer is the protocol recipient; a keeper (a script) claims the escrow
-  USDC and forwards it to the treasury, then calls `flush()`. Shown as real numbers in the app.
+The hook sends the protocol's fee share to `FeeEscrow` under `protocolFeeRecipient` (and pays
+some legs directly). `DeployRadian` / `DeployRadianFlywheel` call
+`hook.setProtocolFeeRecipient(treasury)`, so from that point every protocol fee accrues to the
+treasury, which anyone can `claimFees()` into it and the keeper flushes. This is wired on testnet
+today (2026-09-10) and is the mainnet path (`MAINNET_RUNBOOK.md` §5b).
 
 ## What the user sees (the "believe you can earn" surface)
 
@@ -64,12 +80,8 @@ your stake, your claimable USDC, "buyback burned to date", and "revenue distribu
 all read from chain/indexer. Honest framing: *hold and stake $RADIAN to earn a share of every
 fee Radian collects, in USDC.* No promises about the price of anyone's memecoin.
 
-## Build scope (this change)
+## Status
 
-1. `RadianStaking.sol` + `RadianTreasury.sol` (+ tests). $RADIAN uses the existing launcher token.
-2. Deploy on testnet: launch $RADIAN, deploy staking + treasury, wire; seed a real
-   stake + a real treasury flush so the numbers are non-zero.
-3. Indexer: `/radian` endpoint (staked, APR, burned, distributed, treasury balance).
-4. Frontend: `Earn` page + nav link; stake / unstake / claim UI.
-
-Later: price-band buybacks, protocol-recipient = treasury on mainnet, a keeper cron.
+Done: contracts (v2, 15 tests), testnet deployment + wiring, `/radian` indexer endpoint, Earn page.
+Next: keeper cron (`claimFees` → `flush` with a quote), external review before mainnet, then the
+price-band buyback.

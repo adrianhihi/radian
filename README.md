@@ -1,8 +1,16 @@
 # Radian
 
-**Radian** — the memecoin launchpad for **Circle's Arc chain**, quoted in Arc's
-**native USDC**. A radian is the unit that measures an arc; Radian is how tokens
-get measured out onto Arc.
+**Radian** — the memecoin launchpad for **Circle's Arc chain**. Every launch is quoted in
+the asset its creator chooses — Arc's **native USDC** by default, **EURC**, or (on testnet) a
+clearly labeled **stock stand-in** — so tokens are priced in real money or shares, never a
+volatile gas coin. A radian is the unit that measures an arc; Radian is how tokens get
+measured out onto Arc.
+
+Companion repos and docs: the flagship product **The Wall** lives in
+[`adrianhihi/radian-wall`](https://github.com/adrianhihi/radian-wall); see
+[`HANDOFF.md`](HANDOFF.md) (overview + addresses), [`RADIAN_DESIGN.md`](RADIAN_DESIGN.md)
+(the $RADIAN flywheel), [`MULTICHAIN.md`](MULTICHAIN.md) (verified cross-chain facts) and
+[`MAINNET_RUNBOOK.md`](MAINNET_RUNBOOK.md).
 
 > Naming & provenance: the trading engine is a faithful port of Pons V2
 > (Robinhood Chain's leading launchpad). Their first-party contracts are MIT;
@@ -21,7 +29,11 @@ Two generations live in this repo:
   `0x7eD5...EC7e`), deployed on Arc testnet against our own Uniswap V4 base.
   Bonding curve → graduation into a permanently locked full-range V4 pool with the
   singleton `PonsV2MemeHook`, snipe tax, creator tax, fee escrow, five-year buyback
-  vault. Quote asset: native USDC (`pairToken = 0`).
+  vault. Quote assets: native USDC (`pairToken = 0`) plus any owner-approved ERC-20 —
+  on testnet EURC and eight stock stand-ins (`src/mock/MockStock.sol`).
+- **`src/radian/` — the $RADIAN flywheel (ours).** `RadianStaking` (stake $RADIAN, earn
+  native USDC) + `RadianTreasury` (claims protocol fees from the escrow, buys back + burns
+  within on-chain bounds, streams the rest to stakers). Two-step ownership. 15 tests.
 - **`src/` — v0 simplified launchpad** (our first Arc deployment, kept as a working
   baseline; see the v0 section below).
 
@@ -109,8 +121,10 @@ graduation at 20,000 USDC real reserve · 1% trade fee, 50% to creator.
 | Faucet | `https://faucet.circle.com` | — |
 
 Gas: EIP-1559 + EWMA smoothing, min base fee 20 gwei (set `maxFeePerGas ≥ 20 gwei`),
-target ≈ $0.01/tx. EVM: Osaka baseline; compile with `evm_version = shanghai` (per Arc
-docs). `PREVRANDAO` returns 0; blob txs rejected.
+target ≈ $0.01/tx. EVM: Osaka baseline. Arc's docs suggest `evm_version = shanghai` for
+plain contracts; this repo compiles with **`cancun`** because Uniswap v4-core needs
+transient storage (TSTORE was probed live on Arc testnet and works). `PREVRANDAO` returns
+0; blob txs rejected.
 
 ## Develop
 
@@ -154,7 +168,13 @@ moves — useful for indexing.
 - [x] Phase 1 — contracts + 14-test suite (incl. fuzz solvency invariant), all passing
 - [x] Phase 2 — deployed to Arc testnet + live smoke test (launch/buy/sell verified)
 - [x] Phase 3 — faithful Pons V2 port + indexer + web frontend (live on Vercel/Railway)
-- [ ] Phase 4 — $RADIAN protocol token & buyback loop (design open)
+- [x] Phase 4 — $RADIAN protocol token & real-yield buyback flywheel (v2 live on testnet;
+      hook's protocol-fee recipient is the treasury)
+- [x] Phase 5 — ERC-20 quote assets: EURC + eight stock stand-ins; The Wall flagship
+      (product repo); network switcher; multi-chain scaffolding
+- [x] Audit round 1 (2026-09-10) — on-chain slippage in the UI, indexer completeness +
+      atomic snapshots, treasury/staking hardening, honest copy. Remaining items are
+      tracked in `MAINNET_RUNBOOK.md` (multisig, external review, pinned deps).
 
 **Mainnet:** see [`MAINNET_RUNBOOK.md`](MAINNET_RUNBOOK.md) — Arc mainnet (chain 5042, live
 2026-09-16) uses **canonical Uniswap V4**, so we deploy only the Pons V2 suite.
