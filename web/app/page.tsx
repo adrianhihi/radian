@@ -38,7 +38,11 @@ export default function Home() {
   const stats = useMemo(() => {
     const total = rows.length;
     const graduated = rows.filter((r) => r.graduated).length;
-    const tvl = rows.reduce((s, r) => s + Number(formatUnits(r.trackedQuote, 18)), 0);
+    // Only native-USDC curves count as "USDC in curves": EURC (6-dec) and the
+    // stock stand-ins (shares) are different units and must not be summed in.
+    const tvl = rows
+      .filter((r) => r.pairToken === "0x0000000000000000000000000000000000000000")
+      .reduce((s, r) => s + Number(formatUnits(r.trackedQuote, 18)), 0);
     return { total, graduated, tvl };
   }, [rows]);
 
@@ -50,12 +54,13 @@ export default function Home() {
         <span className="eyebrow reveal">◆ Live on Circle Arc testnet</span>
         <h1 className="reveal" data-reveal-delay={80}>
           Launch a token on <span className="grad">Arc</span>,
-          <br /> priced in real dollars.
+          <br /> priced in real money.
         </h1>
         <p className="sub reveal" data-reveal-delay={160}>
           Radian is the launchpad for Circle&apos;s Arc chain. Every token is born on a fair
-          bonding curve quoted in <strong>native USDC</strong> — no seed capital, liquidity
-          locked forever, graduating into Uniswap V4.
+          bonding curve quoted in the asset you choose — <strong>native USDC</strong> by default,
+          EURC, or a stock — with no seed capital, liquidity locked forever, and graduation into
+          Uniswap V4.
         </p>
         <div className="hero-cta reveal" data-reveal-delay={240}>
           <Link href="/launch" className="btn btn-primary">
@@ -174,7 +179,7 @@ export default function Home() {
             {[
               {
                 t: "Create",
-                d: "Name it, add a logo, hit launch. A fixed 1B-supply token and its bonding curve deploy in a single transaction, quoted in native USDC.",
+                d: "Name it, add a logo, hit launch. A fixed 1B-supply token and its bonding curve deploy in a single transaction, quoted in the asset you choose — native USDC, EURC, or a stock.",
               },
               {
                 t: "Trade",
@@ -201,8 +206,9 @@ export default function Home() {
                 Radian
               </div>
               <div style={{ marginTop: 8, maxWidth: 340 }}>
-                The launchpad for Circle&apos;s Arc chain. Testnet preview — not affiliated with
-                Circle, Robinhood, or Pons-Labs.
+                The launchpad for Circle&apos;s Arc chain. Testnet preview — no real money. Not
+                investment advice. Stock quote assets are testnet stand-ins, not securities. Not
+                affiliated with Circle, Robinhood, or Pons-Labs.
               </div>
             </div>
             <div style={{ display: "flex", gap: 40 }}>

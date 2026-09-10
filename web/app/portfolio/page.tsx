@@ -114,7 +114,7 @@ export default function PortfolioPage() {
                 <div className="k">
                   {Number(formatUnits(claimable, 18)).toLocaleString(undefined, { maximumFractionDigits: 4 })}
                 </div>
-                <div className="l">Claimable fees (USDC)</div>
+                <div className="l">Claimable fees (native USDC)</div>
                 {claimable > 0n && (
                   <button
                     className="btn btn-primary"

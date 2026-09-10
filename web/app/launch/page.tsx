@@ -354,7 +354,7 @@ export default function LaunchPage() {
           <div className="kv"><span>Supply</span><span className="v">1,000,000,000</span></div>
           <div className="kv"><span>Graduation goal</span><span className="v">{quote.gradGoal} {quote.symbol} in curve</span></div>
           <div className="kv"><span>First buy</span><span className="v">{devBuy && Number(devBuy) > 0 ? `${devBuy} ${quote.symbol}` : "—"}</span></div>
-          <div className="kv"><span>Trade fee</span><span className="v">1% (50% to you)</span></div>
+          <div className="kv"><span>Trade fee</span><span className="v">{feeMode === "buyback" ? "1% (35% to you · 35% buyback · 30% protocol)" : "1% (70% to you · 30% protocol)"}</span></div>
 
           <button className="btn btn-primary" style={{ width: "100%", marginTop: 20, justifyContent: "center" }} onClick={launch} disabled={busy}>
             {busy ? <span className="spinner" /> : authenticated ? "Launch for 1 USDC" : "Sign in to launch"}

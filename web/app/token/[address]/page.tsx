@@ -8,7 +8,8 @@ import { StockRef } from "@/components/StockRef";
 import { publicClient, curveAbi, tokenAbi, erc20Abi, explorer, arcTestnet, quoteByAddress, type QuoteAsset } from "@/lib/radian";
 import { useRadianWallet } from "@/lib/useRadianWallet";
 import { findCurve } from "@/lib/registry";
-import { fetchTokenMeta, hasIndexer } from "@/lib/indexer";
+import { fetchTokenMeta, hasIndexer, type Sunset } from "@/lib/indexer";
+import { projectLinks, safeHttpUrl, xUrl } from "@/lib/projects";
 import { parseUnits } from "viem";
 
 type State = {
@@ -32,6 +33,9 @@ type State = {
   feeBps: bigint;
   creatorTaxBps: bigint;
   snipeTaxSeconds: bigint;
+  // on-chain socials (creator-supplied; only rendered after URL validation)
+  website?: string;
+  twitter?: string;
 };
 
 const ZERO_ADDR = "0x0000000000000000000000000000000000000000" as Address;
@@ -52,6 +56,7 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
   const [notFound, setNotFound] = useState(false);
   const [slippageBps, setSlippageBps] = useState<number>(100);
   const [snipeBps, setSnipeBps] = useState<bigint>(0n);
+  const [sunset, setSunset] = useState<Sunset | null>(null);
   const loadedRef = useRef(false);
 
   const load = useCallback(async () => {
@@ -63,9 +68,11 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
       return;
     }
     let curve = (findCurve(token)?.curve ?? null) as Address | null;
-    if (!curve && hasIndexer()) {
+    if (hasIndexer()) {
+      // The indexer also knows whether this launch was retired for a successor.
       const meta = await fetchTokenMeta(token);
-      curve = meta?.curve ?? null;
+      if (!curve) curve = meta?.curve ?? null;
+      if (meta) setSunset(meta.sunset ?? null);
     }
     if (!curve) {
       // Only declare "not found" if we have never loaded this token; a transient
@@ -90,6 +97,7 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
         { address: curve, abi: curveAbi, functionName: "feeBps" },
         { address: curve, abi: curveAbi, functionName: "creatorTaxBps" },
         { address: curve, abi: curveAbi, functionName: "snipeTaxSeconds" },
+        { address: token, abi: tokenAbi, functionName: "socials" },
       ],
     });
     const name = mc[0].result as string | undefined;
@@ -127,6 +135,9 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
       feeBps: (mc[10].result as bigint | undefined) ?? 100n,
       creatorTaxBps: (mc[11].result as bigint | undefined) ?? 0n,
       snipeTaxSeconds: (mc[12].result as bigint | undefined) ?? 0n,
+      // socials() → [twitter, telegram, discord, website, farcaster]
+      website: (mc[13].result as readonly string[] | undefined)?.[3] || undefined,
+      twitter: (mc[13].result as readonly string[] | undefined)?.[0] || undefined,
     });
     loadedRef.current = true;
     setNotFound(false);
@@ -349,12 +360,49 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
               </div>
               <div>
                 <h1 style={{ fontSize: 28 }}>{st.name}</h1>
-                <div style={{ color: "var(--fg-faint)" }}>${st.symbol}</div>
+                <div style={{ color: "var(--fg-faint)", display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                  <span>${st.symbol}</span>
+                  {(() => {
+                    // On-chain socials first (validated to http(s)), then the curated map.
+                    const curated = projectLinks(token);
+                    const site = safeHttpUrl(st.website) ?? safeHttpUrl(curated?.website);
+                    const x = xUrl(st.twitter) ?? xUrl(curated?.twitter);
+                    return (
+                      <>
+                        {site && (
+                          <a href={site} target="_blank" rel="noreferrer noopener" style={{ color: "var(--radian-2)", fontSize: 13 }}>
+                            Project site ↗
+                          </a>
+                        )}
+                        {x && (
+                          <a href={x} target="_blank" rel="noreferrer noopener" style={{ color: "var(--radian-2)", fontSize: 13 }}>
+                            X ↗
+                          </a>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
               </div>
-              <span className={`badge ${st.graduated ? "badge-grad" : "badge-live"}`} style={{ marginLeft: "auto" }}>
-                {st.graduated ? "Graduated" : "Live on curve"}
+              <span className={`badge ${sunset ? "badge-soon" : st.graduated ? "badge-grad" : "badge-live"}`} style={{ marginLeft: "auto" }}>
+                {sunset ? "Retired" : st.graduated ? "Graduated" : "Live on curve"}
               </span>
             </div>
+
+            {sunset && (
+              <div
+                role="note"
+                style={{
+                  marginTop: 18, padding: "12px 14px", borderRadius: 12, fontSize: 14,
+                  background: "rgba(111,155,255,0.08)", border: "1px solid rgba(111,155,255,0.3)",
+                }}
+              >
+                <strong>This launch was retired.</strong> {sunset.reason}{" "}
+                <Link href={`/token/${sunset.successor}`} style={{ color: "var(--radian-2)", fontWeight: 600 }}>
+                  Go to the current version →
+                </Link>
+              </div>
+            )}
 
             <p style={{ color: "var(--fg-dim)", marginTop: 18 }}>{st.description || "A token launched on Radian."}</p>
 

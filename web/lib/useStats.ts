@@ -47,7 +47,10 @@ export function useStats(): Stats {
   return {
     launches: rows.length,
     graduated: rows.filter((r) => r.graduated).length,
-    curveTvl: rows.reduce((s, r) => s + Number(formatUnits(r.trackedQuote, 18)), 0),
+    // Native-USDC curves only — EURC (6-dec) and stock stand-ins (shares) are other units.
+    curveTvl: rows
+      .filter((r) => r.pairToken === "0x0000000000000000000000000000000000000000")
+      .reduce((s, r) => s + Number(formatUnits(r.trackedQuote, 18)), 0),
     buybackLocked: extra.buybackLocked,
     pendingFees: extra.pendingFees,
     loading,

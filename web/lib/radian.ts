@@ -62,6 +62,7 @@ export const tokenAbi = parseAbi([
   "function symbol() view returns (string)",
   "function logo() view returns (string)",
   "function description() view returns (string)",
+  "function socials() view returns (string twitter, string telegram, string discord, string website, string farcaster)",
   "function totalSupply() view returns (uint256)",
   "function balanceOf(address) view returns (uint256)",
   "function approve(address spender, uint256 value) returns (bool)",

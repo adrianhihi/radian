@@ -20,8 +20,8 @@ export default function BuildersPage() {
 
         <div className="steps" style={{ marginTop: 30 }}>
           {[
-            { t: "50% of fees", d: "Every trade on your token pays a 1% USDC fee, and half of it is yours — streamed to a fee escrow you claim any time, before and after graduation." },
-            { t: "Real-dollar pricing", d: "Your token is quoted in native USDC, not a volatile gas coin. Holders see a price in dollars from the first trade." },
+            { t: "70% of fees", d: "Every trade on your token pays a 1% fee in its quote asset. 70% of it is yours — to a fee escrow you claim any time, before and after graduation. Turn on Buyback & Lock and half of that share buys your token back instead." },
+            { t: "Real-money pricing", d: "Your token is quoted in native USDC, EURC, or a stock — not a volatile gas coin. Holders see a price in real money from the first trade." },
             { t: "Locked liquidity", d: "Graduation seeds a permanently-locked Uniswap V4 pool. Your community can trust the liquidity can never be pulled." },
           ].map((s, i) => (
             <div className="step reveal" data-reveal-delay={i * 90} key={s.t}>

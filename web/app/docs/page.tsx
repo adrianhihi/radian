@@ -68,7 +68,8 @@ export default function DocsPage() {
             <h1 style={{ fontSize: 34 }}>How Radian works</h1>
             <p style={{ color: "var(--fg-dim)", marginTop: 12, fontSize: 16 }}>
               Radian is a permissionless token launchpad on Circle&apos;s Arc chain. Every token is
-              born on a constant-product bonding curve quoted in <strong>native USDC</strong>, then
+              born on a constant-product bonding curve quoted in the asset its creator chose —
+              <strong>native USDC</strong> by default, EURC, or (on testnet) a stock stand-in — then
               graduates into a permanently locked Uniswap V4 pool. Radian is non-custodial — your
               wallet signs every transaction; Radian never holds your funds. The trading engine is a
               faithful port of Pons V2, diffable byte-for-byte against the verified upstream on Sourcify.
@@ -96,7 +97,7 @@ export default function DocsPage() {
             {[
               { h: "1 · Create", b: "One transaction deploys the token + curve and mints the full 1B supply to the curve. Launch fee is 1 USDC (msg.value), plus gas." },
               { h: "2 · Optional first buy", b: "In the same flow you can buy your own token on the fresh curve. As the creator you're snipe-tax-exempt, so it settles untaxed and sets the opening price." },
-              { h: "3 · Trade", b: "Anyone buys and sells on the curve from block one. Price rises as supply is bought — fair discovery, no presale. A 1% fee is charged on the USDC leg." },
+              { h: "3 · Trade", b: "Anyone buys and sells on the curve from block one. Price rises as supply is bought — fair discovery, no presale. A 1% fee is charged on the quote-asset leg." },
               { h: "4 · Graduate", b: "When the curve's real USDC reserve crosses the threshold, it drains into a full-range Uniswap V4 position that is locked forever. Trading continues on the V4 pool via the hook." },
             ].map((s) => (
               <div className="panel" key={s.h} style={{ marginTop: 12 }}>
@@ -116,7 +117,7 @@ export default function DocsPage() {
                 ["Token image", "PNG/JPG/WebP/GIF uploaded and linked in the token's on-chain logo field"],
                 ["Description / Socials", "Optional — written into token metadata (website, X)"],
                 ["Fee mode", "How the quote-asset fee is used (see below)"],
-                ["First buy", "Optional creator buy on the new curve, in USDC (0 to skip)"],
+                ["First buy", "Optional creator buy on the new curve, in the chosen quote asset (0 to skip)"],
               ]}
             />
           </section>
@@ -153,10 +154,10 @@ export default function DocsPage() {
             <Table
               head={["Leg", "Where it goes"]}
               rows={[
-                ["Trade fee", "1% of every swap, on the USDC leg, before and after graduation"],
-                ["Creator", "50% of the fee — to the fee escrow, claimable anytime"],
-                ["Protocol", "Part of the remainder — to the protocol recipient via escrow"],
-                ["Buyback", "The rest buys the token back and locks it in the 5-year vesting vault"],
+                ["Trade fee", "1% of every swap, on the quote-asset leg, before and after graduation"],
+                ["Protocol", "30% of the fee — to the protocol recipient via escrow"],
+                ["Creator", "70% of the fee — to the fee escrow, claimable anytime (35% when Buyback & Lock is on)"],
+                ["Buyback", "In Buyback & Lock mode, the other 35% buys the token back when the platform sweeps fees and vests it over 5 years (70% creator / 30% protocol)"],
                 ["Creator tax", "Optional, up to 10%, paid 100% to the creator on top of the base fee"],
               ]}
             />
@@ -165,7 +166,8 @@ export default function DocsPage() {
           <section id="contracts">
             <h2>Contracts</h2>
             <p style={{ color: "var(--fg-dim)", marginTop: 6, marginBottom: 12 }}>
-              Deployed on Arc testnet (chain 5042002). All verifiable on Arcscan.
+              Deployed on Arc testnet (chain 5042002). The factory is verified on Arcscan; verification
+              of the other contracts is pending. Verification proves source = bytecode — it is not an audit.
             </p>
             <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
               {[

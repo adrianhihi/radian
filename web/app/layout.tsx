@@ -5,7 +5,7 @@ import { Providers } from "@/components/Providers";
 export const metadata: Metadata = {
   title: "Radian — the launchpad for Circle's Arc chain",
   description:
-    "Launch a token in one transaction, priced in native USDC on Circle's Arc chain. Fair bonding-curve discovery, permanently locked liquidity, graduation into Uniswap V4.",
+    "Launch a token in one transaction on Circle's Arc chain, priced in real money — native USDC, EURC, or a stock. Fair bonding-curve discovery, permanently locked liquidity, graduation into Uniswap V4.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

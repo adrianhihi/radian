@@ -52,7 +52,7 @@ export default function LivePage() {
           >
             <span>Token</span>
             <span style={{ display: "flex", gap: 40 }}>
-              <span style={{ width: 110, textAlign: "right" }}>Spot (USDC)</span>
+              <span style={{ width: 110, textAlign: "right" }}>Spot (quote)</span>
               <span style={{ width: 90, textAlign: "right" }}>Reserve</span>
               <span style={{ width: 70, textAlign: "right" }}>Progress</span>
             </span>
