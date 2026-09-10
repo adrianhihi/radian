@@ -5,9 +5,10 @@ It is a faithful port of the Pons V2 launchpad (Robinhood Chain's leader), redep
 with its own Uniswap V4 base, plus an original product layer (web app, Privy auth, live
 analytics). Everything below is **live and verified on Arc testnet** — no mocks.
 
+- **Live app:** https://radian-sable.vercel.app (Vercel, production)
 - **GitHub:** https://github.com/adrianhihi/radian (private)
 - **Chain:** Arc testnet (Circle), chain id `5042002`, explorer https://testnet.arcscan.app
-- **Status:** testnet, end-to-end working. Mainnet-ready pending the checklist at the bottom.
+- **Status:** testnet, end-to-end working, deployed. Mainnet-ready pending the checklist at the bottom.
 
 ---
 
