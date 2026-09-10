@@ -82,7 +82,7 @@ export default function DocsPage() {
               rows={[
                 ["LaunchFactory", "Atomically deploys the token + curve and snapshots fee terms"],
                 ["LaunchToken", "Fixed 1B-supply ERC-20 minted entirely to its curve; no owner, no mint"],
-                ["BondingCurve", "Constant-product curve in native USDC; buy/sell with slippage + deadline guards"],
+                ["BondingCurve", "Constant-product curve in the launch's quote asset; buy/sell enforce an on-chain minimum-received (slippage) bound — there is no deadline parameter"],
                 ["MemeHook (V4)", "Singleton Uniswap V4 hook on graduated pools — keeps charging the fee"],
                 ["LaunchLocker", "Holds the graduated V4 position forever — no withdrawal path exists"],
                 ["BuybackVault", "Fee-funded buybacks locked on a 5-year linear vest (locked, never burned)"],
