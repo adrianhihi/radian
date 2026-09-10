@@ -153,5 +153,10 @@ moves — useful for indexing.
 
 - [x] Phase 1 — contracts + 14-test suite (incl. fuzz solvency invariant), all passing
 - [x] Phase 2 — deployed to Arc testnet + live smoke test (launch/buy/sell verified)
-- [ ] Phase 3 — indexer + web frontend (launch form, token list, trade UI)
-- [ ] Phase 4 — $PONS-style protocol token & buyback/burn loop (design open)
+- [x] Phase 3 — faithful Pons V2 port + indexer + web frontend (live on Vercel/Railway)
+- [ ] Phase 4 — $RADIAN protocol token & buyback loop (design open)
+
+**Mainnet:** see [`MAINNET_RUNBOOK.md`](MAINNET_RUNBOOK.md) — Arc mainnet (chain 5042, live
+2026-09-16) uses **canonical Uniswap V4**, so we deploy only the Pons V2 suite.
+`script/DeployMainnet.s.sol` (network-parameterized, launch disabled at deploy) and
+`script/TransferOwnership.s.sol` (owner → multisig) are ready and dry-run validated.
