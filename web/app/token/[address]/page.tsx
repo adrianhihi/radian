@@ -42,20 +42,33 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
     // curve address comes from the registry (getLogs is unreliable on Arc)
     const curve = (findCurve(token)?.curve ?? null) as Address | null;
     if (!curve) return;
-    const [name, symbol, logo, description, reserves, tracked, gthr, grad, sellable, pair] =
-      await Promise.all([
-        publicClient.readContract({ address: token, abi: tokenAbi, functionName: "name" }),
-        publicClient.readContract({ address: token, abi: tokenAbi, functionName: "symbol" }),
-        publicClient.readContract({ address: token, abi: tokenAbi, functionName: "logo" }).catch(() => ""),
-        publicClient.readContract({ address: token, abi: tokenAbi, functionName: "description" }).catch(() => ""),
-        publicClient.readContract({ address: curve, abi: curveAbi, functionName: "getReserves" }),
-        publicClient.readContract({ address: curve, abi: curveAbi, functionName: "trackedQuote" }),
-        publicClient.readContract({ address: curve, abi: curveAbi, functionName: "graduationThreshold" }),
-        publicClient.readContract({ address: curve, abi: curveAbi, functionName: "graduated" }),
-        publicClient.readContract({ address: curve, abi: curveAbi, functionName: "sellableTokens" }).catch(() => 0n),
-        publicClient.readContract({ address: curve, abi: curveAbi, functionName: "pairToken" }).catch(() => "0x0000000000000000000000000000000000000000" as Address),
-      ]);
-    const r = reserves as [bigint, bigint];
+    // one Multicall3 batch instead of 10 separate RPC reads (poll-friendly)
+    const mc = await publicClient.multicall({
+      allowFailure: true,
+      contracts: [
+        { address: token, abi: tokenAbi, functionName: "name" },
+        { address: token, abi: tokenAbi, functionName: "symbol" },
+        { address: token, abi: tokenAbi, functionName: "logo" },
+        { address: token, abi: tokenAbi, functionName: "description" },
+        { address: curve, abi: curveAbi, functionName: "getReserves" },
+        { address: curve, abi: curveAbi, functionName: "trackedQuote" },
+        { address: curve, abi: curveAbi, functionName: "graduationThreshold" },
+        { address: curve, abi: curveAbi, functionName: "graduated" },
+        { address: curve, abi: curveAbi, functionName: "sellableTokens" },
+        { address: curve, abi: curveAbi, functionName: "pairToken" },
+      ],
+    });
+    const name = mc[0].result as string | undefined;
+    const symbol = mc[1].result as string | undefined;
+    if (!name || !symbol) return;
+    const logo = (mc[2].result as string) ?? "";
+    const description = (mc[3].result as string) ?? "";
+    const tracked = (mc[5].result as bigint | undefined) ?? 0n;
+    const gthr = (mc[6].result as bigint | undefined) ?? 0n;
+    const grad = (mc[7].result as boolean | undefined) ?? false;
+    const sellable = (mc[8].result as bigint | undefined) ?? 0n;
+    const pair = (mc[9].result as Address | undefined) ?? ("0x0000000000000000000000000000000000000000" as Address);
+    const r = (mc[4].result as [bigint, bigint] | undefined) ?? [0n, 0n];
     const qa = quoteByAddress(pair as string);
     setSt({
       name: name as string,

@@ -21,7 +21,8 @@ const INITIAL_LOOKBACK = 3000n; // on cold start, scan ~last 50 min for trades
 async function seedLaunches() {
   for (const s of SEED) {
     if (!store.launches.has(s.token.toLowerCase())) {
-      store.upsertLaunch({ ...s, pairToken: "0x0000000000000000000000000000000000000000", quoteSymbol: "USDC", quoteDecimals: 18 });
+      const qm = quoteMeta(s.pairToken);
+      store.upsertLaunch({ ...s, quoteSymbol: qm.symbol, quoteDecimals: qm.decimals });
     }
   }
 }
