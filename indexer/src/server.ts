@@ -20,6 +20,10 @@ const EXT: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "
 
 export function startServer() {
   const app = express();
+  // Node's built-in querystring instead of `qs`: no nested/array parsing, which
+  // is both all we need and the surface behind the open qs advisories.
+  app.set("query parser", "simple");
+  app.disable("x-powered-by");
   app.use(cors());
   try { mkdirSync(UPLOAD_DIR, { recursive: true }); } catch {}
 
@@ -99,7 +103,7 @@ export function startServer() {
   });
 
   app.get("/activity", (req, res) => {
-    const limit = Math.min(200, Number(req.query.limit ?? 50));
+    const limit = Math.max(1, Math.min(200, Math.floor(Number(req.query.limit)) || 50));
     const byToken = new Map(launchView().map((l) => [l.token.toLowerCase(), l]));
     const trades = store.recentTrades(limit).map((t) => {
       const l = byToken.get(t.token.toLowerCase());
@@ -116,7 +120,7 @@ export function startServer() {
 
   app.get("/stats", (req, res) => {
     const ls = launchView();
-    const window = String(req.query.window ?? "all"); // "24h" | "all"
+    const window = req.query.window === "24h" ? "24h" : "all";
     const since = window === "24h" ? Date.now() - 86_400_000 : 0;
     const trades = store.trades.filter((t) => t.ts >= since);
 

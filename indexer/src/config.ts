@@ -9,21 +9,49 @@ export const arcTestnet = defineChain({
   testnet: true,
 });
 
-export const publicClient = createPublicClient({ chain: arcTestnet, transport: http() });
+// JSON-RPC batching: concurrent block/receipt fetches collapse into a few HTTP
+// requests. Arc's public RPC rejects big batches ("Request exceeds defined
+// limit"), so batches stay small, and `singleClient` (no batching) is the
+// fallback for any call that fails inside a batch.
+export const publicClient = createPublicClient({
+  chain: arcTestnet,
+  transport: http(undefined, { batch: { wait: 10, batchSize: 8 }, retryCount: 2, timeout: 20_000 }),
+});
+export const singleClient = createPublicClient({
+  chain: arcTestnet,
+  transport: http(undefined, { batch: false, retryCount: 2, timeout: 20_000 }),
+});
 
 export const FACTORY = "0x90022cC2107De9c070F889E3A67009FcA270E4E2" as Address;
 export const VAULT = "0xe84D81C3d4f3E12123C9F934AB3Cb8238772b39e" as Address;
-export const FACTORY_DEPLOY_BLOCK = 61305678n;
+// First block in which the factory has code (binary-searched on-chain). The
+// previous value, 61305678, was ~2000 blocks late.
+export const FACTORY_DEPLOY_BLOCK = 61303632n;
 
-// Resolve a launch's pairToken to display metadata. Native (0x0) = USDC/18.
+// Approved pair (quote) assets on Arc testnet. Native (0x0) = USDC/18. Keep in
+// sync with web/lib/networks.ts — the frontend is the source of truth for
+// display metadata, this only labels what the indexer serves.
+const QUOTE_ASSETS: Record<string, { symbol: string; decimals: number }> = {
+  "0x89b50855aa3be2f677cd6303cec089b5f319d72a": { symbol: "EURC", decimals: 6 },
+  "0xdebcc47bf6e1defe1ec76290441836e4981da882": { symbol: "NVDAx", decimals: 18 },
+  "0xb538054166a5f9aa98b945d32a7d1f122c1c3c87": { symbol: "TSLAx", decimals: 18 },
+  "0x88ad67d823791c2dd5ddd96cf88e573a1f5bb785": { symbol: "AAPLx", decimals: 18 },
+  "0x195a4d07e2bd492f70063e6c7017e336e28a8f68": { symbol: "GOOGLx", decimals: 18 },
+  "0xd7ded9057a4ec0a329d2c70784c8723f7df56e7f": { symbol: "MSFTx", decimals: 18 },
+  "0x865e62e6327c572c7fb8d3427f67b03b9a4558fb": { symbol: "AMZNx", decimals: 18 },
+  "0xffba38678178dc0b7a0eaceceaf36795bb750977": { symbol: "METAx", decimals: 18 },
+  "0x072f8fa84c12e56fe20d3f0bfbb903a96b099973": { symbol: "SPYx", decimals: 18 },
+};
+
+// Resolve a launch's pairToken to display metadata.
 export function quoteMeta(pairToken?: string): { symbol: string; decimals: number } {
   const a = (pairToken ?? "").toLowerCase();
   if (!a || a === "0x0000000000000000000000000000000000000000") return { symbol: "USDC", decimals: 18 };
-  if (a === "0x89b50855aa3be2f677cd6303cec089b5f319d72a") return { symbol: "EURC", decimals: 6 };
-  return { symbol: "TOKEN", decimals: 18 };
+  return QUOTE_ASSETS[a] ?? { symbol: "TOKEN", decimals: 18 };
 }
 
-// Seed launches so /launches is never empty and historical trades are catchable.
+// Seed launches so /launches is never empty on a cold start while the
+// backfill from FACTORY_DEPLOY_BLOCK is still running.
 const DEV = "0x13E6b6C635CAcD4B27C9309251A4D083457eb11C" as Address;
 const NATIVE = "0x0000000000000000000000000000000000000000";
 export const SEED: { token: Address; curve: Address; deployer: Address; graduationThreshold: string; pairToken: string }[] = [
