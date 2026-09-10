@@ -64,15 +64,53 @@ and leaves launch disabled. Then: smoke-test, enable launch, transfer ownership 
 `NEXT_PUBLIC_BASE_RPC` / `NEXT_PUBLIC_BASE_INDEXER_URL` in Vercel. The network switcher then shows
 Base and everything (addresses, RPC, indexer, quote asset, explorer) follows.
 
-## Cross-chain (two very different things)
+## Cross-chain — verified facts (2026-09-09)
 
-- **Multi-chain deployment** (independent instances per chain): what this doc covers. Low risk,
-  mostly config + a deploy per chain. The switcher already handles N networks.
-- **True cross-chain** (one token/liquidity spanning chains, or an Arc launch backed by a stock on
-  another chain): needs a bridge or oracle. Circle **CCTP** moves native USDC across chains
-  (Arc ships CCTP contracts) — clean for cross-chain *USDC flows*. Cross-chain *stock backing*
-  additionally needs the issuer's permission + a price oracle and is a real engineering/trust
-  undertaking — do not promise it before verifying each piece.
+Everything below was checked against Circle/Arc docs **and** on-chain / live APIs, not assumed.
+
+### CCTP V2 on Arc (end-to-end tested on testnet)
+
+- Arc testnet is **CCTP V2-only, domain 26** (Circle supported-chains table; mainnet not listed yet).
+  Contracts (docs.arc.io = on-chain): TokenMessengerV2 `0x8FE6B999…2542DAA`, MessageTransmitterV2
+  `0xE737e5cE…1CE275` (`localDomain()=26`, `version()=1`), TokenMinterV2 `0xb43db544…bcF192`,
+  USDC ERC-20 view `0x3600…0000` (6-dec). The V1 testnet addresses have **no code**; the V1
+  `depositForBurn` selector reverts on Arc.
+- The TokenMessengerV2 implementation bytecode contains `depositForBurnWithHook` (`0x779b432d`) —
+  the hooks entrypoint is deployed.
+- **Live test:** burned 1 USDC Arc → Base (domain 6), tx
+  `0xd74f304e93ba639f111dd226bcc73319f60e051460c172bb65d1309b2993955c`. Attestation came back
+  `complete` (cctpVersion 2, feeExecuted 0) within ~3 min from **`iris-api-sandbox.circle.com`**.
+  Two gotchas: testnet attestations are served by the **sandbox** host (the prod host never finds
+  them, even though docs.arc.io quotes the prod URL), and Arc requires **`minFinalityThreshold=2000`**
+  (1000 stays `pending` forever — circlefin/arc-node#110). The "attestations blocked" report in
+  circlefin/evm-cctp-contracts#110 does not reproduce with those two settings.
+- **Hooks are opaque metadata — the protocol never executes them.** Circle's Forwarding Service reads
+  a `cctp-forward` hook to auto-submit the destination *mint only* (no arbitrary calls). Arc testnet:
+  Forwarding Service ✅, Fast Transfer N/A (instant finality), upfront fees ✅. Gateway (unified USDC
+  balance, sub-second) is on Arc testnet: GatewayWallet `0x0077777d…A19B9`, GatewayMinter
+  `0x0022222A…52475B`. Bridge Kit (`@circle-fin/bridge-kit`) wraps burn/attest/mint.
+- **BSC has no native USDC; CCTP on BSC is USYC-only.** An Arc ↔ BSC *USDC* leg via CCTP does not
+  exist. Options: USYC over CCTP (permissioned/entitled), or a third-party bridge.
+
+### Interop stacks present on Arc (verified)
+
+| Stack | Arc testnet | Arc mainnet | Evidence |
+| --- | --- | --- | --- |
+| LayerZero EndpointV2 | `0x6c7ab220…716ff` (eid 40434, code on-chain) | `0x6f475642…8dd5b` (eid 30417) | LZ metadata API + `eid()` read |
+| Hyperlane | — | mailbox `0x7f50C577…D7B39` (domain 5042) | hyperlane-registry `chains/arc` |
+| Wormhole core | `0xBB73cB66…300dd` (code on-chain, `chainId()=71`) | `0xC8aD24fC…3CF027` | wormhole-sdk-ts constants |
+| LI.FI | listed (5042002; tokens USDC, EURC) | listed (5042) but quotes "Chain 5042 is not supported" — no routes until mainnet | li.quest API |
+| Relay / deBridge / Across | not listed | not listed | their public chain APIs |
+
+### What this means for Radian
+
+- **"Buy from any chain" = a USDC leg, for USDC-quoted launches.** CCTP V2 + Forwarding Service
+  (one tx from the user, Circle completes the mint) or Gateway (instant, needs a prior deposit).
+  Then a Radian contract on Arc that receives the USDC and buys. Not before mainnet + aggregator routes.
+- **Stock tokens don't move.** A stock-paired product lives where the stock lives (BSC / Robinhood
+  Chain). Wrapping a tokenized stock onto Arc via LayerZero OFT / Hyperlane Warp / Wormhole NTT is
+  technically possible (endpoints exist) but yields a non-issuer wrapped security — not planned.
+- **Multi-chain deployment** (independent instances per chain) remains the low-risk path this doc covers.
 
 ## Positioning
 
