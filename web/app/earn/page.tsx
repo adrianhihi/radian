@@ -127,7 +127,7 @@ export default function EarnPage() {
                 <div className="kv" style={{ border: "none" }}><span>$RADIAN price</span><span className="v">{s ? s.radianPrice.toExponential(3) : "—"} USDC</span></div>
                 <p className="hint" style={{ marginTop: 10 }}>
                   Don&apos;t have $RADIAN?{" "}
-                  <Link href={`/token/${RADIAN_ADDR.token}`} style={{ color: "var(--radian-2)" }}>Buy it on its curve →</Link>
+                  <Link href={`/token/${net.radian.token}`} style={{ color: "var(--radian-2)" }}>Buy it on its curve →</Link>
                 </p>
               </div>
 
@@ -154,9 +154,10 @@ export default function EarnPage() {
 
             <p className="hint reveal" style={{ marginTop: 20, marginBottom: 60 }}>
               Contracts:{" "}
-              <a href={explorer.address(RADIAN_ADDR.staking)} target="_blank" rel="noreferrer" style={{ color: "var(--radian-2)" }}>staking</a>{" · "}
-              <a href={explorer.address(RADIAN_ADDR.treasury)} target="_blank" rel="noreferrer" style={{ color: "var(--radian-2)" }}>treasury</a>{" · "}
-              <a href={explorer.address(RADIAN_ADDR.token)} target="_blank" rel="noreferrer" style={{ color: "var(--radian-2)" }}>token</a>
+              {/* addresses from the SSR-safe network hook, not module-level config, so server and first client render agree */}
+              <a href={`${net.explorer}/address/${net.radian.staking}`} target="_blank" rel="noreferrer" style={{ color: "var(--radian-2)" }}>staking</a>{" · "}
+              <a href={`${net.explorer}/address/${net.radian.treasury}`} target="_blank" rel="noreferrer" style={{ color: "var(--radian-2)" }}>treasury</a>{" · "}
+              <a href={`${net.explorer}/address/${net.radian.token}`} target="_blank" rel="noreferrer" style={{ color: "var(--radian-2)" }}>token</a>
             </p>
           </>
         )}

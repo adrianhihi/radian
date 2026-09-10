@@ -39,8 +39,14 @@ export async function GET(req: Request) {
         source: "Yahoo Finance",
       },
       // Public, keyless reference data — let product sites (e.g. the flagship
-      // token's own site) read it cross-origin.
-      { headers: { "Access-Control-Allow-Origin": "*" } },
+      // token's own site) read it cross-origin, and let the CDN serve it for 30 s
+      // (`revalidate` does nothing for a handler that reads searchParams).
+      {
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Cache-Control": "public, s-maxage=30, stale-while-revalidate=120",
+        },
+      },
     );
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 502 });

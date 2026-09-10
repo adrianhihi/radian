@@ -5,6 +5,7 @@ import { formatUnits, parseEther, parseUnits, decodeEventLog } from "viem";
 import { Nav } from "@/components/Nav";
 import { StockTag, StockRef } from "@/components/StockRef";
 import { useReveal } from "@/lib/useReveal";
+import { useNetwork } from "@/lib/networks";
 import { publicClient, RADIAN, factoryAbi, curveAbi, erc20Abi, arcTestnet, activeNetwork, QUOTE_ASSETS, type QuoteAsset } from "@/lib/radian";
 import { useRadianWallet } from "@/lib/useRadianWallet";
 import { addLocalLaunch } from "@/lib/registry";
@@ -17,6 +18,9 @@ const DEFAULT_LAUNCH_FEE = parseEther("1");
 export default function LaunchPage() {
   useReveal();
   const router = useRouter();
+  // SSR-safe: testnet on the server and the first client render, the real choice after mount —
+  // so the quote-asset list never differs between server HTML and hydration.
+  const net = useNetwork();
   const { authenticated, login, getWalletClient } = useRadianWallet();
   const [name, setName] = useState("");
   const [symbol, setSymbol] = useState("");
@@ -45,6 +49,11 @@ export default function LaunchPage() {
       alive = false;
     };
   }, []);
+
+  // When the network resolves after mount, make sure the selected quote asset belongs to it.
+  useEffect(() => {
+    setQuote((q) => net.quoteAssets.find((a) => a.key === q.key) ?? net.quoteAssets[0]);
+  }, [net.key]);
 
   const FEE_MODES = [
     { id: "buyback", icon: "🔥", title: "Buyback & Lock", desc: "Route the fee's buyback share into buying the token back and locking it in the 5-year vault.", live: true },
@@ -299,7 +308,7 @@ export default function LaunchPage() {
               with it.
             </p>
             <div className="feemode-grid" style={{ gridTemplateColumns: "repeat(2,1fr)" }}>
-              {QUOTE_ASSETS.map((qa) => {
+              {net.quoteAssets.map((qa) => {
                 const on = quote.key === qa.key;
                 return (
                   <button
