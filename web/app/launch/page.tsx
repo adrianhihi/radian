@@ -7,6 +7,7 @@ import { useReveal } from "@/lib/useReveal";
 import { publicClient, RADIAN, factoryAbi, arcTestnet } from "@/lib/radian";
 import { useRadianWallet } from "@/lib/useRadianWallet";
 import { addLocalLaunch } from "@/lib/registry";
+import { INDEXER_URL, hasIndexer } from "@/lib/indexer";
 
 const LAUNCH_FEE = parseEther("1"); // 1 USDC
 
@@ -21,7 +22,35 @@ export default function LaunchPage() {
   const [website, setWebsite] = useState("");
   const [twitter, setTwitter] = useState("");
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+
+  async function onPickImage(file: File | undefined) {
+    if (!file) return;
+    if (!hasIndexer()) {
+      setToast("Image upload needs the indexer; paste a URL instead.");
+      return;
+    }
+    if (file.size > 2_000_000) {
+      setToast("Image too large (max 2MB).");
+      return;
+    }
+    setUploading(true);
+    try {
+      const r = await fetch(`${INDEXER_URL}/upload`, {
+        method: "POST",
+        headers: { "content-type": file.type },
+        body: file,
+      });
+      const j = await r.json();
+      if (j.url) setLogo(j.url);
+      else setToast(j.error ?? "Upload failed.");
+    } catch {
+      setToast("Upload failed.");
+    } finally {
+      setUploading(false);
+    }
+  }
 
   async function launch() {
     if (!authenticated) {
@@ -139,8 +168,32 @@ export default function LaunchPage() {
             </div>
           </div>
           <div className="field">
-            <label>Logo URL</label>
-            <input className="input" value={logo} onChange={(e) => setLogo(e.target.value)} placeholder="https://…/logo.png" />
+            <label>Logo</label>
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              <label
+                className="btn btn-ghost"
+                style={{ cursor: uploading ? "wait" : "pointer", flexShrink: 0 }}
+              >
+                {uploading ? <span className="spinner" /> : logo ? "Change image" : "Upload image"}
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  style={{ display: "none" }}
+                  onChange={(e) => onPickImage(e.target.files?.[0])}
+                />
+              </label>
+              {logo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={logo} alt="logo" style={{ width: 46, height: 46, borderRadius: 11, objectFit: "cover", border: "1px solid var(--border)" }} />
+              ) : (
+                <input
+                  className="input"
+                  value={logo}
+                  onChange={(e) => setLogo(e.target.value)}
+                  placeholder="…or paste an image URL"
+                />
+              )}
+            </div>
           </div>
           <div className="field">
             <label>Description</label>

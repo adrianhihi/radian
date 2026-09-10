@@ -1,11 +1,42 @@
 import express from "express";
 import cors from "cors";
+import { createHash } from "node:crypto";
+import { mkdirSync, writeFileSync, existsSync, readFileSync } from "node:fs";
 import { store } from "./store.js";
 import { fmt } from "./scanner.js";
+
+const UPLOAD_DIR = process.env.UPLOAD_DIR ?? "./uploads";
+const PUBLIC_URL = (process.env.PUBLIC_URL ?? "https://radian-indexer-production.up.railway.app").replace(/\/$/, "");
+const EXT: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif" };
 
 export function startServer() {
   const app = express();
   app.use(cors());
+  try { mkdirSync(UPLOAD_DIR, { recursive: true }); } catch {}
+
+  // Token logo upload: store the image, return a stable URL that goes into
+  // the token's on-chain `logo` metadata. (Testnet: disk-backed; production
+  // should point UPLOAD_DIR at a volume or swap for S3/IPFS.)
+  app.post("/upload", express.raw({ type: "image/*", limit: "2mb" }), (req, res) => {
+    const ext = EXT[req.headers["content-type"] ?? ""];
+    if (!ext || !req.body?.length) return res.status(400).json({ error: "send a png/jpg/webp/gif body" });
+    const hash = createHash("sha256").update(req.body).digest("hex").slice(0, 24);
+    const file = `${hash}.${ext}`;
+    writeFileSync(`${UPLOAD_DIR}/${file}`, req.body);
+    res.json({ url: `${PUBLIC_URL}/img/${file}` });
+  });
+
+  app.get("/img/:file", (req, res) => {
+    // keep hex hash + lowercase ext; strip anything else (blocks traversal)
+    const safe = req.params.file.replace(/[^a-z0-9.]/g, "");
+    if (safe.includes("..")) return res.status(400).end();
+    const path = `${UPLOAD_DIR}/${safe}`;
+    if (!existsSync(path)) return res.status(404).end();
+    const ext = req.params.file.split(".").pop();
+    res.setHeader("Content-Type", `image/${ext === "jpg" ? "jpeg" : ext}`);
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    res.end(readFileSync(path));
+  });
 
   const launchView = () =>
     [...store.launches.values()]
