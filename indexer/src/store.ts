@@ -10,6 +10,9 @@ export type Launch = {
   curve: Address;
   deployer: Address;
   graduationThreshold: string;
+  pairToken?: string;
+  quoteSymbol?: string;
+  quoteDecimals?: number;
   // cached state (refreshed by the scanner)
   name?: string;
   symbol?: string;

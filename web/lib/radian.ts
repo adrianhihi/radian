@@ -36,6 +36,18 @@ export const RADIAN = {
   deployBlock: 61305678n,
 } as const;
 
+// Quote assets a token can be paired against. Native USDC is the gas coin
+// (pairToken = 0, 18-dec msg.value). EURC is an approved ERC-20 (6-dec) —
+// the "born paired to a real asset" story, on Arc's native Circle primitives.
+export const NATIVE_QUOTE = "0x0000000000000000000000000000000000000000" as Address;
+export type QuoteAsset = { key: string; symbol: string; address: Address; decimals: number; native: boolean; blurb: string };
+export const QUOTE_ASSETS: QuoteAsset[] = [
+  { key: "usdc", symbol: "USDC", address: NATIVE_QUOTE, decimals: 18, native: true, blurb: "Native dollar — the Arc gas coin" },
+  { key: "eurc", symbol: "EURC", address: "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a", decimals: 6, native: false, blurb: "Circle's euro stablecoin" },
+];
+export const quoteByAddress = (a?: string): QuoteAsset =>
+  QUOTE_ASSETS.find((q) => q.address.toLowerCase() === (a ?? "").toLowerCase()) ?? QUOTE_ASSETS[0];
+
 export const publicClient = createPublicClient({
   chain: arcTestnet,
   transport: http(),
@@ -66,6 +78,7 @@ export const curveAbi = parseAbi([
   "function graduated() view returns (bool)",
   "function sellableTokens() view returns (uint256)",
   "function feeBps() view returns (uint256)",
+  "function pairToken() view returns (address)",
   "function currentSnipeTaxBps(address recipient) view returns (uint256)",
 ]);
 
@@ -94,6 +107,14 @@ export const escrowAbi = parseAbi([
   "function balanceOf(address recipient) view returns (uint256)",
 ]);
 
+export const erc20Abi = parseAbi([
+  "function approve(address spender, uint256 value) returns (bool)",
+  "function allowance(address owner, address spender) view returns (uint256)",
+  "function balanceOf(address account) view returns (uint256)",
+  "function decimals() view returns (uint8)",
+  "function symbol() view returns (string)",
+]);
+
 export type LaunchRow = {
   token: Address;
   curve: Address;
@@ -107,6 +128,9 @@ export type LaunchRow = {
   trackedQuote: bigint;
   graduated: boolean;
   progress: number; // 0..1 toward graduation
+  quoteSymbol: string; // "USDC" | "EURC"
+  quoteDecimals: number; // 18 native, 6 for EURC
+  pairToken: Address; // 0x0 for native
 };
 
 const explorerTx = (h: string) => `${arcTestnet.blockExplorers!.default.url}/tx/${h}`;

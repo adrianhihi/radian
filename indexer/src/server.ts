@@ -38,11 +38,14 @@ export function startServer() {
     res.end(readFileSync(path));
   });
 
+  const decOf = (token: string) => store.launches.get(token.toLowerCase())?.quoteDecimals ?? 18;
+
   const launchView = () =>
     [...store.launches.values()]
       .map((l) => {
-        const tq = fmt(l.trackedQuote);
-        const goal = fmt(l.graduationThreshold);
+        // progress is a ratio of same-unit values, so decimals cancel out
+        const tq = Number(l.trackedQuote ?? "0");
+        const goal = Number(l.graduationThreshold ?? "0");
         return {
           token: l.token,
           curve: l.curve,
@@ -56,6 +59,9 @@ export function startServer() {
           trackedQuote: l.trackedQuote ?? "0",
           graduationThreshold: l.graduationThreshold,
           buybackLocked: l.buybackLocked ?? "0",
+          pairToken: l.pairToken ?? "0x0000000000000000000000000000000000000000",
+          quoteSymbol: l.quoteSymbol ?? "USDC",
+          quoteDecimals: l.quoteDecimals ?? 18,
           progress: goal > 0 ? Math.min(1, tq / goal) : 0,
           createdAt: l.createdAt ?? 0,
         };
@@ -74,21 +80,28 @@ export function startServer() {
   app.get("/token/:addr", (req, res) => {
     const l = launchView().find((x) => x.token.toLowerCase() === req.params.addr.toLowerCase());
     if (!l) return res.status(404).json({ error: "not found" });
+    const dec = decOf(req.params.addr);
     const trades = store.trades
       .filter((t) => t.token.toLowerCase() === req.params.addr.toLowerCase())
       .sort((a, b) => b.ts - a.ts)
-      .slice(0, 100);
+      .slice(0, 100)
+      .map((t) => ({ ...t, quoteDecimals: dec, quoteSymbol: l.quoteSymbol }));
     res.json({ token: l, trades });
   });
 
   app.get("/activity", (req, res) => {
     const limit = Math.min(200, Number(req.query.limit ?? 50));
     const byToken = new Map(launchView().map((l) => [l.token.toLowerCase(), l]));
-    const trades = store.recentTrades(limit).map((t) => ({
-      ...t,
-      name: byToken.get(t.token.toLowerCase())?.name ?? "",
-      symbol: byToken.get(t.token.toLowerCase())?.symbol ?? "",
-    }));
+    const trades = store.recentTrades(limit).map((t) => {
+      const l = byToken.get(t.token.toLowerCase());
+      return {
+        ...t,
+        name: l?.name ?? "",
+        symbol: l?.symbol ?? "",
+        quoteSymbol: l?.quoteSymbol ?? "USDC",
+        quoteDecimals: l?.quoteDecimals ?? 18,
+      };
+    });
     res.json({ trades });
   });
 
@@ -98,7 +111,8 @@ export function startServer() {
     const since = window === "24h" ? Date.now() - 86_400_000 : 0;
     const trades = store.trades.filter((t) => t.ts >= since);
 
-    const q = (t: (typeof trades)[number]) => fmt(t.quote);
+    // format each trade's quote leg in its own asset decimals (USDC 18, EURC 6)
+    const q = (t: (typeof trades)[number]) => Number(t.quote) / 10 ** decOf(t.token);
     const buys = trades.filter((t) => t.side === "buy");
     const sells = trades.filter((t) => t.side === "sell");
     const buyVolume = buys.reduce((s, t) => s + q(t), 0);

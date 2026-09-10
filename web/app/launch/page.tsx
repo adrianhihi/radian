@@ -1,10 +1,10 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { formatUnits, parseEther, decodeEventLog } from "viem";
+import { formatUnits, parseEther, parseUnits, decodeEventLog } from "viem";
 import { Nav } from "@/components/Nav";
 import { useReveal } from "@/lib/useReveal";
-import { publicClient, RADIAN, factoryAbi, curveAbi, arcTestnet } from "@/lib/radian";
+import { publicClient, RADIAN, factoryAbi, curveAbi, erc20Abi, arcTestnet, QUOTE_ASSETS, type QuoteAsset } from "@/lib/radian";
 import { useRadianWallet } from "@/lib/useRadianWallet";
 import { addLocalLaunch } from "@/lib/registry";
 import { INDEXER_URL, hasIndexer } from "@/lib/indexer";
@@ -22,6 +22,7 @@ export default function LaunchPage() {
   const [website, setWebsite] = useState("");
   const [twitter, setTwitter] = useState("");
   const [devBuy, setDevBuy] = useState("");
+  const [quote, setQuote] = useState<QuoteAsset>(QUOTE_ASSETS[0]);
   const [feeMode, setFeeMode] = useState<"buyback" | "creator">("buyback");
   const [creatorTax, setCreatorTax] = useState("0");
   const [feeRecipient, setFeeRecipient] = useState("");
@@ -115,7 +116,7 @@ export default function LaunchPage() {
             salt,
           },
           0n,
-          "0x0000000000000000000000000000000000000000",
+          quote.address,
         ],
         value: LAUNCH_FEE,
       });
@@ -150,21 +151,33 @@ export default function LaunchPage() {
       }
 
       // Optional dev buy: creator seeds the first buy on the new curve. The
-      // creator is snipe-tax-exempt, so this settles untaxed.
+      // creator is snipe-tax-exempt, so this settles untaxed. For a native-USDC
+      // curve the amount rides msg.value; for an ERC-20 quote (EURC) we approve
+      // the curve to pull it, then buy with no value.
       const dev = Number(devBuy);
       if (curveAddr && dev > 0) {
-        setToast("Confirm your first buy…");
-        const buyWei = parseEther(devBuy);
-        const bh = await client.writeContract({
-          account,
-          chain: arcTestnet,
-          address: curveAddr as `0x${string}`,
-          abi: curveAbi,
-          functionName: "buy",
-          args: [buyWei, 0n, account],
-          value: buyWei,
-        });
-        await publicClient.waitForTransactionReceipt({ hash: bh });
+        const buyAmt = parseUnits(devBuy, quote.decimals);
+        if (quote.native) {
+          setToast("Confirm your first buy…");
+          const bh = await client.writeContract({
+            account, chain: arcTestnet, address: curveAddr as `0x${string}`, abi: curveAbi,
+            functionName: "buy", args: [buyAmt, 0n, account], value: buyAmt,
+          });
+          await publicClient.waitForTransactionReceipt({ hash: bh });
+        } else {
+          setToast(`Approve ${quote.symbol}…`);
+          const ah = await client.writeContract({
+            account, chain: arcTestnet, address: quote.address, abi: erc20Abi,
+            functionName: "approve", args: [curveAddr as `0x${string}`, buyAmt],
+          });
+          await publicClient.waitForTransactionReceipt({ hash: ah });
+          setToast("Confirm your first buy…");
+          const bh = await client.writeContract({
+            account, chain: arcTestnet, address: curveAddr as `0x${string}`, abi: curveAbi,
+            functionName: "buy", args: [buyAmt, 0n, account],
+          });
+          await publicClient.waitForTransactionReceipt({ hash: bh });
+        }
       }
 
       setToast("Launched! Redirecting…");
@@ -251,8 +264,34 @@ export default function LaunchPage() {
             />
             <p className="hint">
               Buy your own token right after launch, in the same flow (untaxed — you&apos;re the
-              creator). Sets the opening price and shows conviction. Amount in USDC.
+              creator). Sets the opening price and shows conviction. Amount in {quote.symbol}.
             </p>
+          </div>
+
+          <div style={{ borderTop: "1px solid var(--border-soft)", margin: "6px 0 18px" }} />
+
+          <div className="field">
+            <label>Paired market</label>
+            <p className="hint" style={{ marginTop: 0, marginBottom: 12 }}>
+              The asset your token is priced and traded in. Graduation seeds a locked pool paired
+              with it.
+            </p>
+            <div className="feemode-grid" style={{ gridTemplateColumns: "repeat(2,1fr)" }}>
+              {QUOTE_ASSETS.map((qa) => {
+                const on = quote.key === qa.key;
+                return (
+                  <button
+                    key={qa.key}
+                    type="button"
+                    onClick={() => setQuote(qa)}
+                    className={`feemode-card${on ? " on" : ""}`}
+                  >
+                    <span className="fm-title">{qa.symbol}</span>
+                    <span className="fm-desc">{qa.blurb}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div style={{ borderTop: "1px solid var(--border-soft)", margin: "6px 0 18px" }} />
@@ -298,9 +337,10 @@ export default function LaunchPage() {
           </div>
 
           <div style={{ borderTop: "1px solid var(--border-soft)", margin: "6px 0 16px" }} />
-          <div className="kv"><span>Quote asset</span><span className="v">Native USDC</span></div>
+          <div className="kv"><span>Quote asset</span><span className="v">{quote.native ? "Native USDC" : quote.symbol}</span></div>
           <div className="kv"><span>Supply</span><span className="v">1,000,000,000</span></div>
-          <div className="kv"><span>Graduation goal</span><span className="v">20 USDC in curve</span></div>
+          <div className="kv"><span>Graduation goal</span><span className="v">20 {quote.symbol} in curve</span></div>
+          <div className="kv"><span>First buy</span><span className="v">{devBuy && Number(devBuy) > 0 ? `${devBuy} ${quote.symbol}` : "—"}</span></div>
           <div className="kv"><span>Trade fee</span><span className="v">1% (50% to you)</span></div>
 
           <button className="btn btn-primary" style={{ width: "100%", marginTop: 20, justifyContent: "center" }} onClick={launch} disabled={busy}>

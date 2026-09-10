@@ -5,7 +5,7 @@ import type { LaunchRow } from "@/lib/radian";
 
 export function TokenCard({ row, delay }: { row: LaunchRow; delay: number }) {
   const pct = Math.round(row.progress * 100);
-  const reserve = Number(formatUnits(row.trackedQuote, 18));
+  const reserve = Number(formatUnits(row.trackedQuote, row.quoteDecimals));
   return (
     <Link href={`/token/${row.token}`} className="card reveal" data-reveal-delay={delay}>
       <div className="card-top">
@@ -35,8 +35,8 @@ export function TokenCard({ row, delay }: { row: LaunchRow; delay: number }) {
           <span style={{ width: `${Math.max(2, pct)}%` }} />
         </div>
         <div className="prog-row" style={{ marginTop: 6, marginBottom: 0 }}>
-          <span>{reserve.toLocaleString(undefined, { maximumFractionDigits: 2 })} USDC in curve</span>
-          <span>goal {Number(formatUnits(row.graduationThreshold, 18)).toLocaleString()} USDC</span>
+          <span>{reserve.toLocaleString(undefined, { maximumFractionDigits: 2 })} {row.quoteSymbol} in curve</span>
+          <span>goal {Number(formatUnits(row.graduationThreshold, row.quoteDecimals)).toLocaleString()} {row.quoteSymbol}</span>
         </div>
       </div>
     </Link>

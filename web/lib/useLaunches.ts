@@ -68,6 +68,9 @@ export function useLaunches() {
           trackedQuote,
           graduated,
           progress,
+          quoteSymbol: "USDC",
+          quoteDecimals: 18,
+          pairToken: "0x0000000000000000000000000000000000000000",
         });
       });
       setRows(out);

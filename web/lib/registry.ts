@@ -6,6 +6,7 @@ const DEV = "0x13E6b6C635CAcD4B27C9309251A4D083457eb11C" as Address;
 const G = "20000000000000000000";
 const seed: RegistryEntry[] = [
   // newest first; all launched + funded on Arc testnet via the live factory
+  { token: "0xF10B44F56AA4D92081e62311102E78EB39fe74DF", curve: "0xcEF395CCd9f79c11b459BB7bA1afd94227fE7Fd4", deployer: DEV, graduationThreshold: "20000000" }, // EDOGE — EURC-paired (6-dec)
   { token: "0xDe25b6d469f5607F830e4340FF7f70C2C362537f", curve: "0x0c1fd7F6838F2B73Cd035D73ae5619E05bF34b77", deployer: DEV, graduationThreshold: G },
   { token: "0xbDd735b3589420F9A4C3f31f080D1163eFa23f1F", curve: "0x2be563704A6290F6701378b392b4dFfd439e24Cd", deployer: DEV, graduationThreshold: G },
   { token: "0x2C1E7E5aC36cf54422ac035c7F008C2bCAC85988", curve: "0xEaab57d5180284E25bf909f0A9D282CB94C0E3CF", deployer: DEV, graduationThreshold: G },

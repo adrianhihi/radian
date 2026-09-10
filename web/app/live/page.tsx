@@ -56,7 +56,7 @@ export default function LivePage() {
             <div className="empty">Connecting to Arc…</div>
           ) : (
             rows.map((r) => {
-              const reserve = Number(formatUnits(r.trackedQuote, 18));
+              const reserve = Number(formatUnits(r.trackedQuote, r.quoteDecimals));
               const pct = Math.round(r.progress * 100);
               return (
                 <Link
@@ -82,7 +82,7 @@ export default function LivePage() {
                   <span style={{ display: "flex", gap: 40, fontVariantNumeric: "tabular-nums" }}>
                     <span className="v mono" style={{ width: 110, textAlign: "right" }}>
                       {(
-                        Number(formatUnits(r.quoteReserve, 18)) / 1_000_000_000
+                        Number(formatUnits(r.quoteReserve, r.quoteDecimals)) / 1_000_000_000
                       ).toExponential(2)}
                     </span>
                     <span className="v" style={{ width: 90, textAlign: "right" }}>
@@ -134,7 +134,7 @@ export default function LivePage() {
                     </span>
                     <span style={{ display: "flex", gap: 24, alignItems: "center" }}>
                       <span className="v">
-                        {Number(formatUnits(BigInt(t.quote), 18)).toLocaleString(undefined, { maximumFractionDigits: 3 })} USDC
+                        {Number(formatUnits(BigInt(t.quote), t.quoteDecimals ?? 18)).toLocaleString(undefined, { maximumFractionDigits: 3 })} {t.quoteSymbol ?? "USDC"}
                       </span>
                       <span style={{ color: "var(--fg-faint)", fontSize: 12, width: 34, textAlign: "right" }}>
                         {ago(t.ts)}

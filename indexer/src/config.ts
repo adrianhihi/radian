@@ -15,6 +15,14 @@ export const FACTORY = "0x90022cC2107De9c070F889E3A67009FcA270E4E2" as Address;
 export const VAULT = "0xe84D81C3d4f3E12123C9F934AB3Cb8238772b39e" as Address;
 export const FACTORY_DEPLOY_BLOCK = 61305678n;
 
+// Resolve a launch's pairToken to display metadata. Native (0x0) = USDC/18.
+export function quoteMeta(pairToken?: string): { symbol: string; decimals: number } {
+  const a = (pairToken ?? "").toLowerCase();
+  if (!a || a === "0x0000000000000000000000000000000000000000") return { symbol: "USDC", decimals: 18 };
+  if (a === "0x89b50855aa3be2f677cd6303cec089b5f319d72a") return { symbol: "EURC", decimals: 6 };
+  return { symbol: "TOKEN", decimals: 18 };
+}
+
 // Seed launches so /launches is never empty and historical trades are catchable.
 export const SEED: { token: Address; curve: Address; deployer: Address; graduationThreshold: string }[] = [
   { token: "0xDe25b6d469f5607F830e4340FF7f70C2C362537f", curve: "0x0c1fd7F6838F2B73Cd035D73ae5619E05bF34b77", deployer: "0x13E6b6C635CAcD4B27C9309251A4D083457eb11C", graduationThreshold: "20000000000000000000" },

@@ -4,9 +4,10 @@ import Link from "next/link";
 import { formatUnits, parseEther, type Address } from "viem";
 import { Nav } from "@/components/Nav";
 import { TradePanel } from "@/components/TradePanel";
-import { publicClient, curveAbi, tokenAbi, explorer, arcTestnet } from "@/lib/radian";
+import { publicClient, curveAbi, tokenAbi, erc20Abi, explorer, arcTestnet, quoteByAddress } from "@/lib/radian";
 import { useRadianWallet } from "@/lib/useRadianWallet";
 import { findCurve } from "@/lib/registry";
+import { parseUnits } from "viem";
 
 type State = {
   name: string;
@@ -20,6 +21,10 @@ type State = {
   graduationThreshold: bigint;
   graduated: boolean;
   sellable: bigint;
+  quoteDecimals: number;
+  quoteSymbol: string;
+  pairToken: Address;
+  native: boolean;
 };
 
 export default function TokenPage({ params }: { params: Promise<{ address: string }> }) {
@@ -37,7 +42,7 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
     // curve address comes from the registry (getLogs is unreliable on Arc)
     const curve = (findCurve(token)?.curve ?? null) as Address | null;
     if (!curve) return;
-    const [name, symbol, logo, description, reserves, tracked, gthr, grad, sellable] =
+    const [name, symbol, logo, description, reserves, tracked, gthr, grad, sellable, pair] =
       await Promise.all([
         publicClient.readContract({ address: token, abi: tokenAbi, functionName: "name" }),
         publicClient.readContract({ address: token, abi: tokenAbi, functionName: "symbol" }),
@@ -48,8 +53,10 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
         publicClient.readContract({ address: curve, abi: curveAbi, functionName: "graduationThreshold" }),
         publicClient.readContract({ address: curve, abi: curveAbi, functionName: "graduated" }),
         publicClient.readContract({ address: curve, abi: curveAbi, functionName: "sellableTokens" }).catch(() => 0n),
+        publicClient.readContract({ address: curve, abi: curveAbi, functionName: "pairToken" }).catch(() => "0x0000000000000000000000000000000000000000" as Address),
       ]);
     const r = reserves as [bigint, bigint];
+    const qa = quoteByAddress(pair as string);
     setSt({
       name: name as string,
       symbol: symbol as string,
@@ -62,6 +69,10 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
       graduationThreshold: gthr as bigint,
       graduated: grad as boolean,
       sellable: sellable as bigint,
+      quoteDecimals: qa.decimals,
+      quoteSymbol: qa.symbol,
+      pairToken: pair as Address,
+      native: qa.native,
     });
   }, [token]);
 
@@ -84,7 +95,7 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
     try {
       const feeBps = 100n;
       if (side === "buy") {
-        const inWei = parseEther(amount);
+        const inWei = parseUnits(amount, st.quoteDecimals);
         const net = (inWei * (10000n - feeBps)) / 10000n;
         const out = (st.tokenReserve * net) / (st.quoteReserve + net);
         return `${Number(formatUnits(out, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })} ${st.symbol}`;
@@ -92,7 +103,7 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
         const inTok = parseEther(amount);
         const gross = (st.quoteReserve * inTok) / (st.tokenReserve + inTok);
         const out = (gross * (10000n - feeBps)) / 10000n;
-        return `${Number(formatUnits(out, 18)).toLocaleString(undefined, { maximumFractionDigits: 4 })} USDC`;
+        return `${Number(formatUnits(out, st.quoteDecimals)).toLocaleString(undefined, { maximumFractionDigits: 4 })} ${st.quoteSymbol}`;
       }
     } catch {
       return null;
@@ -115,18 +126,28 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
       }
       const { client, account: acct } = wc;
       if (side === "buy") {
-        const inWei = parseEther(amount);
-        setToast("Confirm buy…");
-        const hash = await client.writeContract({
-          account: acct,
-          chain: arcTestnet,
-          address: st.curve,
-          abi: curveAbi,
-          functionName: "buy",
-          args: [inWei, 0n, acct],
-          value: inWei,
-        });
-        await publicClient.waitForTransactionReceipt({ hash });
+        const inWei = parseUnits(amount, st.quoteDecimals);
+        if (st.native) {
+          setToast("Confirm buy…");
+          const hash = await client.writeContract({
+            account: acct, chain: arcTestnet, address: st.curve, abi: curveAbi,
+            functionName: "buy", args: [inWei, 0n, acct], value: inWei,
+          });
+          await publicClient.waitForTransactionReceipt({ hash });
+        } else {
+          setToast(`Approve ${st.quoteSymbol}…`);
+          const ah = await client.writeContract({
+            account: acct, chain: arcTestnet, address: st.pairToken, abi: erc20Abi,
+            functionName: "approve", args: [st.curve, inWei],
+          });
+          await publicClient.waitForTransactionReceipt({ hash: ah });
+          setToast("Confirm buy…");
+          const hash = await client.writeContract({
+            account: acct, chain: arcTestnet, address: st.curve, abi: curveAbi,
+            functionName: "buy", args: [inWei, 0n, acct],
+          });
+          await publicClient.waitForTransactionReceipt({ hash });
+        }
         setToast("Bought ✓");
       } else {
         const inTok = parseEther(amount);
@@ -176,7 +197,7 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
     ? Math.min(100, Number((st.trackedQuote * 10000n) / st.graduationThreshold) / 100)
     : 0;
   const price = st.tokenReserve > 0n
-    ? Number(formatUnits(st.quoteReserve, 18)) / Number(formatUnits(st.tokenReserve, 18))
+    ? Number(formatUnits(st.quoteReserve, st.quoteDecimals)) / Number(formatUnits(st.tokenReserve, 18))
     : 0;
 
   return (
@@ -210,14 +231,14 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
               <div className="prog-row"><span>Bonding progress</span><span>{pct.toFixed(1)}%</span></div>
               <div className="prog"><span style={{ width: `${Math.max(2, pct)}%` }} /></div>
               <div className="prog-row" style={{ marginTop: 8, marginBottom: 0 }}>
-                <span>{Number(formatUnits(st.trackedQuote, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 })} USDC in curve</span>
-                <span>goal {Number(formatUnits(st.graduationThreshold, 18)).toLocaleString()} USDC</span>
+                <span>{Number(formatUnits(st.trackedQuote, st.quoteDecimals)).toLocaleString(undefined, { maximumFractionDigits: 2 })} {st.quoteSymbol} in curve</span>
+                <span>goal {Number(formatUnits(st.graduationThreshold, st.quoteDecimals)).toLocaleString()} {st.quoteSymbol}</span>
               </div>
             </div>
 
             <div className="panel" style={{ marginTop: 16 }}>
-              <div className="kv"><span>Spot price</span><span className="v">{price.toExponential(3)} USDC</span></div>
-              <div className="kv"><span>Curve reserve</span><span className="v">{Number(formatUnits(st.quoteReserve, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 })} USDC</span></div>
+              <div className="kv"><span>Spot price</span><span className="v">{price.toExponential(3)} {st.quoteSymbol}</span></div>
+              <div className="kv"><span>Curve reserve</span><span className="v">{Number(formatUnits(st.quoteReserve, st.quoteDecimals)).toLocaleString(undefined, { maximumFractionDigits: 2 })} {st.quoteSymbol}</span></div>
               <div className="kv"><span>Sellable supply</span><span className="v">{Number(formatUnits(st.sellable, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
               <div className="kv"><span>Token</span><a className="v mono" href={explorer.address(token)} target="_blank" rel="noreferrer" style={{ color: "var(--radian-2)" }}>{token.slice(0, 8)}…{token.slice(-6)}</a></div>
               <div className="kv"><span>Curve</span><a className="v mono" href={explorer.address(st.curve)} target="_blank" rel="noreferrer" style={{ color: "var(--radian-2)" }}>{st.curve.slice(0, 8)}…{st.curve.slice(-6)}</a></div>
@@ -242,7 +263,7 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
                   <button className={side === "sell" ? "on-sell" : ""} onClick={() => setSide("sell")}>Sell</button>
                 </div>
                 <div className="field">
-                  <label>{side === "buy" ? "You pay (USDC)" : `You sell (${st.symbol})`}</label>
+                  <label>{side === "buy" ? `You pay (${st.quoteSymbol})` : `You sell (${st.symbol})`}</label>
                   <input className="input" type="number" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.0" />
                   {side === "sell" && (
                     <p className="hint">Balance: {Number(formatUnits(myTokens, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })} {st.symbol}</p>

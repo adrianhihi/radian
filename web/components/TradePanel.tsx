@@ -3,9 +3,9 @@ import { useEffect, useState } from "react";
 import { formatUnits } from "viem";
 import { hasIndexer, fetchTokenTrades, type TokenTrade } from "@/lib/indexer";
 
-// Price of a trade = USDC in/out ÷ tokens, i.e. USDC per token.
+// Price of a trade = quote in/out ÷ tokens, i.e. quote per token.
 function priceOf(t: TokenTrade): number {
-  const q = Number(formatUnits(BigInt(t.quote), 18));
+  const q = Number(formatUnits(BigInt(t.quote), t.quoteDecimals ?? 18));
   const tok = Number(formatUnits(BigInt(t.tokens), 18));
   return tok > 0 ? q / tok : 0;
 }
@@ -97,7 +97,7 @@ export function TradePanel({ token, symbol }: { token: string; symbol: string })
             </span>
             <span style={{ display: "flex", gap: 14, alignItems: "center" }}>
               <span className="v">
-                {Number(formatUnits(BigInt(t.quote), 18)).toLocaleString(undefined, { maximumFractionDigits: 3 })} USDC
+                {Number(formatUnits(BigInt(t.quote), t.quoteDecimals ?? 18)).toLocaleString(undefined, { maximumFractionDigits: 3 })} {t.quoteSymbol ?? "USDC"}
               </span>
               <span style={{ color: "var(--fg-faint)", fontSize: 12, width: 30, textAlign: "right" }}>{ago(t.ts)}</span>
             </span>

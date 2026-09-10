@@ -29,6 +29,9 @@ type ApiLaunch = {
   graduationThreshold: string;
   buybackLocked: string;
   progress: number;
+  pairToken: Address;
+  quoteSymbol: string;
+  quoteDecimals: number;
 };
 
 export async function fetchLaunches(): Promise<LaunchRow[]> {
@@ -46,6 +49,9 @@ export async function fetchLaunches(): Promise<LaunchRow[]> {
     trackedQuote: BigInt(l.trackedQuote),
     graduated: l.graduated,
     progress: l.progress,
+    quoteSymbol: l.quoteSymbol ?? "USDC",
+    quoteDecimals: l.quoteDecimals ?? 18,
+    pairToken: l.pairToken ?? "0x0000000000000000000000000000000000000000",
   }));
 }
 
@@ -59,6 +65,8 @@ export type Activity = {
   tokens: string;
   name: string;
   symbol: string;
+  quoteSymbol?: string;
+  quoteDecimals?: number;
 };
 
 export async function fetchActivity(limit = 60): Promise<Activity[]> {
@@ -73,6 +81,8 @@ export type TokenTrade = {
   trader: Address;
   quote: string;
   tokens: string;
+  quoteDecimals?: number;
+  quoteSymbol?: string;
 };
 
 export async function fetchTokenTrades(token: string): Promise<TokenTrade[]> {

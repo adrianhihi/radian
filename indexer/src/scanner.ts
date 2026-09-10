@@ -9,6 +9,7 @@ import {
   curveReadAbi,
   tokenReadAbi,
   vaultAbi,
+  quoteMeta,
 } from "./config.js";
 import { store, type Launch } from "./store.js";
 
@@ -20,7 +21,7 @@ const INITIAL_LOOKBACK = 3000n; // on cold start, scan ~last 50 min for trades
 async function seedLaunches() {
   for (const s of SEED) {
     if (!store.launches.has(s.token.toLowerCase())) {
-      store.upsertLaunch({ ...s });
+      store.upsertLaunch({ ...s, pairToken: "0x0000000000000000000000000000000000000000", quoteSymbol: "USDC", quoteDecimals: 18 });
     }
   }
 }
@@ -90,11 +91,15 @@ async function processBlockRange(from: bigint, to: bigint) {
           const ev = tryDecode(factoryAbi, log);
           if (ev?.eventName === "TokenLaunched") {
             const a = ev.args as any;
+            const qm = quoteMeta(a.pairToken);
             store.upsertLaunch({
               token: a.token,
               curve: a.curve,
               deployer: a.deployer,
               graduationThreshold: (a.graduationThreshold as bigint).toString(),
+              pairToken: a.pairToken,
+              quoteSymbol: qm.symbol,
+              quoteDecimals: qm.decimals,
               createdBlock: n.toString(),
               createdAt: ts,
             });
