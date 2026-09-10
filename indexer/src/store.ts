@@ -52,6 +52,9 @@ const SNAPSHOT = process.env.SNAPSHOT_PATH ?? "./radian-index.json";
 const BACKUP = `${SNAPSHOT}.bak`;
 const MAX_TRADES = Number(process.env.MAX_TRADES ?? 10000);
 
+const legacyKey = (t: Trade) => `${t.txHash.toLowerCase()}:${t.side}:${t.trader.toLowerCase()}`;
+const eventKey = (t: Trade) => (t.logIndex != null ? `${t.txHash.toLowerCase()}:${t.logIndex}` : null);
+
 class Store {
   checkpoint = 0n;
   backfillFrom = 0n;
@@ -59,7 +62,10 @@ class Store {
   launches = new Map<string, Launch>();
   trades: Trade[] = [];
   private curveIndex = new Map<string, Launch>();
-  private tradeKeys = new Set<string>();
+  // Two indexes: by event (txHash:logIndex) and, for rows that predate
+  // logIndex, by the legacy (txHash:side:trader) key.
+  private byEvent = new Map<string, Trade>();
+  private legacyRows = new Map<string, Trade>();
 
   load() {
     // The live snapshot is written atomically (tmp + rename) and the previous
@@ -72,9 +78,12 @@ class Store {
         this.backfillFrom = BigInt(s.backfillFrom || "0");
         this.backfillCursor = BigInt(s.backfillCursor || "0");
         for (const l of s.launches ?? []) this.upsertLaunch(l);
-        for (const t of s.trades ?? []) this.addTrade(t);
+        // Rows with a logIndex first, so legacy duplicates of the same event
+        // (written before logIndex existed) are recognised and dropped.
+        const rows = [...(s.trades ?? [])].sort((a, b) => (a.logIndex != null ? 0 : 1) - (b.logIndex != null ? 0 : 1));
+        for (const t of rows) this.addTrade(t);
         console.log(
-          `[store] loaded ${path === BACKUP ? "BACKUP " : ""}snapshot: ${this.launches.size} launches, ${this.trades.length} trades, checkpoint ${this.checkpoint}, backfill ${this.backfillCursor}/${this.backfillFrom}`,
+          `[store] loaded ${path === BACKUP ? "BACKUP " : ""}snapshot: ${this.launches.size} launches, ${this.trades.length} trades (${(s.trades ?? []).length} rows), checkpoint ${this.checkpoint}, backfill ${this.backfillCursor}/${this.backfillFrom}`,
         );
         return;
       } catch (e) {
@@ -114,22 +123,39 @@ class Store {
     return this.curveIndex.get(addr.toLowerCase());
   }
 
-  private tradeKey(t: Trade) {
-    // logIndex uniquely identifies an event; older snapshots predate it, so
-    // fall back to the legacy (hash, side, trader) key for those rows only.
-    return t.logIndex != null ? `${t.txHash.toLowerCase()}:${t.logIndex}` : `${t.txHash.toLowerCase()}:${t.side}:${t.trader.toLowerCase()}`;
-  }
-
   addTrade(t: Trade) {
-    const k = this.tradeKey(t);
-    if (this.tradeKeys.has(k)) return;
-    this.tradeKeys.add(k);
+    const ek = eventKey(t);
+    const lk = legacyKey(t);
+    if (ek) {
+      if (this.byEvent.has(ek)) return;
+      // Same event already stored without a logIndex (pre-upgrade row): upgrade it in place.
+      const legacy = this.legacyRows.get(lk);
+      if (legacy) {
+        legacy.logIndex = t.logIndex;
+        legacy.block = t.block;
+        legacy.ts = t.ts;
+        this.legacyRows.delete(lk);
+        this.byEvent.set(ek, legacy);
+        return;
+      }
+      this.byEvent.set(ek, t);
+    } else {
+      // Legacy row: skip if an event row for the same (hash, side, trader) exists,
+      // or another legacy row already covers it.
+      if (this.legacyRows.has(lk)) return;
+      for (const row of this.byEvent.values()) if (legacyKey(row) === lk) return;
+      this.legacyRows.set(lk, t);
+    }
     this.trades.push(t);
     if (this.trades.length > MAX_TRADES) {
       // Drop the oldest by time, not by insertion order — backfill inserts old rows late.
       this.trades.sort((a, b) => a.ts - b.ts);
       const dropped = this.trades.splice(0, this.trades.length - MAX_TRADES);
-      for (const d of dropped) this.tradeKeys.delete(this.tradeKey(d));
+      for (const d of dropped) {
+        const dk = eventKey(d);
+        if (dk) this.byEvent.delete(dk);
+        else this.legacyRows.delete(legacyKey(d));
+      }
     }
   }
 

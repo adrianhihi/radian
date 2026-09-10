@@ -8,6 +8,8 @@ import { fmt } from "./scanner.js";
 import {
   publicClient,
   RADIAN,
+  SUNSET,
+  isSunset,
   stakingAbi,
   treasuryAbi,
   radianTokenAbi,
@@ -77,6 +79,7 @@ export function startServer() {
           quoteDecimals: l.quoteDecimals ?? 18,
           progress: goal > 0 ? Math.min(1, tq / goal) : 0,
           createdAt: l.createdAt ?? 0,
+          sunset: SUNSET[l.token.toLowerCase()] ?? null,
         };
       })
       // newest first (by createdAt when known, else by reserve)
@@ -87,7 +90,8 @@ export function startServer() {
   });
 
   app.get("/launches", (_req, res) => {
-    res.json({ launches: launchView() });
+    // Retired launches stay resolvable at /token/:addr but leave the lists.
+    res.json({ launches: launchView().filter((l) => !l.sunset) });
   });
 
   app.get("/token/:addr", (req, res) => {
@@ -105,7 +109,7 @@ export function startServer() {
   app.get("/activity", (req, res) => {
     const limit = Math.max(1, Math.min(200, Math.floor(Number(req.query.limit)) || 50));
     const byToken = new Map(launchView().map((l) => [l.token.toLowerCase(), l]));
-    const trades = store.recentTrades(limit).map((t) => {
+    const trades = store.recentTrades(limit * 2).filter((t) => !isSunset(t.token)).slice(0, limit).map((t) => {
       const l = byToken.get(t.token.toLowerCase());
       return {
         ...t,
@@ -119,10 +123,10 @@ export function startServer() {
   });
 
   app.get("/stats", (req, res) => {
-    const ls = launchView();
+    const ls = launchView().filter((l) => !l.sunset);
     const window = req.query.window === "24h" ? "24h" : "all";
     const since = window === "24h" ? Date.now() - 86_400_000 : 0;
-    const trades = store.trades.filter((t) => t.ts >= since);
+    const trades = store.trades.filter((t) => t.ts >= since && !isSunset(t.token));
 
     // format each trade's quote leg in its own asset decimals (USDC 18, EURC 6)
     const q = (t: (typeof trades)[number]) => Number(t.quote) / 10 ** decOf(t.token);
@@ -149,6 +153,7 @@ export function startServer() {
     const buckets = new Array(24).fill(0);
     const now = Date.now();
     for (const t of store.trades) {
+      if (isSunset(t.token)) continue;
       const hrsAgo = Math.floor((now - t.ts) / 3_600_000);
       if (hrsAgo >= 0 && hrsAgo < 24) buckets[23 - hrsAgo] += q(t);
     }

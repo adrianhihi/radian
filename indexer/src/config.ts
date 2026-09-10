@@ -50,6 +50,18 @@ export function quoteMeta(pairToken?: string): { symbol: string; decimals: numbe
   return QUOTE_ASSETS[a] ?? { symbol: "TOKEN", decimals: 18 };
 }
 
+// Launches retired in favour of a successor. Hidden from the lists (Explore,
+// activity, stats) but still resolvable at /token/:addr so a direct link can
+// explain what happened and point to the current version.
+export const SUNSET: Record<string, { successor: Address; reason: string }> = {
+  // The Wall v1: its immutable on-chain description misstated the mechanics.
+  "0xf8ab1b64598d7d422baba415b10ec34ca6f0096d": {
+    successor: "0x5a8b01D1D7Bfe524F1969494528a64971897C535" as Address,
+    reason: "Relaunched with an on-chain description that matches the contracts.",
+  },
+};
+export const isSunset = (token: string) => token.toLowerCase() in SUNSET;
+
 // Seed launches so /launches is never empty on a cold start while the
 // backfill from FACTORY_DEPLOY_BLOCK is still running.
 const DEV = "0x13E6b6C635CAcD4B27C9309251A4D083457eb11C" as Address;
