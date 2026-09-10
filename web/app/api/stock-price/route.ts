@@ -29,14 +29,19 @@ export async function GET(req: Request) {
     };
     const m = json.chart?.result?.[0]?.meta;
     if (!m?.regularMarketPrice) throw new Error("no price");
-    return NextResponse.json({
-      symbol,
-      price: m.regularMarketPrice,
-      prevClose: m.chartPreviousClose ?? null,
-      currency: m.currency ?? "USD",
-      marketTime: m.regularMarketTime ?? null,
-      source: "Yahoo Finance",
-    });
+    return NextResponse.json(
+      {
+        symbol,
+        price: m.regularMarketPrice,
+        prevClose: m.chartPreviousClose ?? null,
+        currency: m.currency ?? "USD",
+        marketTime: m.regularMarketTime ?? null,
+        source: "Yahoo Finance",
+      },
+      // Public, keyless reference data — let product sites (e.g. the flagship
+      // token's own site) read it cross-origin.
+      { headers: { "Access-Control-Allow-Origin": "*" } },
+    );
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 502 });
   }
