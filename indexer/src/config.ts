@@ -107,8 +107,9 @@ export const vaultAbi = parseAbi([
 export const RADIAN = {
   token: "0x0B764B1e50E4D17A897Cdd9494CaC3355579fDcD" as Address,
   curve: "0x8925494f3cfB34cD0df2b4Bf83328928Fe22F126" as Address,
-  staking: "0x1da4Ebf52892Fb209701a8E6cFF06058e89c21Cc" as Address,
-  treasury: "0xbFf760f35F421cAE2E9650aF1571FDd618e206a7" as Address,
+  // v2 (2026-09-10): two-step ownership, escrow claim, bounded flush.
+  staking: "0xf3832Fa6EBa9cD09161C2010c7E93a1A2B7f8B4c" as Address,
+  treasury: "0xebCcaE2eDDaEfcaA5452058fc8f426dfC9570ba0" as Address,
 };
 
 export const stakingAbi = parseAbi([
