@@ -1,0 +1,4 @@
+node_modules/
+radian-index.json
+*.log
+.env
