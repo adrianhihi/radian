@@ -24,7 +24,7 @@ contract TransferOwnership is Script {
         uint256 pk = vm.envUint("PRIVATE_KEY");
         address multisig = vm.envAddress("MULTISIG");
         require(multisig != address(0), "set MULTISIG");
-        require(multisig.code.length > 0, "MULTISIG must be a contract (Safe) — an EOA typo here is unrecoverable");
+        require(multisig.code.length > 0, "MULTISIG must be a contract (Safe) - an EOA typo here is unrecoverable");
 
         address[6] memory targets = [
             vm.envAddress("FACTORY"),

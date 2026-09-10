@@ -3,8 +3,6 @@ cache/
 broadcast/
 .env
 .DS_Store
-lib/v4-core/
-lib/v4-periphery/
 
 # tooling / build artifacts
 .claude/
