@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import {Ownable, Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
+
 interface IERC20Min {
     function transfer(address to, uint256 v) external returns (bool);
     function transferFrom(address from, address to, uint256 v) external returns (bool);
@@ -13,10 +15,13 @@ interface IERC20Min {
 ///         gas coin (USDC on Arc), funded by RadianTreasury via `notifyReward`.
 ///         Rewards can never exceed what the treasury actually deposits, so this
 ///         is a distribution of real revenue, not an inflationary emission.
-contract RadianStaking {
+/// @dev Ownership is two-step (Ownable2Step) so the handover to a multisig
+///      cannot be lost to a typo, and it cannot be renounced (an ownerless
+///      pool could never re-point its distributor). Synthetix semantics are
+///      kept as-is: rewards streamed while nobody is staked are not recoverable.
+contract RadianStaking is Ownable2Step {
     IERC20Min public immutable stakingToken; // $RADIAN
     address public rewardsDistributor; // RadianTreasury (may notify rewards)
-    address public owner;
 
     uint256 public constant DURATION = 7 days;
     uint256 public periodFinish;
@@ -57,16 +62,19 @@ contract RadianStaking {
         _;
     }
 
-    constructor(address stakingToken_, address owner_) {
-        require(stakingToken_ != address(0) && owner_ != address(0), "zero");
+    constructor(address stakingToken_, address owner_) Ownable(owner_) {
+        require(stakingToken_ != address(0), "zero");
         stakingToken = IERC20Min(stakingToken_);
-        owner = owner_;
     }
 
-    function setRewardsDistributor(address d) external {
-        require(msg.sender == owner, "only owner");
+    function setRewardsDistributor(address d) external onlyOwner {
         rewardsDistributor = d;
         emit DistributorSet(d);
+    }
+
+    /// @dev An ownerless staking pool could never re-point its distributor.
+    function renounceOwnership() public pure override {
+        revert("renounce disabled");
     }
 
     // ---- views ----
@@ -119,15 +127,18 @@ contract RadianStaking {
         emit RewardPaid(msg.sender, reward);
     }
 
+    /// @notice Withdraw everything and claim. Safe to call with nothing staked
+    ///         (e.g. to collect rewards left after a full withdrawal).
     function exit() external {
-        withdraw(stakedOf[msg.sender]);
+        uint256 staked = stakedOf[msg.sender];
+        if (staked > 0) withdraw(staked);
         getReward();
     }
 
     /// @notice Fund a new reward period with native USDC (msg.value). Only the
-    ///         treasury/distributor. Streams over DURATION.
+    ///         treasury/distributor (or the owner). Streams over DURATION.
     function notifyReward() external payable updateReward(address(0)) {
-        require(msg.sender == rewardsDistributor || msg.sender == owner, "not distributor");
+        require(msg.sender == rewardsDistributor || msg.sender == owner(), "not distributor");
         uint256 reward = msg.value;
         require(reward > 0, "zero reward");
         if (block.timestamp >= periodFinish) {
