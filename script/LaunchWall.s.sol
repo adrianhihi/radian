@@ -32,14 +32,18 @@ contract LaunchWall is Script {
                 name: "The Wall",
                 symbol: "WALL",
                 logo: logo,
-                description: "A treasury that hoards NVDA and only buys. Priced in NVDA shares on Radian. "
-                    "Every trade fee buys $WALL back and locks it for 5 years - the wall is already being built.",
+                // Immutable on-chain. Every clause must match the contracts:
+                // the vault is a 5-year linear VEST, the buyback runs when the
+                // platform sweeps fees, and the treasury is Phase 2 (not live).
+                description: "The Wall ($WALL) is Radian's flagship product, priced in NVDA shares (NVDAx, a testnet stand-in). "
+                    "Launched in Buyback & Lock mode: the buyback share of trade fees buys $WALL back into a 5-year vesting vault "
+                    "when the platform sweeps fees. Phase 2 - a treasury that accumulates NVDA and defends a floor price - is in design, not live.",
                 socials: PonsV2LauncherToken.Socials("", "", "", "", ""),
                 creatorFeeRecipient: me, // placeholder for the Phase 2 treasury
                 creatorTaxBps: 0,
                 buybackEnabled: true,
                 expectedEconomics: bytes32(0),
-                salt: bytes32(uint256(0x0A11))
+                salt: bytes32(uint256(0x0A12)) // v2: relaunch with the corrected description
             }),
             0,
             NVDAX
