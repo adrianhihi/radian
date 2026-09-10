@@ -98,6 +98,33 @@ constants at the mainnet addresses). **If anything reverts, do NOT enable public
    then call `acceptOwnership()` on each** (Factory, Hook, Vault, Locker) before the transfer takes
    effect. Confirm `owner()` == multisig on all four afterward.
 
+## 6b. Frontend + indexer cutover (day-of checklist)
+
+The app already has a network switcher; flipping mainnet to live is config only.
+
+**`web/lib/networks.ts` → the `mainnet` block:**
+- [ ] `live: false` → **`true`**
+- [ ] `rpc:` — leave reading `NEXT_PUBLIC_ARC_MAINNET_RPC` (set it in Vercel, below)
+- [ ] `deployBlock:` set to the factory's deploy block (from the deploy tx receipt)
+- [ ] `indexerUrl:` — leave reading `NEXT_PUBLIC_MAINNET_INDEXER_URL` (set in Vercel)
+- [ ] `contracts:` fill `factory / locker / vault / escrow / hook` from the deploy output
+      (`poolManager` is already the canonical value — verify it on Arcscan)
+- [ ] `quoteAssets:` add mainnet USDC (native, already there) and any approved pair assets
+      (mainnet EURC / USYC addresses) once you've approved them on the factory
+
+**Vercel → Project → Settings → Environment Variables (Production):**
+- [ ] `NEXT_PUBLIC_ARC_MAINNET_RPC` = the Arc mainnet RPC
+- [ ] `NEXT_PUBLIC_MAINNET_INDEXER_URL` = the mainnet indexer URL (see below)
+
+**Indexer (Railway):** deploy a **second** indexer instance for mainnet (or add a network flag):
+- [ ] `indexer/src/config.ts`: point `FACTORY`, `FACTORY_DEPLOY_BLOCK`, `VAULT`, `SEED`, and
+      `quoteMeta` at the mainnet addresses; set `ARC_RPC` to the mainnet RPC.
+- [ ] Give it its own Railway volume; copy that service's public URL into
+      `NEXT_PUBLIC_MAINNET_INDEXER_URL`.
+
+Then `git push` (Vercel auto-deploys) and switch the top-right toggle to Mainnet to smoke-test
+the live UI end to end.
+
 ## 7. Licensing (must clear before mainnet)
 
 - **First-party Pons V2 contracts** (`src/v2/`): MIT. Fine to deploy.
