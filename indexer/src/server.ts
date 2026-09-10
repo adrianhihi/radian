@@ -92,14 +92,56 @@ export function startServer() {
     res.json({ trades });
   });
 
-  app.get("/stats", (_req, res) => {
+  app.get("/stats", (req, res) => {
     const ls = launchView();
+    const window = String(req.query.window ?? "all"); // "24h" | "all"
+    const since = window === "24h" ? Date.now() - 86_400_000 : 0;
+    const trades = store.trades.filter((t) => t.ts >= since);
+
+    const q = (t: (typeof trades)[number]) => fmt(t.quote);
+    const buys = trades.filter((t) => t.side === "buy");
+    const sells = trades.filter((t) => t.side === "sell");
+    const buyVolume = buys.reduce((s, t) => s + q(t), 0);
+    const sellVolume = sells.reduce((s, t) => s + q(t), 0);
+    const volume = buyVolume + sellVolume;
+
+    // per-token ranked table
+    const byTok = new Map<string, { token: string; name: string; symbol: string; volume: number; buys: number; sells: number; trades: number }>();
+    for (const t of trades) {
+      const k = t.token.toLowerCase();
+      const l = ls.find((x) => x.token.toLowerCase() === k);
+      const row = byTok.get(k) ?? { token: t.token, name: l?.name ?? "", symbol: l?.symbol ?? "", volume: 0, buys: 0, sells: 0, trades: 0 };
+      row.volume += q(t);
+      row.trades += 1;
+      if (t.side === "buy") row.buys += 1; else row.sells += 1;
+      byTok.set(k, row);
+    }
+    const ranked = [...byTok.values()].sort((a, b) => b.volume - a.volume);
+
+    // hourly volume buckets for the last 24h (for the chart)
+    const buckets = new Array(24).fill(0);
+    const now = Date.now();
+    for (const t of store.trades) {
+      const hrsAgo = Math.floor((now - t.ts) / 3_600_000);
+      if (hrsAgo >= 0 && hrsAgo < 24) buckets[23 - hrsAgo] += q(t);
+    }
+
     res.json({
+      window,
       launches: ls.length,
       graduated: ls.filter((l) => l.graduated).length,
       curveTvl: ls.reduce((s, l) => s + fmt(l.trackedQuote), 0),
       buybackLocked: ls.reduce((s, l) => s + fmt(l.buybackLocked), 0),
-      trades: store.trades.length,
+      trades: trades.length,
+      volume,
+      buyVolume,
+      sellVolume,
+      buyTrades: buys.length,
+      sellTrades: sells.length,
+      avgTrade: trades.length ? volume / trades.length : 0,
+      creatorRewards: volume * 0.005, // 1% fee × 50% creator share
+      hourlyVolume: buckets,
+      ranked,
     });
   });
 

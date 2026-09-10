@@ -22,9 +22,19 @@ export default function LaunchPage() {
   const [website, setWebsite] = useState("");
   const [twitter, setTwitter] = useState("");
   const [devBuy, setDevBuy] = useState("");
+  const [feeMode, setFeeMode] = useState<"buyback" | "creator">("buyback");
+  const [creatorTax, setCreatorTax] = useState("0");
+  const [feeRecipient, setFeeRecipient] = useState("");
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+
+  const FEE_MODES = [
+    { id: "buyback", icon: "🔥", title: "Buyback & Lock", desc: "Route the fee's buyback share into buying the token back and locking it in the 5-year vault.", live: true },
+    { id: "creator", icon: "👤", title: "Creator Fees", desc: "Send the creator fee (plus an optional creator tax) to a wallet you choose.", live: true },
+    { id: "holder", icon: "👥", title: "Holder Rewards", desc: "Distribute quote fees to holders automatically. Needs a contract upgrade.", live: false },
+    { id: "sharing", icon: "🤝", title: "Fee Sharing", desc: "Split quote fees across up to five wallets. Needs a contract upgrade.", live: false },
+  ] as const;
 
   async function onPickImage(file: File | undefined) {
     if (!file) return;
@@ -96,9 +106,11 @@ export default function LaunchPage() {
               website: website.trim(),
               farcaster: "",
             },
-            creatorFeeRecipient: account,
-            creatorTaxBps: 0,
-            buybackEnabled: true,
+            creatorFeeRecipient: (feeMode === "creator" && /^0x[a-fA-F0-9]{40}$/.test(feeRecipient.trim())
+              ? feeRecipient.trim()
+              : account) as `0x${string}`,
+            creatorTaxBps: feeMode === "creator" ? Math.round(Math.min(10, Math.max(0, Number(creatorTax) || 0)) * 100) : 0,
+            buybackEnabled: feeMode === "buyback",
             expectedEconomics: "0x0000000000000000000000000000000000000000000000000000000000000000",
             salt,
           },
@@ -188,32 +200,28 @@ export default function LaunchPage() {
             </div>
           </div>
           <div className="field">
-            <label>Logo</label>
-            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-              <label
-                className="btn btn-ghost"
-                style={{ cursor: uploading ? "wait" : "pointer", flexShrink: 0 }}
-              >
-                {uploading ? <span className="spinner" /> : logo ? "Change image" : "Upload image"}
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp,image/gif"
-                  style={{ display: "none" }}
-                  onChange={(e) => onPickImage(e.target.files?.[0])}
-                />
-              </label>
-              {logo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={logo} alt="logo" style={{ width: 46, height: 46, borderRadius: 11, objectFit: "cover", border: "1px solid var(--border)" }} />
-              ) : (
-                <input
-                  className="input"
-                  value={logo}
-                  onChange={(e) => setLogo(e.target.value)}
-                  placeholder="…or paste an image URL"
-                />
-              )}
-            </div>
+            <label>Token image <span style={{ color: "var(--fg-faint)", fontWeight: 400 }}>.png .jpeg .webp .gif</span></label>
+            <label className="filepick" style={{ cursor: uploading ? "wait" : "pointer" }}>
+              <span className="filepick-box">
+                {logo && /^https?:\/\//.test(logo) ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={logo} alt="logo" />
+                ) : uploading ? (
+                  <span className="spinner" />
+                ) : (
+                  "+"
+                )}
+              </span>
+              <span className="filepick-label">
+                {uploading ? "Uploading…" : logo ? "Change file…" : "Choose file…"}
+              </span>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                style={{ display: "none" }}
+                onChange={(e) => onPickImage(e.target.files?.[0])}
+              />
+            </label>
           </div>
           <div className="field">
             <label>Description</label>
@@ -245,6 +253,48 @@ export default function LaunchPage() {
               Buy your own token right after launch, in the same flow (untaxed — you&apos;re the
               creator). Sets the opening price and shows conviction. Amount in USDC.
             </p>
+          </div>
+
+          <div style={{ borderTop: "1px solid var(--border-soft)", margin: "6px 0 18px" }} />
+
+          <div className="field">
+            <label>Fee mode</label>
+            <p className="hint" style={{ marginTop: 0, marginBottom: 12 }}>
+              How the quote-asset fee is used. Snapshotted on-chain at launch.
+            </p>
+            <div className="feemode-grid">
+              {FEE_MODES.map((m) => {
+                const on = feeMode === (m.id as any);
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    disabled={!m.live}
+                    onClick={() => m.live && setFeeMode(m.id as "buyback" | "creator")}
+                    className={`feemode-card${on ? " on" : ""}${!m.live ? " soon" : ""}`}
+                  >
+                    <span style={{ fontSize: 18 }}>{m.icon}</span>
+                    <span className="fm-title">
+                      {m.title}
+                      {!m.live && <span className="fm-soon">Soon</span>}
+                    </span>
+                    <span className="fm-desc">{m.desc}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {feeMode === "creator" && (
+              <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "1fr 1.4fr", gap: 12 }}>
+                <div>
+                  <label style={{ fontSize: 12 }}>Creator tax %</label>
+                  <input className="input" type="number" min="0" max="10" step="0.5" value={creatorTax} onChange={(e) => setCreatorTax(e.target.value)} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12 }}>Fee recipient (optional)</label>
+                  <input className="input mono" style={{ fontSize: 12 }} value={feeRecipient} onChange={(e) => setFeeRecipient(e.target.value)} placeholder="0x… (defaults to you)" />
+                </div>
+              </div>
+            )}
           </div>
 
           <div style={{ borderTop: "1px solid var(--border-soft)", margin: "6px 0 16px" }} />

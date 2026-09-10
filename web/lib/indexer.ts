@@ -79,3 +79,25 @@ export async function fetchTokenTrades(token: string): Promise<TokenTrade[]> {
   const { trades } = await get<{ trades: TokenTrade[] }>(`/token/${token}`);
   return trades;
 }
+
+export type ProtocolStats = {
+  window: string;
+  launches: number;
+  graduated: number;
+  curveTvl: number;
+  buybackLocked: number;
+  trades: number;
+  volume: number;
+  buyVolume: number;
+  sellVolume: number;
+  buyTrades: number;
+  sellTrades: number;
+  avgTrade: number;
+  creatorRewards: number;
+  hourlyVolume: number[];
+  ranked: { token: Address; name: string; symbol: string; volume: number; buys: number; sells: number; trades: number }[];
+};
+
+export async function fetchStats(window: "24h" | "all"): Promise<ProtocolStats> {
+  return get<ProtocolStats>(`/stats?window=${window}`);
+}
