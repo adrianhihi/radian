@@ -17,6 +17,13 @@ export type QuoteAssetDef = {
   decimals: number;
   native: boolean;
   blurb: string;
+  gradGoal: number; // whole units of this asset in the curve to graduate (display)
+  // When set, this quote asset is a tokenized STOCK: launches paired against it
+  // are "denominated in shares," and the UI shows the real share price (via the
+  // /api/stock-price route) purely as a human reference — the contract never
+  // reads it. `refSymbol` is the real ticker to price; `standIn` marks a testnet
+  // placeholder (no real stock on Arc) vs. a real mainnet tokenized stock.
+  stock?: { refSymbol: string; standIn: boolean };
 };
 
 export type NetworkConfig = {
@@ -78,8 +85,16 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
       treasury: "0xbFf760f35F421cAE2E9650aF1571FDd618e206a7",
     },
     quoteAssets: [
-      { key: "usdc", symbol: "USDC", address: ZERO, decimals: 18, native: true, blurb: "Native dollar — the Arc gas coin" },
-      { key: "eurc", symbol: "EURC", address: "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a", decimals: 6, native: false, blurb: "Circle's euro stablecoin" },
+      { key: "usdc", symbol: "USDC", address: ZERO, decimals: 18, native: true, gradGoal: 20, blurb: "Native dollar — the Arc gas coin" },
+      { key: "eurc", symbol: "EURC", address: "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a", decimals: 6, native: false, gradGoal: 20, blurb: "Circle's euro stablecoin" },
+      { key: "nvdax", symbol: "NVDAx", address: "0xDebcC47bf6e1DEFE1eC76290441836E4981dA882", decimals: 18, native: false, gradGoal: 50, blurb: "Nvidia — priced in shares, not dollars", stock: { refSymbol: "NVDA", standIn: true } },
+      { key: "tslax", symbol: "TSLAx", address: "0xb538054166A5f9aa98b945d32A7d1F122c1c3c87", decimals: 18, native: false, gradGoal: 50, blurb: "Tesla — priced in shares, not dollars", stock: { refSymbol: "TSLA", standIn: true } },
+      { key: "aaplx", symbol: "AAPLx", address: "0x88Ad67D823791C2DD5dDd96CF88e573A1F5Bb785", decimals: 18, native: false, gradGoal: 50, blurb: "Apple — priced in shares, not dollars", stock: { refSymbol: "AAPL", standIn: true } },
+      { key: "googlx", symbol: "GOOGLx", address: "0x195a4d07E2Bd492F70063e6c7017E336e28a8F68", decimals: 18, native: false, gradGoal: 50, blurb: "Alphabet — priced in shares, not dollars", stock: { refSymbol: "GOOGL", standIn: true } },
+      { key: "msftx", symbol: "MSFTx", address: "0xD7DeD9057a4EC0a329d2c70784C8723f7df56e7F", decimals: 18, native: false, gradGoal: 50, blurb: "Microsoft — priced in shares, not dollars", stock: { refSymbol: "MSFT", standIn: true } },
+      { key: "amznx", symbol: "AMZNx", address: "0x865e62E6327C572C7fb8d3427f67b03b9A4558fb", decimals: 18, native: false, gradGoal: 50, blurb: "Amazon — priced in shares, not dollars", stock: { refSymbol: "AMZN", standIn: true } },
+      { key: "metax", symbol: "METAx", address: "0xfFBA38678178dC0B7a0EaCeceAF36795BB750977", decimals: 18, native: false, gradGoal: 50, blurb: "Meta — priced in shares, not dollars", stock: { refSymbol: "META", standIn: true } },
+      { key: "spyx", symbol: "SPYx", address: "0x072F8FA84c12e56fE20d3F0BFbB903a96B099973", decimals: 18, native: false, gradGoal: 50, blurb: "S&P 500 ETF — priced in shares, not dollars", stock: { refSymbol: "SPY", standIn: true } },
     ],
   },
   mainnet: {
@@ -103,7 +118,7 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
     },
     radian: { token: ZERO, curve: ZERO, staking: ZERO, treasury: ZERO },
     quoteAssets: [
-      { key: "usdc", symbol: "USDC", address: ZERO, decimals: 18, native: true, blurb: "Native dollar — the Arc gas coin" },
+      { key: "usdc", symbol: "USDC", address: ZERO, decimals: 18, native: true, gradGoal: 20, blurb: "Native dollar — the Arc gas coin" },
     ],
   },
   // Multi-chain scaffolding. Base has canonical Uniswap V4 and Ondo tokenized
@@ -134,7 +149,7 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
     radian: { token: ZERO, curve: ZERO, staking: ZERO, treasury: ZERO },
     quoteAssets: [
       // Base USDC (native Circle USDC on Base, 6-dec) — the featured quote.
-      { key: "usdc", symbol: "USDC", address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", decimals: 6, native: false, blurb: "Circle USDC on Base" },
+      { key: "usdc", symbol: "USDC", address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", decimals: 6, native: false, gradGoal: 20, blurb: "Circle USDC on Base" },
     ],
   },
 };

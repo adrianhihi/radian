@@ -22,7 +22,11 @@ export const RADIAN = {
 
 // Quote assets a token can be paired against (native USDC + any approved ERC-20).
 export const NATIVE_QUOTE = "0x0000000000000000000000000000000000000000" as Address;
-export type QuoteAsset = { key: string; symbol: string; address: Address; decimals: number; native: boolean; blurb: string };
+export type QuoteAsset = {
+  key: string; symbol: string; address: Address; decimals: number; native: boolean; blurb: string;
+  gradGoal: number;
+  stock?: { refSymbol: string; standIn: boolean };
+};
 export const QUOTE_ASSETS: QuoteAsset[] = NET.quoteAssets;
 export const quoteByAddress = (a?: string): QuoteAsset =>
   QUOTE_ASSETS.find((q) => q.address.toLowerCase() === (a ?? "").toLowerCase()) ?? QUOTE_ASSETS[0];

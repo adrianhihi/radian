@@ -4,9 +4,11 @@ import Link from "next/link";
 import { formatUnits, parseEther, type Address } from "viem";
 import { Nav } from "@/components/Nav";
 import { TradePanel } from "@/components/TradePanel";
-import { publicClient, curveAbi, tokenAbi, erc20Abi, explorer, arcTestnet, quoteByAddress } from "@/lib/radian";
+import { StockRef } from "@/components/StockRef";
+import { publicClient, curveAbi, tokenAbi, erc20Abi, explorer, arcTestnet, quoteByAddress, type QuoteAsset } from "@/lib/radian";
 import { useRadianWallet } from "@/lib/useRadianWallet";
 import { findCurve } from "@/lib/registry";
+import { fetchTokenMeta, hasIndexer } from "@/lib/indexer";
 import { parseUnits } from "viem";
 
 type State = {
@@ -25,6 +27,7 @@ type State = {
   quoteSymbol: string;
   pairToken: Address;
   native: boolean;
+  quoteAsset: QuoteAsset;
 };
 
 export default function TokenPage({ params }: { params: Promise<{ address: string }> }) {
@@ -39,8 +42,14 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
   const [toast, setToast] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    // curve address comes from the registry (getLogs is unreliable on Arc)
-    const curve = (findCurve(token)?.curve ?? null) as Address | null;
+    // Curve address comes from the local registry (getLogs is unreliable on
+    // Arc). If this token wasn't launched in this browser, fall back to the
+    // indexer so any token visible on Explore also opens here.
+    let curve = (findCurve(token)?.curve ?? null) as Address | null;
+    if (!curve && hasIndexer()) {
+      const meta = await fetchTokenMeta(token);
+      curve = meta?.curve ?? null;
+    }
     if (!curve) return;
     // one Multicall3 batch instead of 10 separate RPC reads (poll-friendly)
     const mc = await publicClient.multicall({
@@ -86,6 +95,7 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
       quoteSymbol: qa.symbol,
       pairToken: pair as Address,
       native: qa.native,
+      quoteAsset: qa,
     });
   }, [token]);
 
@@ -256,6 +266,12 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
               <div className="kv"><span>Token</span><a className="v mono" href={explorer.address(token)} target="_blank" rel="noreferrer" style={{ color: "var(--radian-2)" }}>{token.slice(0, 8)}…{token.slice(-6)}</a></div>
               <div className="kv"><span>Curve</span><a className="v mono" href={explorer.address(st.curve)} target="_blank" rel="noreferrer" style={{ color: "var(--radian-2)" }}>{st.curve.slice(0, 8)}…{st.curve.slice(-6)}</a></div>
             </div>
+
+            {st.quoteAsset.stock && (
+              <div className="panel" style={{ marginTop: 16 }}>
+                <StockRef asset={st.quoteAsset} />
+              </div>
+            )}
 
             <TradePanel token={token} symbol={st.symbol} />
           </div>

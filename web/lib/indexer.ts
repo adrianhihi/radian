@@ -90,6 +90,27 @@ export async function fetchTokenTrades(token: string): Promise<TokenTrade[]> {
   return trades;
 }
 
+// Resolve a token's curve (and pair token) from the indexer. Used by the token
+// detail page as a fallback when the launch isn't in this browser's local
+// registry (e.g. it was created elsewhere but is visible on Explore).
+export async function fetchTokenMeta(
+  token: string,
+): Promise<{ curve: Address; pairToken: Address; deployer: Address } | null> {
+  try {
+    const { token: t } = await get<{ token?: { curve: Address; pairToken?: Address; deployer: Address } }>(
+      `/token/${token}`,
+    );
+    if (!t?.curve) return null;
+    return {
+      curve: t.curve,
+      pairToken: t.pairToken ?? ("0x0000000000000000000000000000000000000000" as Address),
+      deployer: t.deployer,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export type ProtocolStats = {
   window: string;
   launches: number;

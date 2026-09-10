@@ -282,3 +282,26 @@ label.filepick { display: flex; align-items: center; gap: 14px; margin-bottom: 0
   .nav-links { display: none; }
   .nav-mobile { display: flex; }
 }
+
+/* ── Stock-denominated markets (penny-stock + pump.fun) ─────────────────── */
+.stock-tag {
+  display: inline-block; margin-left: 8px; padding: 2px 7px; border-radius: 999px;
+  font-size: 9.5px; font-weight: 800; letter-spacing: 0.06em; vertical-align: middle;
+  background: rgba(111, 155, 255, 0.14); color: var(--radian-2);
+  border: 1px solid rgba(111, 155, 255, 0.32); text-transform: uppercase;
+}
+.stockref {
+  background: linear-gradient(180deg, var(--panel-2), var(--panel));
+  border: 1px solid var(--border-soft); border-radius: 14px; padding: 14px 16px;
+}
+.stockref.compact { padding: 11px 13px; }
+.stockref-head { display: flex; align-items: baseline; gap: 8px; }
+.stockref-sym { font-family: var(--font-display); font-weight: 800; font-size: 15px; letter-spacing: 0.02em; }
+.stockref-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--fg-dim); }
+.stockref-body { display: flex; align-items: baseline; gap: 10px; margin-top: 4px; }
+.stockref-px { font-family: var(--font-display); font-weight: 750; font-size: 24px; }
+.stockref-chg { font-size: 13px; font-weight: 700; }
+.stockref-chg.up { color: var(--up); }
+.stockref-chg.down { color: var(--down); }
+.stockref-muted { color: var(--fg-dim); font-size: 14px; }
+.stockref-foot { margin-top: 8px; font-size: 11px; line-height: 1.45; color: var(--fg-dim); }

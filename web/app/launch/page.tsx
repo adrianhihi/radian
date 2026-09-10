@@ -3,6 +3,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { formatUnits, parseEther, parseUnits, decodeEventLog } from "viem";
 import { Nav } from "@/components/Nav";
+import { StockTag, StockRef } from "@/components/StockRef";
 import { useReveal } from "@/lib/useReveal";
 import { publicClient, RADIAN, factoryAbi, curveAbi, erc20Abi, arcTestnet, activeNetwork, QUOTE_ASSETS, type QuoteAsset } from "@/lib/radian";
 import { useRadianWallet } from "@/lib/useRadianWallet";
@@ -200,7 +201,7 @@ export default function LaunchPage() {
         <div className="reveal">
           <h1 style={{ fontSize: 34 }}>Launch a token</h1>
           <p style={{ color: "var(--fg-dim)", marginTop: 10 }}>
-            One transaction. Fixed 1B supply, priced in native USDC, liquidity locked forever.
+            One transaction. Fixed 1B supply, {quote.stock ? <>priced in <strong>{quote.stock.refSymbol} shares</strong></> : `priced in ${quote.symbol}`}, liquidity locked forever.
             Launch fee {formatUnits(LAUNCH_FEE, 18)} USDC.
           </p>
         </div>
@@ -290,12 +291,20 @@ export default function LaunchPage() {
                     onClick={() => setQuote(qa)}
                     className={`feemode-card${on ? " on" : ""}`}
                   >
-                    <span className="fm-title">{qa.symbol}</span>
+                    <span className="fm-title">
+                      {qa.symbol}
+                      {qa.stock && <StockTag standIn={qa.stock.standIn} />}
+                    </span>
                     <span className="fm-desc">{qa.blurb}</span>
                   </button>
                 );
               })}
             </div>
+            {quote.stock && (
+              <div style={{ marginTop: 14 }}>
+                <StockRef asset={quote} />
+              </div>
+            )}
           </div>
 
           <div style={{ borderTop: "1px solid var(--border-soft)", margin: "6px 0 18px" }} />
@@ -343,7 +352,7 @@ export default function LaunchPage() {
           <div style={{ borderTop: "1px solid var(--border-soft)", margin: "6px 0 16px" }} />
           <div className="kv"><span>Quote asset</span><span className="v">{quote.native ? "Native USDC" : quote.symbol}</span></div>
           <div className="kv"><span>Supply</span><span className="v">1,000,000,000</span></div>
-          <div className="kv"><span>Graduation goal</span><span className="v">20 {quote.symbol} in curve</span></div>
+          <div className="kv"><span>Graduation goal</span><span className="v">{quote.gradGoal} {quote.symbol} in curve</span></div>
           <div className="kv"><span>First buy</span><span className="v">{devBuy && Number(devBuy) > 0 ? `${devBuy} ${quote.symbol}` : "—"}</span></div>
           <div className="kv"><span>Trade fee</span><span className="v">1% (50% to you)</span></div>
 
