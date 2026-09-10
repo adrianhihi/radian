@@ -64,23 +64,25 @@ E2E verified on-chain (launch `APONE` `0xA1d3...ee3A`): curve buy → `sweepFees
 auto-graduates with refund → full-range V4 position minted to the locker →
 swaps both directions through `PonsV2MemeHook`.
 
-### Build note
+### Build note (reproducible)
 
-`lib/v4-core` and `lib/v4-periphery` are full official Uniswap clones (needed for
-`PoolManager`/`PositionManager` deployment) and are git-ignored. Restore with:
-
-```bash
-git clone --depth 1 https://github.com/Uniswap/v4-core lib/v4-core && git -C lib/v4-core submodule update --init --depth 1 lib/solmate lib/forge-std
-```
+Dependencies are git submodules pinned to exact commits — `lib/v4-core` @ `46c6834698c4`,
+`lib/v4-periphery` @ `dce236d4e205` (with their nested submodules), `lib/forge-std`; OpenZeppelin
+and `v4-hooks-public` are vendored in-tree. Clone with submodules and build:
 
 ```bash
-git clone --depth 1 --recurse-submodules --shallow-submodules https://github.com/Uniswap/v4-periphery lib/v4-periphery
+git clone --recurse-submodules --shallow-submodules https://github.com/adrianhihi/radian
+cd radian && forge build && forge test     # 33 tests
 ```
 
-Compiler: solc 0.8.26, `evm_version = cancun` (TSTORE probed live on Arc testnet ✓),
-viaIR, optimizer 200 — matching the production Pons V2 build (which used 0.8.35).
-Licensing: first-party Pons contracts are MIT; Uniswap v4-core is BUSL-1.1 (testnet
-use fine; review before any production mainnet deployment), v4-periphery MIT/GPL.
+Compiler: solc 0.8.26, `evm_version = cancun` (TSTORE probed live on Arc testnet ✓), viaIR,
+optimizer 200 — source-identical to the production Pons V2 build (which used 0.8.35).
+`bytecode_hash = "none"` / `cbor_metadata = false` strip the metadata trailer, so a fresh clone
+produces byte-identical bytecode (verified 2026-09-10: EVM code identical across checkouts;
+the trailer was the only thing that ever differed). That is what keeps the hook's CREATE2
+salt mining and explorer verification reproducible.
+Licensing: first-party Pons contracts are MIT; Uniswap v4-core is BUSL-1.1 (testnet use
+fine; mainnet deploys none of it — canonical V4), v4-periphery MIT/GPL.
 
 ---
 
