@@ -52,6 +52,9 @@ export const curveAbi = parseAbi([
   "function feeBps() view returns (uint256)",
   "function pairToken() view returns (address)",
   "function currentSnipeTaxBps(address recipient) view returns (uint256)",
+  "function creatorTaxBps() view returns (uint256)",
+  "function snipeTaxSeconds() view returns (uint256)",
+  "function snipeTaxStartBps() view returns (uint256)",
 ]);
 
 export const tokenAbi = parseAbi([
