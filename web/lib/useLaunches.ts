@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { formatUnits } from "viem";
 import { publicClient, curveAbi, tokenAbi, type LaunchRow } from "./radian";
 import { getRegistry } from "./registry";
+import { hasIndexer, fetchLaunches } from "./indexer";
 
 // One Multicall3 batch for the whole grid: name/symbol/logo/description per
 // token + getReserves/trackedQuote/graduated per curve. ~6 tokens × 7 calls
@@ -16,6 +17,19 @@ export function useLaunches() {
   const refresh = useCallback(async () => {
     try {
       setError(null);
+      // Prefer the indexer (one fast, reliable request); fall back to chain.
+      if (hasIndexer()) {
+        try {
+          const rows = await fetchLaunches();
+          if (rows.length > 0) {
+            setRows(rows);
+            setLoading(false);
+            return;
+          }
+        } catch {
+          /* indexer down — fall through to on-chain reads */
+        }
+      }
       const reg = getRegistry();
       const contracts = reg.flatMap((e) => [
         { address: e.token, abi: tokenAbi, functionName: "name" } as const,

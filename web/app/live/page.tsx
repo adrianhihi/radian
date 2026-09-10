@@ -1,13 +1,31 @@
 "use client";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { formatUnits } from "viem";
 import { Nav } from "@/components/Nav";
 import { useReveal } from "@/lib/useReveal";
 import { useLaunches } from "@/lib/useLaunches";
+import { hasIndexer, fetchActivity, type Activity } from "@/lib/indexer";
 
 export default function LivePage() {
   useReveal();
-  const { rows, loading } = useLaunches(); // polls every 15s
+  const { rows, loading } = useLaunches();
+  const [trades, setTrades] = useState<Activity[]>([]);
+
+  useEffect(() => {
+    if (!hasIndexer()) return;
+    const load = () => fetchActivity(60).then(setTrades).catch(() => {});
+    load();
+    const t = setInterval(load, 8000);
+    return () => clearInterval(t);
+  }, []);
+
+  const ago = (ts: number) => {
+    const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+    if (s < 60) return `${s}s`;
+    if (s < 3600) return `${Math.floor(s / 60)}m`;
+    return `${Math.floor(s / 3600)}h`;
+  };
 
   return (
     <>
@@ -79,9 +97,57 @@ export default function LivePage() {
             })
           )}
         </div>
+        {hasIndexer() && (
+          <div className="section" style={{ paddingTop: 40 }}>
+            <div className="section-head reveal">
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span className="live-dot" />
+                <h2 style={{ fontSize: 24 }}>Trade tape</h2>
+              </div>
+              <p>Every buy and sell across Radian, newest first — indexed from Arc.</p>
+            </div>
+            <div className="panel reveal" style={{ padding: 0, overflow: "hidden" }}>
+              {trades.length === 0 ? (
+                <div className="empty">No trades yet — be the first to trade a curve.</div>
+              ) : (
+                trades.map((t, i) => (
+                  <Link
+                    key={t.txHash + t.side + i}
+                    href={`/token/${t.token}`}
+                    className="kv live-row"
+                    style={{ padding: "12px 20px", alignItems: "center" }}
+                  >
+                    <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span
+                        className="badge"
+                        style={{
+                          background: t.side === "buy" ? "rgba(52,211,153,0.14)" : "rgba(251,113,133,0.14)",
+                          color: t.side === "buy" ? "var(--up)" : "var(--down)",
+                        }}
+                      >
+                        {t.side}
+                      </span>
+                      <span style={{ fontWeight: 600 }}>${t.symbol || "?"}</span>
+                      <span className="mono" style={{ color: "var(--fg-faint)", fontSize: 12 }}>
+                        {t.trader.slice(0, 6)}…{t.trader.slice(-4)}
+                      </span>
+                    </span>
+                    <span style={{ display: "flex", gap: 24, alignItems: "center" }}>
+                      <span className="v">
+                        {Number(formatUnits(BigInt(t.quote), 18)).toLocaleString(undefined, { maximumFractionDigits: 3 })} USDC
+                      </span>
+                      <span style={{ color: "var(--fg-faint)", fontSize: 12, width: 34, textAlign: "right" }}>
+                        {ago(t.ts)}
+                      </span>
+                    </span>
+                  </Link>
+                ))
+              )}
+            </div>
+          </div>
+        )}
         <p className="hint" style={{ marginTop: 12 }}>
-          Auto-refreshes every 15s. A full cross-user trade tape arrives with the indexer
-          (Phase 4b).
+          {hasIndexer() ? "Indexed live from Arc." : "Auto-refreshes every 30s."}
         </p>
       </main>
     </>
