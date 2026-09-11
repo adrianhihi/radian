@@ -17,6 +17,7 @@ export const RADIAN = {
   escrow: NET.contracts.escrow,
   hook: NET.contracts.hook,
   poolManager: NET.contracts.poolManager,
+  router: NET.contracts.router,
   deployBlock: NET.deployBlock,
 } as const;
 
@@ -37,7 +38,10 @@ export const quoteByAddress = (a?: string): QuoteAsset | undefined => {
   return QUOTE_ASSETS.find((q) => q.address.toLowerCase() === addr);
 };
 
-export const publicClient = createPublicClient({ chain: arcTestnet, transport: http() });
+// Arc seals a block every ~0.45s; viem's default 4s poll would make every
+// receipt wait look 4-8x slower than the chain actually is.
+export const publicClient = createPublicClient({ chain: arcTestnet, transport: http(), pollingInterval: 500 });
+export const hasLaunchRouter = RADIAN.router !== "0x0000000000000000000000000000000000000000";
 
 // ---- ABIs (only what the UI needs) ----
 export const factoryAbi = parseAbi([
@@ -45,6 +49,11 @@ export const factoryAbi = parseAbi([
   "function launchToken((string name, string symbol, string logo, string description, (string twitter, string telegram, string discord, string website, string farcaster) socials, address creatorFeeRecipient, uint16 creatorTaxBps, bool buybackEnabled, bytes32 expectedEconomics, bytes32 salt) params, uint256 launchConfigId, address pairToken) payable returns (address token, address curve)",
   "function launchFee() view returns (uint256)",
   "function getLaunchConfig(uint256 id) view returns ((uint256 supply, uint256 curveFeeBps, uint256 phantomQuote, uint256 graduationThreshold, uint24 poolFee, int24 tickSpacing, bool enabled))",
+]);
+
+// RadianLaunchRouter: launch + creator's first buy in one transaction.
+export const routerAbi = parseAbi([
+  "function launchAndBuy((string name, string symbol, string logo, string description, (string twitter, string telegram, string discord, string website, string farcaster) socials, address creatorFeeRecipient, uint16 creatorTaxBps, bool buybackEnabled, bytes32 expectedEconomics, bytes32 salt) params, uint256 launchConfigId, address pairToken, uint256 buyAmount, uint256 minTokensOut, address[] snipeTaxExemptions) payable returns (address token, address curve, uint256 tokensOut)",
 ]);
 
 export const curveAbi = parseAbi([

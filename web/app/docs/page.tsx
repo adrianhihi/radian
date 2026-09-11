@@ -96,7 +96,7 @@ export default function DocsPage() {
             <h2>Launch flow</h2>
             {[
               { h: "1 · Create", b: "One transaction deploys the token + curve and mints the full 1B supply to the curve. Launch fee is 1 USDC (msg.value), plus gas." },
-              { h: "2 · Optional first buy", b: "In the same flow you can buy your own token on the fresh curve. As the creator you're snipe-tax-exempt, so it settles untaxed and sets the opening price." },
+              { h: "2 · Optional first buy", b: "Add a first buy and it rides the same transaction: the launch router deploys the curve and fills your buy in the launch block, before any other wallet can see it. As the creator you're snipe-tax-exempt, so it settles untaxed and sets the opening price." },
               { h: "3 · Trade", b: "Anyone buys and sells on the curve from block one. Price rises as supply is bought — fair discovery, no presale. A 1% fee is charged on the quote-asset leg." },
               { h: "4 · Graduate", b: "When the curve's real USDC reserve crosses the threshold, it drains into a full-range Uniswap V4 position that is locked forever. Trading continues on the V4 pool via the hook." },
             ].map((s) => (

@@ -6,7 +6,7 @@ import { Nav } from "@/components/Nav";
 import { StockTag, StockRef } from "@/components/StockRef";
 import { useReveal } from "@/lib/useReveal";
 import { useNetwork } from "@/lib/networks";
-import { publicClient, RADIAN, factoryAbi, curveAbi, erc20Abi, arcTestnet, activeNetwork, QUOTE_ASSETS, type QuoteAsset } from "@/lib/radian";
+import { publicClient, RADIAN, factoryAbi, routerAbi, hasLaunchRouter, curveAbi, erc20Abi, arcTestnet, activeNetwork, QUOTE_ASSETS, type QuoteAsset } from "@/lib/radian";
 import { useRadianWallet } from "@/lib/useRadianWallet";
 import { addLocalLaunch } from "@/lib/registry";
 import { INDEXER_URL, hasIndexer } from "@/lib/indexer";
@@ -116,39 +116,57 @@ export default function LaunchPage() {
           .map((b) => b.toString(16).padStart(2, "0"))
           .join("")) as `0x${string}`;
 
-      setToast("Confirm the launch in your wallet…");
-      const hash = await client.writeContract({
-        account,
-        chain: arcTestnet,
-        address: RADIAN.factory,
-        abi: factoryAbi,
-        functionName: "launchToken",
-        args: [
-          {
-            name: name.trim(),
-            symbol: symbol.trim().toUpperCase(),
-            logo: logo.trim(),
-            description: description.trim(),
-            socials: {
-              twitter: twitter.trim(),
-              telegram: "",
-              discord: "",
-              website: website.trim(),
-              farcaster: "",
-            },
-            creatorFeeRecipient: (feeMode === "creator" && /^0x[a-fA-F0-9]{40}$/.test(feeRecipient.trim())
-              ? feeRecipient.trim()
-              : account) as `0x${string}`,
-            creatorTaxBps: feeMode === "creator" ? Math.round(Math.min(10, Math.max(0, Number(creatorTax) || 0)) * 100) : 0,
-            buybackEnabled: feeMode === "buyback",
-            expectedEconomics: "0x0000000000000000000000000000000000000000000000000000000000000000",
-            salt,
-          },
-          0n,
-          quote.address,
-        ],
-        value: launchFee,
-      });
+      const params = {
+        name: name.trim(),
+        symbol: symbol.trim().toUpperCase(),
+        logo: logo.trim(),
+        description: description.trim(),
+        socials: { twitter: twitter.trim(), telegram: "", discord: "", website: website.trim(), farcaster: "" },
+        creatorFeeRecipient: (feeMode === "creator" && /^0x[a-fA-F0-9]{40}$/.test(feeRecipient.trim())
+          ? feeRecipient.trim()
+          : account) as `0x${string}`,
+        creatorTaxBps: feeMode === "creator" ? Math.round(Math.min(10, Math.max(0, Number(creatorTax) || 0)) * 100) : 0,
+        buybackEnabled: feeMode === "buyback",
+        expectedEconomics: "0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`,
+        salt,
+      };
+      const buyAmt = Number(devBuy) > 0 ? parseUnits(devBuy, quote.decimals) : 0n;
+      // With the launch router, launch + first buy is ONE transaction: the factory
+      // still attributes the launch to the user (creator fees, snipe-tax exemption)
+      // and the opening buy settles in the same block, before anyone else can see
+      // the curve. Without a router (mainnet until deployed) fall back to two txs.
+      const viaRouter = hasLaunchRouter && buyAmt > 0n;
+      let hash: `0x${string}`;
+      if (viaRouter) {
+        if (!quote.native) {
+          const allowance = (await publicClient.readContract({
+            address: quote.address, abi: erc20Abi, functionName: "allowance", args: [account, RADIAN.router],
+          })) as bigint;
+          if (allowance < buyAmt) {
+            setToast(`Approve ${quote.symbol}…`);
+            const ah = await client.writeContract({
+              account, chain: arcTestnet, address: quote.address, abi: erc20Abi,
+              functionName: "approve", args: [RADIAN.router, buyAmt],
+            });
+            await publicClient.waitForTransactionReceipt({ hash: ah });
+          }
+        }
+        setToast("Confirm the launch + first buy in your wallet…");
+        // minTokensOut 0 is safe: the buy is atomic with the launch, so the opening
+        // price is fixed by the curve config and nothing can trade ahead of it.
+        hash = await client.writeContract({
+          account, chain: arcTestnet, address: RADIAN.router, abi: routerAbi, functionName: "launchAndBuy",
+          args: [params, 0n, quote.address, buyAmt, 0n, []],
+          value: launchFee + (quote.native ? buyAmt : 0n),
+        });
+      } else {
+        setToast("Confirm the launch in your wallet…");
+        hash = await client.writeContract({
+          account, chain: arcTestnet, address: RADIAN.factory, abi: factoryAbi, functionName: "launchToken",
+          args: [params, 0n, quote.address],
+          value: launchFee,
+        });
+      }
 
       setToast("Launching… waiting for confirmation.");
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
@@ -185,9 +203,7 @@ export default function LaunchPage() {
       // creator is snipe-tax-exempt, so this settles untaxed. For a native-USDC
       // curve the amount rides msg.value; for an ERC-20 quote (EURC) we approve
       // the curve to pull it, then buy with no value.
-      const dev = Number(devBuy);
-      if (curveAddr && dev > 0) {
-        const buyAmt = parseUnits(devBuy, quote.decimals);
+      if (!viaRouter && curveAddr && buyAmt > 0n) {
         if (quote.native) {
           setToast("Confirm your first buy…");
           const bh = await client.writeContract({

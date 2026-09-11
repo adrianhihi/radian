@@ -13,6 +13,7 @@ import {
   tokenReadAbi,
   vaultAbi,
   quoteMeta,
+  LAUNCH_ROUTER,
 } from "./config.js";
 import { store } from "./store.js";
 
@@ -37,7 +38,7 @@ const FACTORY_LC = FACTORY.toLowerCase();
 // Contracts that route buys/sells on users' behalf. The treasury's flush()
 // buys RADIAN on its curve; add others via EXTRA_ROUTERS (comma-separated).
 const ROUTERS = new Set(
-  [RADIAN.treasury, ...(process.env.EXTRA_ROUTERS ?? "").split(",")].map((a) => a.trim().toLowerCase()).filter(Boolean),
+  [RADIAN.treasury, LAUNCH_ROUTER, ...(process.env.EXTRA_ROUTERS ?? "").split(",")].map((a) => a.trim().toLowerCase()).filter(Boolean),
 );
 
 // ---- discovery + state ----

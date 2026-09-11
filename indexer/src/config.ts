@@ -62,6 +62,20 @@ export const SUNSET: Record<string, { successor: Address; reason: string }> = {
 };
 export const isSunset = (token: string) => token.toLowerCase() in SUNSET;
 
+// RadianLaunchRouter: launch + creator's first buy in one tx. Its transactions
+// have tx.to = router, so the scanner must treat it as a known entry point.
+export const LAUNCH_ROUTER = (process.env.LAUNCH_ROUTER ?? "0x2333449a1d83c5F99f29d5a17554D76245412C0E") as Address;
+
+// Throwaway launches (speed tests, smoke tests) hidden from lists and stats.
+// They stay reachable by direct URL; nothing on-chain changes.
+export const HIDDEN = new Set<string>(
+  [
+    "0x00066b2D7194C2Af35B680b6f55fF61A1C525C08", // "Speed Test" (FAST): latency measurement, 2026-09-10
+    "0x95b8fDAB9C93C4d97ec802706d7190EbdDeCFa3e", // "Router Smoke" (RSMK): first one-tx launch+buy through the router, 2026-09-10
+  ].map((a) => a.toLowerCase()),
+);
+export const isHidden = (token: string) => HIDDEN.has(token.toLowerCase());
+
 // Seed launches so /launches is never empty on a cold start while the
 // backfill from FACTORY_DEPLOY_BLOCK is still running.
 const DEV = "0x13E6b6C635CAcD4B27C9309251A4D083457eb11C" as Address;

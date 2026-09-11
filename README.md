@@ -49,6 +49,7 @@ Two generations live in this repo:
 | `PonsV2BuybackVault` | `0xe84D81C3d4f3E12123C9F934AB3Cb8238772b39e` |
 | `PonsV2LaunchLocker` | `0x7efb5B773BBbf69Bd163b52b1BA88C529a0f123c` |
 | `PonsV2LaunchFactory` | `0x90022cC2107De9c070F889E3A67009FcA270E4E2` |
+| `RadianLaunchRouter` (launch + first buy in one tx) | `0x2333449a1d83c5F99f29d5a17554D76245412C0E` |
 | `PonsV2GraduationExecutor` | `0x1b888f930c6a855D015cB21F81a289EA7b7b4a69` |
 | `PonsV2LaunchDeployer` | `0xa8D3DFEE672ee92663298300030a1DFB078Cb552` |
 | Permit2 (canonical, pre-existing) | `0x000000000022D473030F116dDEE9F6B43aC78BA3` |

@@ -45,6 +45,9 @@ export type NetworkConfig = {
     escrow: Address;
     hook: Address;
     poolManager: Address;
+    // Atomic launch + first buy (RadianLaunchRouter). Zero = not deployed; the
+    // launch page then falls back to two transactions.
+    router: Address;
   };
   radian: {
     token: Address;
@@ -77,6 +80,7 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
       escrow: "0x6133392C976d5160CBDE63815f7cd63122f3841C",
       hook: "0x15eB3aeE2f96A199165dc58e6C8dc3Ce2e02e044",
       poolManager: "0x24219d0F3611fE4E438850bB7DB165439957dc9f",
+      router: "0x2333449a1d83c5F99f29d5a17554D76245412C0E",
     },
     radian: {
       token: "0x0B764B1e50E4D17A897Cdd9494CaC3355579fDcD",
@@ -116,6 +120,7 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
       hook: ZERO,
       // canonical Uniswap V4 on Arc mainnet (verify on Arcscan at launch)
       poolManager: "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+      router: ZERO,
     },
     radian: { token: ZERO, curve: ZERO, staking: ZERO, treasury: ZERO },
     quoteAssets: [
@@ -146,6 +151,7 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
       hook: ZERO,
       // canonical Uniswap V4 PoolManager on Base (verified on BaseScan)
       poolManager: "0x498581fF718922c3f8e6A244956aF099B2652b2b",
+      router: ZERO,
     },
     radian: { token: ZERO, curve: ZERO, staking: ZERO, treasury: ZERO },
     quoteAssets: [

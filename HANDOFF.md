@@ -35,6 +35,7 @@ auth, indexer, live analytics), the **$RADIAN** real-yield flywheel, and a flags
 | Contract | Address |
 | --- | --- |
 | `PonsV2LaunchFactory` (entry point) | `0x90022cC2107De9c070F889E3A67009FcA270E4E2` |
+| `RadianLaunchRouter` (factory's `launchForwarder`; launch + first buy atomically) | `0x2333449a1d83c5F99f29d5a17554D76245412C0E` |
 | `PonsV2MemeHook` (Uniswap V4 hook) | `0x15eB3aeE2f96A199165dc58e6C8dc3Ce2e02e044` |
 | `PonsV2BuybackVault` (5-yr linear vest) | `0xe84D81C3d4f3E12123C9F934AB3Cb8238772b39e` |
 | `PonsV2LaunchLocker` (permanent LP lock) | `0x7efb5B773BBbf69Bd163b52b1BA88C529a0f123c` |

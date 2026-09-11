@@ -67,7 +67,7 @@ contract PonsV2IntegrationTest is Test {
     address token;
     address curve;
 
-    function setUp() public {
+    function setUp() public virtual {
         // Canonical Permit2, etched from Arc testnet bytecode at its real address.
         vm.etch(PERMIT2, vm.parseBytes(vm.trim(vm.readFile("test/permit2.bytecode"))));
 

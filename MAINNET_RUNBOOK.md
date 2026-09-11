@@ -115,6 +115,25 @@ How revenue moves (all on-chain, all permissionless except `flush`):
 
 Record `STAKING` and `TREASURY` in `.env.mainnet`. Set up the keeper cron (`claimFees` then `flush`).
 
+## 5c. Deploy the launch router (before the handover)
+
+```bash
+export FACTORY=…
+source .env.mainnet && forge script script/DeployLaunchRouter.s.sol --rpc-url arc_mainnet --broadcast
+```
+
+`RadianLaunchRouter` makes "launch + creator's first buy" a single transaction. The factory
+runs it through `launchTokenFor`, so the launch is still attributed to the user (creator fees,
+CREATE2 namespace, snipe-tax exemption) and the opening buy settles in the launch block, before
+any other wallet can see the curve. The router has no owner and never holds funds; its only
+privilege is being the factory's `launchForwarder`, which the script sets **while the deployer
+still owns the factory** (owner-only; after the handover it is a multisig transaction).
+
+Then: put the address in `web/lib/networks.ts` (`contracts.router` for mainnet) and set
+`LAUNCH_ROUTER` on the indexer service, **before** the frontend cutover — the indexer only reads
+receipts whose `tx.to` is the factory, a known curve, or a registered router, so a router launch
+that lands before the indexer knows the address is never indexed.
+
 ## 6. Go live, then hand over ownership
 
 1. `cast send $FACTORY "setLaunchEnabled(bool)" true …` (if not already).
