@@ -25,6 +25,22 @@ export type Launch = {
   buybackLocked?: string;
   createdBlock?: string;
   createdAt?: number; // ms
+  // launch template (from the router's WallLaunched / PoFLaunched events)
+  template?: { kind: "wall"; treasury: Address; staking: Address } | { kind: "pof"; vault: Address; pofRouter: Address } | null;
+};
+
+// A signed, bounded buy authorization for RadianExecutor, submitted through the API.
+export type StoredAuth = {
+  authId: string;
+  user: Address;
+  token: Address;
+  auth: { user: Address; token: Address; perBuyMax: string; maxGasPrice: string; totalCount: number; minInterval: number; deadline: number; nonce: string };
+  signature: `0x${string}`;
+  createdAt: number; // ms
+  count: number;
+  lastAt: number; // unix seconds
+  status: "active" | "done" | "expired" | "cancelled";
+  lastError?: string;
 };
 
 export type Trade = {
@@ -63,6 +79,8 @@ type Snapshot = {
   launches: Launch[];
   trades: Trade[];
   flywheel?: FlywheelEvent[];
+  auths?: StoredAuth[];
+  rescansDone?: string[];
 };
 
 const SNAPSHOT = process.env.SNAPSHOT_PATH ?? "./radian-index.json";
@@ -79,6 +97,8 @@ class Store {
   launches = new Map<string, Launch>();
   trades: Trade[] = [];
   flywheel: FlywheelEvent[] = [];
+  auths = new Map<string, StoredAuth>();
+  rescansDone = new Set<string>();
   identity: Identity = { checked: false, ok: true, mismatches: [] };
   private flywheelKeys = new Set<string>();
   private curveIndex = new Map<string, Launch>();
@@ -103,6 +123,8 @@ class Store {
         const rows = [...(s.trades ?? [])].sort((a, b) => (a.logIndex != null ? 0 : 1) - (b.logIndex != null ? 0 : 1));
         for (const t of rows) this.addTrade(t);
         for (const f of s.flywheel ?? []) this.addFlywheel(f);
+        for (const a of s.auths ?? []) this.auths.set(a.authId.toLowerCase(), a);
+        for (const r of s.rescansDone ?? []) this.rescansDone.add(r);
         console.log(
           `[store] loaded ${path === BACKUP ? "BACKUP " : ""}snapshot: ${this.launches.size} launches, ${this.trades.length} trades (${(s.trades ?? []).length} rows), checkpoint ${this.checkpoint}, backfill ${this.backfillCursor}/${this.backfillFrom}`,
         );
@@ -122,6 +144,8 @@ class Store {
       launches: [...this.launches.values()],
       trades: this.trades.slice(-MAX_TRADES),
       flywheel: this.flywheel.slice(-2000),
+      auths: [...this.auths.values()],
+      rescansDone: [...this.rescansDone],
     };
     const tmp = `${SNAPSHOT}.tmp`;
     try {
@@ -144,6 +168,13 @@ class Store {
   hasFlywheelTx(txHash: string): boolean {
     const h = txHash.toLowerCase();
     return this.flywheel.some((f) => f.txHash.toLowerCase() === h);
+  }
+
+  setTemplate(token: string, template: NonNullable<Launch["template"]>): boolean {
+    const l = this.launches.get(token.toLowerCase());
+    if (!l) return false;
+    l.template = template;
+    return true;
   }
 
   upsertLaunch(l: Launch) {

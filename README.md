@@ -37,6 +37,37 @@ Two generations live in this repo:
 - **`src/` — v0 simplified launchpad** (our first Arc deployment, kept as a working
   baseline; see the v0 section below).
 
+## Launch templates (2026-09-14)
+
+Every launch is one transaction through `RadianLaunchRouter`, which the factory trusts as its
+`launchForwarder` (the launch is still attributed to the user). Three templates:
+
+- **Standard** — a Pons V2 launch, optionally with the creator's opening buy in the same tx.
+- **Stock Treasury (The Wall)** — `src/radian/wall/`. The launch's creator-fee share goes to a
+  per-launch `WallTreasury` clone (never sold): a configurable slice of every claim streams to a
+  `WallStaking` pool that pays stakers in the quote asset, the rest is a pile that keeps a
+  standing bid under book value (`reserve ÷ circulating`, balances only, no oracle) on the curve:
+  `defend()` buys and burns when spot < book × (1 + margin), bounded by a daily budget, a
+  minimum interval and a slippage floor, and pays a fixed keeper bounty last. After graduation
+  the maker-side ladder is a separate module (see radian-wall/docs/TREASURY.md); `defend`
+  reverts once graduated.
+- **Proof-of-Fee** — `src/radian/pof/`. The creator-fee share buys the token back on its own
+  curve (`PoFVault.claimAndBuy`, keeper-run with a quote and a reserve cap) and the bought-back
+  tokens are paid out per round to the traders whose fees funded them, in proportion to the
+  quote they spent through `PoFRouter` (`reward = pool × work ÷ max(totalWork, targetWork)`;
+  under-subscribed rounds pro-rate and roll the rest over; nothing is minted). Direct curve buys
+  still work and earn nothing.
+
+**Delegated buys** — `src/radian/RadianExecutor.sol`. Deposit quote, sign one EIP-712 `BuyAuth`
+(per-buy cap, gas-price cap, count, spacing, deadline, nonce); the platform keeper executes on
+schedule, tokens always land in the user's wallet. Service fee is a `constant` 0.5% of quote
+actually spent; the keeper earns a fixed gas stipend; `withdraw` and `cancelAuth` need nobody.
+
+The indexer runs the keeper (`indexer/src/keeper.ts`, needs `KEEPER_PRIVATE_KEY`) and an
+agent-facing API (`/v1/manifest`, `/v1/curve/:token`, `/v1/quote`, `/v1/launch-plan`,
+`/v1/auth`): unsigned plans only, never broadcasts, free until an x402 facilitator settles on Arc.
+Tests: `test/WallTemplate.t.sol`, `test/PoFTemplate.t.sol`, `test/RadianExecutor.t.sol`.
+
 ## Pons V2 on Arc testnet (deployed 2026-09-09)
 
 | Contract | Address |
@@ -49,7 +80,11 @@ Two generations live in this repo:
 | `PonsV2BuybackVault` | `0xe84D81C3d4f3E12123C9F934AB3Cb8238772b39e` |
 | `PonsV2LaunchLocker` | `0x7efb5B773BBbf69Bd163b52b1BA88C529a0f123c` |
 | `PonsV2LaunchFactory` | `0x90022cC2107De9c070F889E3A67009FcA270E4E2` |
-| `RadianLaunchRouter` (launch + first buy in one tx) | `0x2333449a1d83c5F99f29d5a17554D76245412C0E` |
+| `RadianLaunchRouter` v2 (launch + first buy; template launches) | `0xB9F097662302F220989AAeBa6776041d7d625fAE` |
+| `PoFRouter` (Proof-of-Fee official buy path, records Work) | `0x7a21533EBEdC7222F299dcfd46E0463E744bF6E8` |
+| `RadianExecutor` (delegated buys under signed, bounded authority) | `0xbf1fbda5991Ff34733AE74eDB84F74527B9588C1` |
+| `WallTreasury` / `WallStaking` / `PoFVault` implementations (cloned per launch) | `0x88f6f47AAFf65B948712f8C87b6eF51C7B6197c4` / `0x7F15D040Ae2A758D891A75e9399ab6b9487e70C1` / `0xeAF10129B449F3108923E666Fb7E7f00eC176bC5` |
+| Platform keeper (template maintenance + delegated buys; holds only gas) | `0xBb5b9503562CB4a2C86776c55C57EfFF1889779c` |
 | `PonsV2GraduationExecutor` | `0x1b888f930c6a855D015cB21F81a289EA7b7b4a69` |
 | `PonsV2LaunchDeployer` | `0xa8D3DFEE672ee92663298300030a1DFB078Cb552` |
 | Permit2 (canonical, pre-existing) | `0x000000000022D473030F116dDEE9F6B43aC78BA3` |

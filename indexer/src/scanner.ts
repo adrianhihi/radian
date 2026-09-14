@@ -16,6 +16,11 @@ import {
   LAUNCH_ROUTER,
   treasuryEventsAbi,
   CODE_HASHES,
+  LAUNCH_ROUTER_V1,
+  POF_ROUTER,
+  EXECUTOR,
+  routerEventsAbi,
+  RESCAN_RANGES,
 } from "./config.js";
 import { store } from "./store.js";
 
@@ -38,10 +43,11 @@ const SCAN_INTERVAL_MS = Number(process.env.SCAN_INTERVAL_MS ?? 5000);
 
 const FACTORY_LC = FACTORY.toLowerCase();
 const TREASURY_LC = RADIAN.treasury.toLowerCase();
+const ROUTER_LC = LAUNCH_ROUTER.toLowerCase();
 // Contracts that route buys/sells on users' behalf. The treasury's flush()
 // buys RADIAN on its curve; add others via EXTRA_ROUTERS (comma-separated).
 const ROUTERS = new Set(
-  [RADIAN.treasury, LAUNCH_ROUTER, ...(process.env.EXTRA_ROUTERS ?? "").split(",")].map((a) => a.trim().toLowerCase()).filter(Boolean),
+  [RADIAN.treasury, LAUNCH_ROUTER, LAUNCH_ROUTER_V1, POF_ROUTER, EXECUTOR, ...(process.env.EXTRA_ROUTERS ?? "").split(",")].map((a) => a.trim().toLowerCase()).filter(Boolean),
 );
 
 // ---- discovery + state ----
@@ -204,7 +210,7 @@ async function collectBackfill(nums: bigint[]): Promise<BlockLogs[]> {
   return out;
 }
 
-function decode(abi: typeof factoryAbi | typeof curveEventsAbi | typeof treasuryEventsAbi, log: RawLog) {
+function decode(abi: typeof factoryAbi | typeof curveEventsAbi | typeof treasuryEventsAbi | typeof routerEventsAbi, log: RawLog) {
   try {
     if (log.topics.length === 0) return null;
     return decodeEventLog({ abi, topics: log.topics, data: log.data }) as unknown as {
@@ -246,6 +252,22 @@ function applyBlock(b: BlockLogs) {
     if (addr === TREASURY_LC) {
       const ev = decode(treasuryEventsAbi, log);
       if (ev) recordFlywheel(ev, log, n.toString(), b.ts);
+      continue;
+    }
+    if (addr === ROUTER_LC) {
+      // Emitted after the factory's TokenLaunched in the same tx, so the launch exists.
+      const ev = decode(routerEventsAbi, log);
+      if (ev?.eventName === "WallLaunched") {
+        const a = ev.args as { token: Address; treasury: Address; staking: Address };
+        if (!store.setTemplate(a.token, { kind: "wall", treasury: a.treasury, staking: a.staking })) {
+          console.warn(`[scan] WallLaunched for unknown launch ${a.token}`);
+        }
+      } else if (ev?.eventName === "PoFLaunched") {
+        const a = ev.args as { token: Address; vault: Address };
+        if (!store.setTemplate(a.token, { kind: "pof", vault: a.vault, pofRouter: POF_ROUTER })) {
+          console.warn(`[scan] PoFLaunched for unknown launch ${a.token}`);
+        }
+      }
       continue;
     }
     const launch = store.hasCurve(addr);
@@ -329,6 +351,24 @@ async function backfillFlywheel() {
     }
   }
   if (seen.size) console.log(`[ledger] backfilled ${seen.size} treasury tx, ${store.flywheel.length} ledger rows`);
+}
+
+// One-off re-scans of block ranges named in RESCAN_RANGES ("from-to,…"): for
+// launches that landed before their entry point was known to the scanner.
+// Each range runs once; the logIndex dedup makes repeats harmless anyway.
+async function rescanRanges() {
+  for (const r of RESCAN_RANGES) {
+    if (store.rescansDone.has(r)) continue;
+    const [a, b] = r.split("-").map((x) => BigInt(x));
+    if (!a || !b || b < a || b - a > 5000n) {
+      console.warn(`[scan] bad RESCAN_RANGES entry ${r}`);
+      continue;
+    }
+    console.log(`[scan] rescanning ${a}-${b}`);
+    await processBlockRange(a, b, collectBackfill, () => {});
+    store.rescansDone.add(r);
+    store.save();
+  }
 }
 
 // Re-hash the live code of every pinned contract. A mismatch never stops the
@@ -416,6 +456,7 @@ export async function startScanner() {
   store.load();
   await verifyIdentity();
   await backfillFlywheel();
+  await rescanRanges();
   await seedLaunches();
   const loop = async () => {
     const busy = await tick();

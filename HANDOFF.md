@@ -35,7 +35,14 @@ auth, indexer, live analytics), the **$RADIAN** real-yield flywheel, and a flags
 | Contract | Address |
 | --- | --- |
 | `PonsV2LaunchFactory` (entry point) | `0x90022cC2107De9c070F889E3A67009FcA270E4E2` |
-| `RadianLaunchRouter` (factory's `launchForwarder`; launch + first buy atomically) | `0x2333449a1d83c5F99f29d5a17554D76245412C0E` |
+| `RadianLaunchRouter` v2 (factory's `launchForwarder`; standard / Wall / Proof-of-Fee launches) | `0xB9F097662302F220989AAeBa6776041d7d625fAE` |
+| `RadianLaunchRouter` v1 (retired 2026-09-14; one smoke launch) | `0x2333449a1d83c5F99f29d5a17554D76245412C0E` |
+| `PoFRouter` (Proof-of-Fee buys that earn Work) | `0x7a21533EBEdC7222F299dcfd46E0463E744bF6E8` |
+| `RadianExecutor` (delegated buys) | `0xbf1fbda5991Ff34733AE74eDB84F74527B9588C1` |
+| Template implementations `WallTreasury` / `WallStaking` / `PoFVault` | `0x88f6f47AAFf65B948712f8C87b6eF51C7B6197c4` / `0x7F15D040Ae2A758D891A75e9399ab6b9487e70C1` / `0xeAF10129B449F3108923E666Fb7E7f00eC176bC5` |
+| Platform keeper EOA (set on the router + executor; key in `.env` `KEEPER_PRIVATE_KEY` and on Railway) | `0xBb5b9503562CB4a2C86776c55C57EfFF1889779c` |
+| Showcase: Stock Treasury `STSHOW` token / treasury / staking | `0xD2aBFD74c4F64B1041A3b33b7e702760aEFEA943` / `0xEB608F66a7B80794989E3fe26FF2d03471D41f13` / `0x671D80d757a86E2E54c8b0E0A49BA3ef964730fC` |
+| Showcase: Proof-of-Fee `PFSHOW` token / vault | `0xEA5b921D9Af0125b5971466CC52af923Cf9Fe8A4` / `0x6E08dc1E6e676b2719c95332622d3a4ebdCe5523` |
 | `PonsV2MemeHook` (Uniswap V4 hook) | `0x15eB3aeE2f96A199165dc58e6C8dc3Ce2e02e044` |
 | `PonsV2BuybackVault` (5-yr linear vest) | `0xe84D81C3d4f3E12123C9F934AB3Cb8238772b39e` |
 | `PonsV2LaunchLocker` (permanent LP lock) | `0x7efb5B773BBbf69Bd163b52b1BA88C529a0f123c` |

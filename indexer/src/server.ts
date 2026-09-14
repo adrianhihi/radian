@@ -5,6 +5,7 @@ import { mkdirSync, writeFileSync, existsSync, readFileSync, readdirSync, statSy
 import { formatUnits } from "viem";
 import { store } from "./store.js";
 import { fmt } from "./scanner.js";
+import { mountAgentApi } from "./agentApi.js";
 import {
   publicClient,
   RADIAN,
@@ -112,6 +113,7 @@ export function startServer() {
           progress: goal > 0 ? Math.min(1, tq / goal) : 0,
           createdAt: l.createdAt ?? 0,
           sunset: SUNSET[l.token.toLowerCase()] ?? null,
+          template: l.template ?? null,
         };
       })
       // newest first (by createdAt when known, else by reserve)
@@ -261,6 +263,7 @@ export function startServer() {
     }
   });
 
+  mountAgentApi(app);
   const port = Number(process.env.PORT ?? 8080);
   app.listen(port, () => console.log(`[api] listening on :${port}`));
 }

@@ -56,6 +56,16 @@ snipe tax · creator fee share · stand-in *(testnet stocks)* · standing bid.
   most once per hour.
 - Launch + first buy is one transaction through the router for native USDC; ERC-20 quotes
   need one approval first.
+- Stock Treasury launches: the creator-fee share goes to a per-launch treasury that never
+  sells; 30% (configurable, ≤ 50%) of each claim streams to stakers in the quote asset; the
+  rest keeps a standing bid under book value on the curve, at most 10% of the pile per day.
+  Book value is `reserve ÷ circulating`, on-chain balances only. It is a bid, not a promise.
+- Proof-of-Fee launches: fees buy the token back; buybacks are paid per round to traders by
+  share of quote spent through the official router. Nothing is minted; a round with no Work
+  pays nothing and its pool carries forward.
+- Delegated buys: 0.5% of quote actually spent (a `constant`) plus a fixed gas stipend per
+  execution; tokens go to the user's wallet; withdraw and cancel need nobody's cooperation.
+- The agent API is free; every plan is unsigned and never broadcast.
 
 Add to this list when a mechanic ships; remove when it changes. The contracts, not this
 file, are the source of truth; this file only says what we are allowed to claim about them.

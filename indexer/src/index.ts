@@ -1,9 +1,11 @@
 import { startScanner } from "./scanner.js";
 import { startServer } from "./server.js";
+import { startKeeper } from "./keeper.js";
 
 async function main() {
   console.log("[radian-indexer] starting");
   startServer();
+  startKeeper();
   await startScanner();
 }
 

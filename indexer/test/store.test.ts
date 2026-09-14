@@ -74,3 +74,21 @@ test("treasury ledger rows dedupe by (txHash, logIndex) and survive a snapshot r
   assert.equal(fresh.flywheel.length, 2);
   assert.equal(fresh.addFlywheel(row), false, "index rebuilt on load");
 });
+
+test("templates attach to known launches and auths persist across a snapshot", () => {
+  assert.equal(store.setTemplate("0xnope", { kind: "pof", vault: "0xV" as never, pofRouter: "0xR" as never }), false);
+  assert.equal(store.setTemplate("0xt0ken", { kind: "wall", treasury: "0xTR" as never, staking: "0xST" as never }), true);
+  assert.equal(store.launches.get("0xt0ken")?.template?.kind, "wall");
+  store.auths.set("0xauth", {
+    authId: "0xauth", user: "0xU" as never, token: "0xT0KEN" as never,
+    auth: { user: "0xU" as never, token: "0xT0KEN" as never, perBuyMax: "1", maxGasPrice: "1", totalCount: 2, minInterval: 60, deadline: 9999999999, nonce: "0" },
+    signature: "0x00", createdAt: 1, count: 1, lastAt: 5, status: "active",
+  });
+  store.rescansDone.add("1-2");
+  store.save();
+  const fresh = new (Object.getPrototypeOf(store).constructor)();
+  fresh.load();
+  assert.equal(fresh.launches.get("0xt0ken")?.template?.kind, "wall");
+  assert.equal(fresh.auths.get("0xauth")?.count, 1);
+  assert.ok(fresh.rescansDone.has("1-2"));
+});

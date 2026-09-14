@@ -6,6 +6,9 @@ import {PonsV2LaunchFactory} from "../src/v2/PonsV2LaunchFactory.sol";
 import {PonsV2BondingCurve} from "../src/v2/PonsV2BondingCurve.sol";
 import {PonsV2LauncherToken} from "../src/v2/PonsV2LauncherToken.sol";
 import {RadianLaunchRouter} from "../src/radian/RadianLaunchRouter.sol";
+import {WallTreasury} from "../src/radian/wall/WallTreasury.sol";
+import {WallStaking} from "../src/radian/wall/WallStaking.sol";
+import {PoFVault} from "../src/radian/pof/PoFVault.sol";
 import {MockStock} from "../src/mock/MockStock.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -20,7 +23,7 @@ contract RadianLaunchRouterTest is PonsV2IntegrationTest {
 
     function setUp() public override {
         super.setUp();
-        router = new RadianLaunchRouter(factory);
+        router = _newRouter();
         vm.prank(owner);
         factory.setLaunchForwarder(address(router));
 
@@ -32,6 +35,10 @@ contract RadianLaunchRouterTest is PonsV2IntegrationTest {
 
         vm.deal(dana, 100e18);
         stock.mint(dana, 1_000e18);
+    }
+
+    function _newRouter() internal returns (RadianLaunchRouter) {
+        return new RadianLaunchRouter(factory, address(new WallTreasury()), address(new WallStaking()), address(new PoFVault()));
     }
 
     function _p(bytes32 salt) internal view returns (PonsV2LaunchFactory.TokenParams memory p) {
@@ -106,7 +113,7 @@ contract RadianLaunchRouterTest is PonsV2IntegrationTest {
     }
 
     function test_router_onlyTrustedForwarder() public {
-        RadianLaunchRouter rogue = new RadianLaunchRouter(factory);
+        RadianLaunchRouter rogue = _newRouter();
         vm.prank(dana);
         vm.expectRevert(PonsV2LaunchFactory.NotLaunchForwarder.selector);
         rogue.launchAndBuy{value: LAUNCH_FEE}(_p(bytes32(uint256(13))), 0, address(0), 0, 0, noExempt);

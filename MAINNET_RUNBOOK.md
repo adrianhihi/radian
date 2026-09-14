@@ -129,8 +129,14 @@ any other wallet can see the curve. The router has no owner and never holds fund
 privilege is being the factory's `launchForwarder`, which the script sets **while the deployer
 still owns the factory** (owner-only; after the handover it is a multisig transaction).
 
-Then: put the address in `web/lib/networks.ts` (`contracts.router` for mainnet) and set
-`LAUNCH_ROUTER` on the indexer service, **before** the frontend cutover — the indexer only reads
+The script also deploys the three template implementations (`WallTreasury`, `WallStaking`,
+`PoFVault`) the router clones per launch, and sets the platform **keeper** (`KEEPER` env; a
+dedicated EOA, never the owner key — fund it with a little USDC for gas). Then run
+`script/DeployExecutor.s.sol` for delegated buys (same `KEEPER`).
+
+Then: put the addresses in `web/lib/networks.ts` (`contracts.router`, `pofRouter`, `executor`,
+the three impls, plus their `codeHashes`) and set `LAUNCH_ROUTER`, `POF_ROUTER`, `EXECUTOR`,
+`KEEPER_PRIVATE_KEY` on the indexer service, **before** the frontend cutover — the indexer only reads
 receipts whose `tx.to` is the factory, a known curve, or a registered router, so a router launch
 that lands before the indexer knows the address is never indexed.
 

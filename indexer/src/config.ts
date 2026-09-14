@@ -64,7 +64,17 @@ export const isSunset = (token: string) => token.toLowerCase() in SUNSET;
 
 // RadianLaunchRouter: launch + creator's first buy in one tx. Its transactions
 // have tx.to = router, so the scanner must treat it as a known entry point.
-export const LAUNCH_ROUTER = (process.env.LAUNCH_ROUTER ?? "0x2333449a1d83c5F99f29d5a17554D76245412C0E") as Address;
+export const LAUNCH_ROUTER = (process.env.LAUNCH_ROUTER ?? "0xB9F097662302F220989AAeBa6776041d7d625fAE") as Address; // v2 (templates)
+export const LAUNCH_ROUTER_V1 = "0x2333449a1d83c5F99f29d5a17554D76245412C0E" as Address; // kept for history
+// Template + delegated-execution contracts (2026-09-14). Buys through PoFRouter
+// and RadianExecutor have tx.to = those contracts, so they are entry points too.
+export const POF_ROUTER = (process.env.POF_ROUTER ?? "0x7a21533EBEdC7222F299dcfd46E0463E744bF6E8") as Address;
+export const EXECUTOR = (process.env.EXECUTOR ?? "0xbf1fbda5991Ff34733AE74eDB84F74527B9588C1") as Address;
+export const KEEPER_PRIVATE_KEY = process.env.KEEPER_PRIVATE_KEY as `0x${string}` | undefined;
+export const KEEPER_INTERVAL_MS = Number(process.env.KEEPER_INTERVAL_MS ?? 60_000);
+// Block ranges to (re)scan once on startup, e.g. launches that happened before
+// an entry point was known to the scanner: "from-to,from-to".
+export const RESCAN_RANGES = (process.env.RESCAN_RANGES ?? "").split(",").map((r) => r.trim()).filter(Boolean);
 
 // Throwaway launches (speed tests, smoke tests) hidden from lists and stats.
 // They stay reachable by direct URL; nothing on-chain changes.
@@ -158,7 +168,71 @@ export const treasuryEventsAbi = parseAbi([
 export const CODE_HASHES: { name: string; address: Address; hash: `0x${string}` }[] = [
   { name: "PonsV2LaunchFactory", address: FACTORY, hash: "0x4444b7a1dbfc5b7b43f7ea4213be5db1720e8e381628a0a5024a3bba57d71595" },
   { name: "PonsV2MemeHook", address: "0x15eB3aeE2f96A199165dc58e6C8dc3Ce2e02e044" as Address, hash: "0x4d459c2b449407539e90df566a137db52aa6a34f69e45f1a062bd57e785a4bb2" },
-  { name: "RadianLaunchRouter", address: LAUNCH_ROUTER, hash: "0x618e05006c7461293559f681742b16db89f3c0d7baa8b853bfa17d587275ec35" },
+  { name: "RadianLaunchRouter", address: LAUNCH_ROUTER, hash: "0xd73b94c80452b2e91fe4c38347ce2157d9f45cd7f9c242009f0480501a0b4788" },
+  { name: "PoFRouter", address: POF_ROUTER, hash: "0xf5eb91076302ba59b8f58d3c6d445694e6a17c7acfa3d8e14040035130db0b98" },
+  { name: "RadianExecutor", address: EXECUTOR, hash: "0x521601531f84dc48bbb390e6514314684da9cf1e45c46dee77f8eacc3e14623c" },
   { name: "RadianStaking", address: RADIAN.staking, hash: "0xf7e675e11f13fbc04cebd15754c1ae0c14994d5e2f3815b9d8eea04992bafb57" },
   { name: "RadianTreasury", address: RADIAN.treasury, hash: "0x232fdd7004bfce03847d90b4d777acfdacdb0d1549b7261f051a6ea475bacd87" },
 ];
+
+// ---- templates ----
+export const routerEventsAbi = parseAbi([
+  "event WallLaunched(address indexed deployer, address indexed token, address curve, address treasury, address staking, address pairToken)",
+  "event PoFLaunched(address indexed deployer, address indexed token, address curve, address vault, address pairToken)",
+]);
+
+export const wallTreasuryAbi = parseAbi([
+  "function reserve() view returns (uint256)",
+  "function claimable() view returns (uint256)",
+  "function bookValue() view returns (uint256)",
+  "function spot() view returns (uint256)",
+  "function floorPrice() view returns (uint256)",
+  "function budgetRemaining() view returns (uint256)",
+  "function quoteToRestoreFloor() view returns (uint256)",
+  "function lastDefendAt() view returns (uint64)",
+  "function config() view returns (uint16 marginBps, uint16 epochBudgetBps, uint16 streamBps, uint16 maxSlippageBps, uint32 minInterval, uint128 keeperBounty)",
+  "function claimFees() returns (uint256 claimed, uint256 streamed)",
+  "function defend(uint256 maxSpend, uint256 minOut, uint256 deadline) returns (uint256 spent, uint256 burned)",
+]);
+
+export const pofVaultAbi = parseAbi([
+  "function plannedSpend() view returns (uint256)",
+  "function lastBuybackAt() view returns (uint64)",
+  "function config() view returns (uint128 targetWork, uint32 roundSeconds, uint32 minInterval, uint16 maxBuybackReserveBps)",
+  "function claimAndBuy(uint256 minOut, uint256 deadline) returns (uint256 spent, uint256 out)",
+  "function poke()",
+  "function currentRound() view returns (uint256)",
+]);
+
+export const executorAbi = parseAbi([
+  "struct BuyAuth { address user; address token; uint256 perBuyMax; uint256 maxGasPrice; uint32 totalCount; uint32 minInterval; uint64 deadline; uint256 nonce; }",
+  "function executeBuy(BuyAuth a, bytes sig, uint256 amount, uint256 minOut) returns (uint256 tokensOut)",
+  "function nonces(address) view returns (uint256)",
+  "function balanceOf(address user, address asset) view returns (uint256)",
+  "function execs(bytes32) view returns (uint32 count, uint64 lastAt)",
+  "function authId((address user,address token,uint256 perBuyMax,uint256 maxGasPrice,uint32 totalCount,uint32 minInterval,uint64 deadline,uint256 nonce) a) pure returns (bytes32)",
+  "function keeper() view returns (address)",
+]);
+
+export const curveTradeAbi = parseAbi([
+  "function buy(uint256 quoteIn, uint256 minTokensOut, address recipient) payable returns (uint256 tokensOut)",
+  "function sell(uint256 tokensIn, uint256 minQuoteOut, address recipient) returns (uint256 quoteOut)",
+  "function feeBps() view returns (uint256)",
+  "function creatorTaxBps() view returns (uint256)",
+  "function currentSnipeTaxBps(address recipient) view returns (uint256)",
+  "function launchedAt() view returns (uint256)",
+]);
+
+export const EXECUTOR_DOMAIN = { name: "RadianExecutor", version: "1" } as const;
+export const BUY_AUTH_TYPES = {
+  BuyAuth: [
+    { name: "user", type: "address" },
+    { name: "token", type: "address" },
+    { name: "perBuyMax", type: "uint256" },
+    { name: "maxGasPrice", type: "uint256" },
+    { name: "totalCount", type: "uint32" },
+    { name: "minInterval", type: "uint32" },
+    { name: "deadline", type: "uint64" },
+    { name: "nonce", type: "uint256" },
+  ],
+} as const;
