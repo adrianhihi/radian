@@ -39,6 +39,13 @@ export function pinnedContracts(): IdentityEntry[] {
   pin("Uniswap V4 PoolManager", c.poolManager, "poolManager");
   pin("RadianStaking", r.staking, "staking");
   pin("RadianTreasury", r.treasury, "treasury");
+  pin("PoFRouter", c.pofRouter, "pofRouter");
+  pin("RadianExecutor", c.executor, "executor");
+  // Per-launch template contracts are EIP-1167 clones of these; a clone's own
+  // code is the 45-byte proxy, so the implementation is what gets pinned.
+  pin("WallTreasury (implementation)", c.wallTreasuryImpl, "wallTreasuryImpl");
+  pin("WallStaking (implementation)", c.wallStakingImpl, "wallStakingImpl");
+  pin("PoFVault (implementation)", c.pofVaultImpl, "pofVaultImpl");
   return out;
 }
 

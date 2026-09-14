@@ -48,6 +48,14 @@ export type NetworkConfig = {
     // Atomic launch + first buy (RadianLaunchRouter). Zero = not deployed; the
     // launch page then falls back to two transactions.
     router: Address;
+    // Launch templates (router v2). Per-launch WallTreasury / WallStaking /
+    // PoFVault are EIP-1167 clones of these implementations, so pinning the
+    // implementation hash covers every instance. Zero = not deployed.
+    pofRouter: Address;
+    executor: Address; // RadianExecutor: keeper-run delegated buys
+    wallTreasuryImpl: Address;
+    wallStakingImpl: Address;
+    pofVaultImpl: Address;
   };
   radian: {
     token: Address;
@@ -59,7 +67,13 @@ export type NetworkConfig = {
   // keccak256 of each deployed contract's runtime code, recorded at deploy
   // (`cast keccak $(cast code <addr>)`). The site re-hashes the live code and
   // refuses to launch or trade on a mismatch (lib/identity.ts). Fill on deploy.
-  codeHashes: Partial<Record<"factory" | "hook" | "router" | "escrow" | "vault" | "locker" | "poolManager" | "staking" | "treasury", `0x${string}`>>;
+  codeHashes: Partial<
+    Record<
+      | "factory" | "hook" | "router" | "escrow" | "vault" | "locker" | "poolManager" | "staking" | "treasury"
+      | "pofRouter" | "executor" | "wallTreasuryImpl" | "wallStakingImpl" | "pofVaultImpl",
+      `0x${string}`
+    >
+  >;
 };
 
 const ZERO = "0x0000000000000000000000000000000000000000" as Address;
@@ -84,7 +98,13 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
       escrow: "0x6133392C976d5160CBDE63815f7cd63122f3841C",
       hook: "0x15eB3aeE2f96A199165dc58e6C8dc3Ce2e02e044",
       poolManager: "0x24219d0F3611fE4E438850bB7DB165439957dc9f",
-      router: "0x2333449a1d83c5F99f29d5a17554D76245412C0E",
+      // v2 (2026-09-14): launchAndBuy + launchWall + launchPoF
+      router: "0xB9F097662302F220989AAeBa6776041d7d625fAE",
+      pofRouter: "0x7a21533EBEdC7222F299dcfd46E0463E744bF6E8",
+      executor: "0xbf1fbda5991Ff34733AE74eDB84F74527B9588C1",
+      wallTreasuryImpl: "0x88f6f47AAFf65B948712f8C87b6eF51C7B6197c4",
+      wallStakingImpl: "0x7F15D040Ae2A758D891A75e9399ab6b9487e70C1",
+      pofVaultImpl: "0xeAF10129B449F3108923E666Fb7E7f00eC176bC5",
     },
     radian: {
       token: "0x0B764B1e50E4D17A897Cdd9494CaC3355579fDcD",
@@ -97,13 +117,19 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
       // Arc testnet, recorded 2026-09-13
       factory: "0x4444b7a1dbfc5b7b43f7ea4213be5db1720e8e381628a0a5024a3bba57d71595",
       hook: "0x4d459c2b449407539e90df566a137db52aa6a34f69e45f1a062bd57e785a4bb2",
-      router: "0x618e05006c7461293559f681742b16db89f3c0d7baa8b853bfa17d587275ec35",
+      router: "0xd73b94c80452b2e91fe4c38347ce2157d9f45cd7f9c242009f0480501a0b4788",
       escrow: "0xdbc3d137ff3b35ee6fa87e0bb86ddbf9a6006fb3204b16006b5b0717acaff686",
       vault: "0xa3f5985eb0b204f7659581846c6335006148665a5572b7e47567e8a5362e3edb",
       locker: "0x38748c627ad799e26df81475147c567afe965b35467741aceaf10f49c7b8939e",
       poolManager: "0xb13c6cc815ee74f897a9168dfd9bce10a140e87981b7f9d83f3d90250dda70ad",
       staking: "0xf7e675e11f13fbc04cebd15754c1ae0c14994d5e2f3815b9d8eea04992bafb57",
       treasury: "0x232fdd7004bfce03847d90b4d777acfdacdb0d1549b7261f051a6ea475bacd87",
+      // templates + executor, recorded 2026-09-14
+      pofRouter: "0xf5eb91076302ba59b8f58d3c6d445694e6a17c7acfa3d8e14040035130db0b98",
+      executor: "0x521601531f84dc48bbb390e6514314684da9cf1e45c46dee77f8eacc3e14623c",
+      wallTreasuryImpl: "0x718ad47a561ab9daedadef3db329acbac22a8c54106b76e38ca6312854de63e4",
+      wallStakingImpl: "0x0128ecfb818d294790edc549a882cf0efa8a2ee787e249fca92ca888c3d5c012",
+      pofVaultImpl: "0x95f3971dff5cc41428090a979a462c5784b5204b8833c2b5716fdb4ceffe0674",
     },
     quoteAssets: [
       { key: "usdc", symbol: "USDC", address: ZERO, decimals: 18, native: true, gradGoal: 20, blurb: "Native dollar — the Arc gas coin" },
@@ -137,6 +163,11 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
       // canonical Uniswap V4 on Arc mainnet (verify on Arcscan at launch)
       poolManager: "0x8366a39cc670b4001a1121b8f6a443a643e40951",
       router: ZERO,
+      pofRouter: ZERO,
+      executor: ZERO,
+      wallTreasuryImpl: ZERO,
+      wallStakingImpl: ZERO,
+      pofVaultImpl: ZERO,
     },
     radian: { token: ZERO, curve: ZERO, staking: ZERO, treasury: ZERO },
     codeHashes: {},
@@ -169,6 +200,11 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
       // canonical Uniswap V4 PoolManager on Base (verified on BaseScan)
       poolManager: "0x498581fF718922c3f8e6A244956aF099B2652b2b",
       router: ZERO,
+      pofRouter: ZERO,
+      executor: ZERO,
+      wallTreasuryImpl: ZERO,
+      wallStakingImpl: ZERO,
+      pofVaultImpl: ZERO,
     },
     radian: { token: ZERO, curve: ZERO, staking: ZERO, treasury: ZERO },
     codeHashes: {},

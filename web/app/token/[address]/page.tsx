@@ -5,7 +5,7 @@ import { formatUnits, isAddress, parseEther, type Address } from "viem";
 import { Nav } from "@/components/Nav";
 import { TradePanel } from "@/components/TradePanel";
 import { StockRef } from "@/components/StockRef";
-import { publicClient, curveAbi, tokenAbi, erc20Abi, explorer, arcTestnet, quoteByAddress, type QuoteAsset } from "@/lib/radian";
+import { publicClient, curveAbi, tokenAbi, erc20Abi, explorer, arcTestnet, quoteByAddress, RADIAN, hasPofRouter, hasExecutor, type QuoteAsset, type LaunchTemplate } from "@/lib/radian";
 import { useRadianWallet } from "@/lib/useRadianWallet";
 import { findCurve } from "@/lib/registry";
 import { fetchTokenMeta, hasIndexer, type Sunset } from "@/lib/indexer";
@@ -13,6 +13,10 @@ import { projectLinks, safeHttpUrl, xUrl } from "@/lib/projects";
 import { useIdentity } from "@/lib/identity";
 import { waitReceipt, ReceiptTimeout, usePendingResume } from "@/lib/pendingTx";
 import { IdentityBanner, PendingBar } from "@/components/TrustBanners";
+import { pofRouterAbi } from "@/lib/templates";
+import { WallTreasuryPanel, WallStakePanel } from "@/components/WallPanels";
+import { PoFPanel } from "@/components/PoFPanel";
+import { AutoBuyPanel } from "@/components/AutoBuyPanel";
 import { parseUnits } from "viem";
 
 type State = {
@@ -60,6 +64,14 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
   const [slippageBps, setSlippageBps] = useState<number>(100);
   const [snipeBps, setSnipeBps] = useState<bigint>(0n);
   const [sunset, setSunset] = useState<Sunset | null>(null);
+  // Launch template (The Wall / Proof-of-Fee) from the indexer, with an on-chain
+  // fallback for PoF. Immutable per launch, so it is resolved once.
+  const [template, setTemplate] = useState<LaunchTemplate | null>(null);
+  const templateRef = useRef<LaunchTemplate | null>(null);
+  const pofCheckedRef = useRef(false);
+  // Bumped after a resumed (previously lost) transaction so the template /
+  // auto-buy panels re-read their state.
+  const [refreshKey, setRefreshKey] = useState(0);
   const loadedRef = useRef(false);
   const identity = useIdentity();
   const [pendingHash, setPendingHash] = useState<Address | null>(null);
@@ -77,13 +89,37 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
       // The indexer also knows whether this launch was retired for a successor.
       const meta = await fetchTokenMeta(token);
       if (!curve) curve = meta?.curve ?? null;
-      if (meta) setSunset(meta.sunset ?? null);
+      if (meta) {
+        setSunset(meta.sunset ?? null);
+        if (meta.template && !templateRef.current) {
+          templateRef.current = meta.template;
+          setTemplate(meta.template);
+        }
+      }
     }
     if (!curve) {
       // Only declare "not found" if we have never loaded this token; a transient
       // indexer failure must not hide a token that was already on screen.
       if (!loadedRef.current) setNotFound(true);
       return;
+    }
+    // Until the indexer reports templates, Proof-of-Fee launches are still
+    // recognisable on-chain: the PoF router keeps a registry. (The Wall has no
+    // registry, so it relies on the indexer.)
+    if (!templateRef.current && !pofCheckedRef.current && hasPofRouter) {
+      pofCheckedRef.current = true;
+      try {
+        const [vault] = (await publicClient.readContract({
+          address: RADIAN.pofRouter, abi: pofRouterAbi, functionName: "launches", args: [token],
+        })) as readonly [Address, Address, Address];
+        if (vault && vault !== ZERO_ADDR) {
+          const t: LaunchTemplate = { kind: "pof", vault, pofRouter: RADIAN.pofRouter };
+          templateRef.current = t;
+          setTemplate(t);
+        }
+      } catch {
+        pofCheckedRef.current = false; // RPC hiccup: try again on the next poll
+      }
     }
     // one Multicall3 batch instead of 10 separate RPC reads (poll-friendly)
     const mc = await publicClient.multicall({
@@ -256,12 +292,14 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
       : `${Number(formatUnits(v, st?.quoteDecimals ?? 18)).toLocaleString(undefined, { maximumFractionDigits: 4 })} ${st?.quoteSymbol ?? ""}`;
   const pctOf = (bps: bigint) => `${(Number(bps) / 100).toFixed(Number(bps) % 100 === 0 ? 0 : 2)}%`;
 
-  // Trades whose receipt this tab lost are resolved from chain, never resent.
-  usePendingResume(["buy", "sell"], (p) => {
+  // Trades (and template / auto-buy actions) whose receipt this tab lost are
+  // resolved from chain, never resent.
+  usePendingResume(["buy", "sell", "stake", "unstake", "claim", "deposit", "withdraw", "cancel"], (p) => {
     if ((p.meta?.token ?? "").toLowerCase() !== token.toLowerCase()) return;
     setPendingHash(null);
     setToast(`Your earlier ${p.kind} confirmed ✓`);
     load();
+    setRefreshKey((k) => k + 1);
   });
 
   async function trade() {
@@ -286,30 +324,39 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
       const { client, account: acct } = wc;
       if (side === "buy") {
         const inWei = parseUnits(amount, st.quoteDecimals);
+        // Proof-of-Fee: buys go through the PoF router so they record Work for
+        // the buyer (same curve, same price, same on-chain minOut); a direct
+        // curve buy would pay the fee and earn nothing.
+        const pof = template?.kind === "pof" ? template : null;
+        const spender = pof ? pof.pofRouter : st.curve;
+        const sendBuy = (value?: bigint) =>
+          pof
+            ? client.writeContract({
+                account: acct, chain: arcTestnet, address: pof.pofRouter, abi: pofRouterAbi,
+                functionName: "buy", args: [token, inWei, minOut], value,
+              })
+            : client.writeContract({
+                account: acct, chain: arcTestnet, address: st.curve, abi: curveAbi,
+                functionName: "buy", args: [inWei, minOut, acct], value,
+              });
         if (st.native) {
           setToast("Confirm buy…");
-          const hash = await client.writeContract({
-            account: acct, chain: arcTestnet, address: st.curve, abi: curveAbi,
-            functionName: "buy", args: [inWei, minOut, acct], value: inWei,
-          });
+          const hash = await sendBuy(inWei);
           await waitReceipt(hash, "buy", { token });
         } else {
           setToast(`Approve ${st.quoteSymbol}…`);
           const ah = await client.writeContract({
             account: acct, chain: arcTestnet, address: st.pairToken, abi: erc20Abi,
-            functionName: "approve", args: [st.curve, inWei],
+            functionName: "approve", args: [spender, inWei],
           });
           await waitReceipt(ah, "approve");
           // The wallet may have edited the amount: re-read before spending on it.
           const allowed = (await publicClient.readContract({
-            address: st.pairToken, abi: erc20Abi, functionName: "allowance", args: [acct, st.curve],
+            address: st.pairToken, abi: erc20Abi, functionName: "allowance", args: [acct, spender],
           })) as bigint;
           if (allowed < inWei) throw new Error("Your wallet approved a smaller amount, so nothing was bought. Approve the full amount to continue.");
           setToast("Confirm buy…");
-          const hash = await client.writeContract({
-            account: acct, chain: arcTestnet, address: st.curve, abi: curveAbi,
-            functionName: "buy", args: [inWei, minOut, acct],
-          });
+          const hash = await sendBuy(undefined);
           await waitReceipt(hash, "buy", { token });
         }
         setToast("Bought ✓");
@@ -433,8 +480,15 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
                   })()}
                 </div>
               </div>
-              <span className={`badge ${sunset ? "badge-soon" : st.graduated ? "badge-grad" : "badge-live"}`} style={{ marginLeft: "auto" }}>
-                {sunset ? "Retired" : st.graduated ? "Graduated" : "Live on curve"}
+              <span style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+                {template && (
+                  <span className="badge badge-soon" title={template.kind === "wall" ? "Stock Treasury template" : "Proof-of-Fee template"}>
+                    {template.kind === "wall" ? "The Wall" : "Proof-of-Fee"}
+                  </span>
+                )}
+                <span className={`badge ${sunset ? "badge-soon" : st.graduated ? "badge-grad" : "badge-live"}`}>
+                  {sunset ? "Retired" : st.graduated ? "Graduated" : "Live on curve"}
+                </span>
               </span>
             </div>
 
@@ -478,10 +532,32 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
               </div>
             )}
 
+            {template?.kind === "wall" && (
+              <>
+                <WallTreasuryPanel
+                  treasury={template.treasury} staking={template.staking} token={token} symbol={st.symbol} quote={st.quoteAsset}
+                  identity={identity} onToast={setToast} onPending={setPendingHash} refreshKey={refreshKey}
+                />
+                <WallStakePanel
+                  staking={template.staking} token={token} symbol={st.symbol} quote={st.quoteAsset} myTokens={myTokens}
+                  identity={identity} onToast={setToast} onPending={setPendingHash} refreshKey={refreshKey}
+                />
+              </>
+            )}
+            {template?.kind === "pof" && (
+              <PoFPanel
+                vault={template.vault} pofRouter={template.pofRouter} token={token} symbol={st.symbol} quote={st.quoteAsset}
+                identity={identity} onToast={setToast} onPending={setPendingHash} refreshKey={refreshKey}
+              />
+            )}
+
             <TradePanel token={token} symbol={st.symbol} />
           </div>
 
-          <div className="panel" style={{ position: "sticky", top: 84 }}>
+          {/* The trade panel is sticky on its own; with the auto-buy panel below it the
+              column can outgrow the viewport, so it scrolls normally instead. */}
+          <div style={!st.graduated && hasExecutor && !sunset ? undefined : { position: "sticky", top: 84 }}>
+          <div className="panel">
             {st.graduated ? (
               <div style={{ textAlign: "center", padding: "14px 0" }}>
                 <div className="badge badge-grad" style={{ display: "inline-block" }}>Graduated</div>
@@ -569,9 +645,17 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
                 </button>
                 <p className="hint" style={{ textAlign: "center" }}>
                   Min. received is enforced on-chain — the trade reverts instead of filling below it.
+                  {template?.kind === "pof" && side === "buy" && " Buys go through the PoF router, so they count as Work."}
                 </p>
               </>
             )}
+          </div>
+          {!st.graduated && hasExecutor && !sunset && (
+            <AutoBuyPanel
+              token={token} symbol={st.symbol} quote={st.quoteAsset}
+              identity={identity} onToast={setToast} onPending={setPendingHash} refreshKey={refreshKey}
+            />
+          )}
           </div>
         </div>
       </main>

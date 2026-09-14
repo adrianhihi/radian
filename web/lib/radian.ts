@@ -18,6 +18,11 @@ export const RADIAN = {
   hook: NET.contracts.hook,
   poolManager: NET.contracts.poolManager,
   router: NET.contracts.router,
+  pofRouter: NET.contracts.pofRouter,
+  executor: NET.contracts.executor,
+  wallTreasuryImpl: NET.contracts.wallTreasuryImpl,
+  wallStakingImpl: NET.contracts.wallStakingImpl,
+  pofVaultImpl: NET.contracts.pofVaultImpl,
   deployBlock: NET.deployBlock,
 } as const;
 
@@ -42,6 +47,8 @@ export const quoteByAddress = (a?: string): QuoteAsset | undefined => {
 // receipt wait look 4-8x slower than the chain actually is.
 export const publicClient = createPublicClient({ chain: arcTestnet, transport: http(), pollingInterval: 500 });
 export const hasLaunchRouter = RADIAN.router !== "0x0000000000000000000000000000000000000000";
+export const hasPofRouter = RADIAN.pofRouter !== "0x0000000000000000000000000000000000000000";
+export const hasExecutor = RADIAN.executor !== "0x0000000000000000000000000000000000000000";
 
 // ---- ABIs (only what the UI needs) ----
 export const factoryAbi = parseAbi([
@@ -51,9 +58,20 @@ export const factoryAbi = parseAbi([
   "function getLaunchConfig(uint256 id) view returns ((uint256 supply, uint256 curveFeeBps, uint256 phantomQuote, uint256 graduationThreshold, uint24 poolFee, int24 tickSpacing, bool enabled))",
 ]);
 
-// RadianLaunchRouter: launch + creator's first buy in one transaction.
+// RadianLaunchRouter v2: launch + creator's first buy in one transaction, plus
+// the two launch templates (The Wall, Proof-of-Fee). The router overwrites
+// `creatorFeeRecipient` / `buybackEnabled` for templates (fees must reach the
+// treasury / vault), so the UI sends the params as-is.
 export const routerAbi = parseAbi([
   "function launchAndBuy((string name, string symbol, string logo, string description, (string twitter, string telegram, string discord, string website, string farcaster) socials, address creatorFeeRecipient, uint16 creatorTaxBps, bool buybackEnabled, bytes32 expectedEconomics, bytes32 salt) params, uint256 launchConfigId, address pairToken, uint256 buyAmount, uint256 minTokensOut, address[] snipeTaxExemptions) payable returns (address token, address curve, uint256 tokensOut)",
+  "function launchWall((string name, string symbol, string logo, string description, (string twitter, string telegram, string discord, string website, string farcaster) socials, address creatorFeeRecipient, uint16 creatorTaxBps, bool buybackEnabled, bytes32 expectedEconomics, bytes32 salt) params, uint256 launchConfigId, address pairToken, uint256 buyAmount, uint256 minTokensOut, address[] snipeTaxExemptions, (uint16 marginBps, uint16 epochBudgetBps, uint16 streamBps, uint16 maxSlippageBps, uint32 minInterval, uint128 keeperBounty) cfg) payable returns (address token, address curve, address treasury, address staking)",
+  "function launchPoF((string name, string symbol, string logo, string description, (string twitter, string telegram, string discord, string website, string farcaster) socials, address creatorFeeRecipient, uint16 creatorTaxBps, bool buybackEnabled, bytes32 expectedEconomics, bytes32 salt) params, uint256 launchConfigId, address pairToken, uint256 buyAmount, uint256 minTokensOut, address[] snipeTaxExemptions, (uint128 targetWork, uint32 roundSeconds, uint32 minInterval, uint16 maxBuybackReserveBps) cfg) payable returns (address token, address curve, address vault)",
+  "function predictWall(address creator, bytes32 salt) view returns (address treasury, address staking)",
+  "function predictPoF(address creator, bytes32 salt) view returns (address vault)",
+  "function pofRouter() view returns (address)",
+  "function keeper() view returns (address)",
+  "event WallLaunched(address indexed deployer, address indexed token, address curve, address treasury, address staking, address pairToken)",
+  "event PoFLaunched(address indexed deployer, address indexed token, address curve, address vault, address pairToken)",
 ]);
 
 export const curveAbi = parseAbi([
@@ -125,7 +143,14 @@ export type LaunchRow = {
   quoteSymbol: string; // "USDC" | "EURC"
   quoteDecimals: number; // 18 native, 6 for EURC
   pairToken: Address; // 0x0 for native
+  // Launch template (indexer-derived); undefined/null = Standard.
+  template?: LaunchTemplate | null;
 };
+
+// Which launch template a token used, and where its per-launch contracts live.
+export type LaunchTemplate =
+  | { kind: "wall"; treasury: Address; staking: Address }
+  | { kind: "pof"; vault: Address; pofRouter: Address };
 
 const explorerTx = (h: string) => `${arcTestnet.blockExplorers!.default.url}/tx/${h}`;
 const explorerAddr = (a: string) => `${arcTestnet.blockExplorers!.default.url}/address/${a}`;

@@ -1,4 +1,4 @@
-import type { LaunchRow } from "./radian";
+import type { LaunchRow, LaunchTemplate } from "./radian";
 import { getActiveNetwork } from "./networks";
 import type { Address } from "viem";
 
@@ -32,7 +32,20 @@ type ApiLaunch = {
   pairToken: Address;
   quoteSymbol: string;
   quoteDecimals: number;
+  template?: ApiTemplate | null;
 };
+
+// Wire shape of a launch's template. Anything unexpected → null (Standard).
+type ApiTemplate =
+  | { kind: "wall"; treasury: Address; staking: Address }
+  | { kind: "pof"; vault: Address; pofRouter: Address };
+
+function parseTemplate(t: ApiTemplate | null | undefined): LaunchTemplate | null {
+  if (!t || typeof t !== "object") return null;
+  if (t.kind === "wall" && t.treasury && t.staking) return { kind: "wall", treasury: t.treasury, staking: t.staking };
+  if (t.kind === "pof" && t.vault && t.pofRouter) return { kind: "pof", vault: t.vault, pofRouter: t.pofRouter };
+  return null;
+}
 
 export async function fetchLaunches(): Promise<LaunchRow[]> {
   const { launches } = await get<{ launches: ApiLaunch[] }>("/launches");
@@ -52,6 +65,7 @@ export async function fetchLaunches(): Promise<LaunchRow[]> {
     quoteSymbol: l.quoteSymbol ?? "USDC",
     quoteDecimals: l.quoteDecimals ?? 18,
     pairToken: l.pairToken ?? "0x0000000000000000000000000000000000000000",
+    template: parseTemplate(l.template),
   }));
 }
 
@@ -95,12 +109,18 @@ export async function fetchTokenTrades(token: string): Promise<TokenTrade[]> {
 // registry (e.g. it was created elsewhere but is visible on Explore).
 export type Sunset = { successor: Address; reason: string };
 
-export async function fetchTokenMeta(
-  token: string,
-): Promise<{ curve: Address; pairToken: Address; deployer: Address; sunset: Sunset | null } | null> {
+export type TokenMeta = {
+  curve: Address;
+  pairToken: Address;
+  deployer: Address;
+  sunset: Sunset | null;
+  template: LaunchTemplate | null; // null = Standard, or the indexer predates templates
+};
+
+export async function fetchTokenMeta(token: string): Promise<TokenMeta | null> {
   try {
     const { token: t } = await get<{
-      token?: { curve: Address; pairToken?: Address; deployer: Address; sunset?: Sunset | null };
+      token?: { curve: Address; pairToken?: Address; deployer: Address; sunset?: Sunset | null; template?: ApiTemplate | null };
     }>(`/token/${token}`);
     if (!t?.curve) return null;
     return {
@@ -108,10 +128,50 @@ export async function fetchTokenMeta(
       pairToken: t.pairToken ?? ("0x0000000000000000000000000000000000000000" as Address),
       deployer: t.deployer,
       sunset: t.sunset ?? null,
+      template: parseTemplate(t.template),
     };
   } catch {
     return null;
   }
+}
+
+// ── Auto-buy schedules (RadianExecutor) ──────────────────────────────────
+// The signed EIP-712 authorization is stored by the indexer, which runs the
+// keeper. All uint fields travel as decimal strings.
+export type AuthMessage = {
+  user: Address;
+  token: Address;
+  perBuyMax: string;
+  maxGasPrice: string;
+  totalCount: string;
+  minInterval: string;
+  deadline: string;
+  nonce: string;
+};
+export type AuthStatus = "active" | "done" | "expired" | "cancelled";
+export type AuthRecord = {
+  authId: string;
+  auth: AuthMessage;
+  signature: `0x${string}`;
+  count: number;
+  lastAt: number; // unix seconds, 0 = never
+  status: AuthStatus;
+};
+
+export async function postAuth(auth: AuthMessage, signature: `0x${string}`): Promise<{ authId: string }> {
+  const r = await fetch(`${INDEXER_URL}/v1/auth`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ auth, signature }),
+  });
+  const j = (await r.json().catch(() => ({}))) as { ok?: boolean; authId?: string; error?: string };
+  if (!r.ok || !j.ok || !j.authId) throw new Error(j.error ?? `indexer /v1/auth ${r.status}`);
+  return { authId: j.authId };
+}
+
+export async function fetchAuths(user: string): Promise<AuthRecord[]> {
+  const { auths } = await get<{ auths?: AuthRecord[] }>(`/v1/auth/${user}`);
+  return Array.isArray(auths) ? auths : [];
 }
 
 export type ProtocolStats = {

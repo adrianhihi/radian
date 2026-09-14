@@ -11,6 +11,8 @@ const SECTIONS = [
   { id: "launch-flow", label: "Launch flow" },
   { id: "inputs", label: "Required inputs" },
   { id: "fee-modes", label: "Fee modes" },
+  { id: "templates", label: "Templates" },
+  { id: "auto-buy", label: "Auto-buy" },
   { id: "anti-snipe", label: "Anti-snipe" },
   { id: "fees", label: "Fees & buyback" },
   { id: "contracts", label: "Contracts" },
@@ -138,6 +140,49 @@ export default function DocsPage() {
             />
           </section>
 
+          <section id="templates">
+            <h2>Templates</h2>
+            <p style={{ color: "var(--fg-dim)", marginTop: 6 }}>
+              A template decides what the creator-fee share of every trade does. It is chosen at launch and written on-chain by the
+              launch router, which sets creator-fee mode with a per-launch contract as the only recipient — no wallet can be
+              substituted later. Fee mode does not apply to templated launches.
+            </p>
+            <Table
+              head={["Template", "What fees do"]}
+              rows={[
+                ["Standard", "The fee mode above applies: buyback & lock, or creator fees to a wallet you choose."],
+                ["Stock Treasury — The Wall", "Needs a stock as the paired market. Creator fees are claimed (by anyone) into a treasury that holds the stock and never sells it. A configured share of each claim (default 30%) streams to stakers of the token over 7 days, paid in the stock. The rest is a standing bid under book value: while the token is on its curve, a keeper may buy and burn when spot trades under book value × (1 + margin), within a daily budget. Book value = pile ÷ circulating supply, both read on-chain."],
+                ["Proof-of-Fee", "Creator fees buy the token back on its own curve. Each round (1 minute to 24 hours), the buyback is paid to the traders whose fees funded it, by share of quote spent through the official PoF router (\"Work\"). Direct curve buys and all sells earn no Work. Under-subscribed rounds pay out pro-rata and the rest rolls forward. Nothing is minted."],
+              ]}
+            />
+            <div className="panel" style={{ marginTop: 12 }}>
+              <h3 style={{ fontSize: 16, marginBottom: 6 }}>What is and is not promised</h3>
+              <p style={{ color: "var(--fg-dim)", margin: 0 }}>
+                The Wall is a bid funded by fees, not a guarantee: it can only spend what fees have put in the pile, at most the
+                daily budget, and only while the token is on its curve. Book value is not a price floor. Proof-of-Fee rewards can
+                never exceed what fees actually bought back; a round with no fees pays nothing. Staking rewards are fees actually
+                collected; the rate changes with every claim and is not an APY. On testnet the stock assets are stand-ins with no
+                redemption. Everything on a token page is read from that launch&apos;s own contracts, and a dash means unknown, never zero.
+              </p>
+            </div>
+          </section>
+
+          <section id="auto-buy">
+            <h2>Auto-buy</h2>
+            <div className="panel">
+              <p style={{ color: "var(--fg-dim)", margin: 0 }}>
+                Any curve token&apos;s page can schedule buys through the <strong>RadianExecutor</strong>. You deposit the quote asset
+                (and native USDC for gas when the quote is an ERC-20) into the executor, then sign one EIP-712 message that caps
+                the amount per buy, the interval, the number of buys, the maximum gas price and an expiry. A keeper run by the
+                indexer executes the buys on that schedule; tokens always land in your wallet. The fee is 0.5% of quote actually
+                spent (a contract constant) plus a gas stipend of 300,000 gas × min(gas price, your cap) per buy, both taken from
+                your deposit. Withdrawing your deposit and cancelling every schedule are plain transactions that need nobody&apos;s
+                cooperation. The keeper cannot exceed the caps you signed, and it cannot move funds anywhere but into a buy of the
+                token you named.
+              </p>
+            </div>
+          </section>
+
           <section id="anti-snipe">
             <h2>Anti-snipe</h2>
             <div className="panel">
@@ -177,6 +222,9 @@ export default function DocsPage() {
                 ["LaunchLocker", RADIAN.locker],
                 ["FeeEscrow", RADIAN.escrow],
                 ["PoolManager (Uniswap V4)", RADIAN.poolManager],
+                ["LaunchRouter (templates)", RADIAN.router],
+                ["PoFRouter", RADIAN.pofRouter],
+                ["RadianExecutor (auto-buy)", RADIAN.executor],
               ].map(([label, a]) => (
                 <div key={a} className="kv" style={{ padding: "13px 20px" }}>
                   <span>{label}</span>

@@ -13,10 +13,25 @@ import { INDEXER_URL, hasIndexer } from "@/lib/indexer";
 import { useIdentity } from "@/lib/identity";
 import { waitReceipt, ReceiptTimeout, usePendingResume } from "@/lib/pendingTx";
 import { IdentityBanner, PendingBar } from "@/components/TrustBanners";
+import {
+  WALL_DEFAULTS, WALL_BOUNDS, POF_DEFAULTS, POF_BOUNDS, buildWallConfig, buildPoFConfig,
+  type WallConfigInput, type PoFConfigInput,
+} from "@/lib/templates";
 
 // Display default until the factory's current launchFee() is read on mount —
 // the owner can change the fee, and a hardcoded value would make every launch revert.
 const DEFAULT_LAUNCH_FEE = parseEther("1");
+const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
+
+// Launch templates. Standard keeps the fee-mode choice; the other two route
+// the creator-fee share into a per-launch contract through the router, which
+// forces creator-fee mode with that contract as recipient.
+type TemplateId = "standard" | "wall" | "pof";
+const TEMPLATES: { id: TemplateId; icon: string; title: string; desc: string }[] = [
+  { id: "standard", icon: "◆", title: "Standard", desc: "Fees follow the fee mode you pick below: buyback & lock, or straight to a wallet you choose." },
+  { id: "wall", icon: "🧱", title: "Stock Treasury — The Wall", desc: "Creator fees build a pile of the stock that is never sold. Part of each claim streams to stakers; the rest keeps a standing bid under book value on the curve. Needs a stock as the paired market." },
+  { id: "pof", icon: "⚙️", title: "Proof-of-Fee", desc: "Creator fees buy the token back. Each round, the buyback is paid to the traders whose fees funded it, by share of quote spent through the official router. Nothing is minted." },
+];
 
 // The new token + curve from the TokenLaunched event in a receipt.
 function decodeLaunch(logs: readonly { data: `0x${string}`; topics: readonly `0x${string}`[] }[]) {
@@ -50,6 +65,9 @@ export default function LaunchPage() {
   const [feeMode, setFeeMode] = useState<"buyback" | "creator">("buyback");
   const [creatorTax, setCreatorTax] = useState("0");
   const [feeRecipient, setFeeRecipient] = useState("");
+  const [template, setTemplate] = useState<TemplateId>("standard");
+  const [wallCfg, setWallCfg] = useState<WallConfigInput>(WALL_DEFAULTS);
+  const [pofCfg, setPofCfg] = useState<PoFConfigInput>(POF_DEFAULTS);
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -86,6 +104,14 @@ export default function LaunchPage() {
   useEffect(() => {
     setQuote((q) => net.quoteAssets.find((a) => a.key === q.key) ?? net.quoteAssets[0]);
   }, [net.key]);
+
+  // Templates go through the router; The Wall also needs a stock quote asset.
+  // Rendered from the SSR-safe network hook so server and first client render agree.
+  const routerLive = net.contracts.router !== ZERO_ADDR;
+  useEffect(() => {
+    if (template === "wall" && !quote.stock) setTemplate("standard");
+    if (template !== "standard" && !routerLive) setTemplate("standard");
+  }, [quote.stock, routerLive, template]);
 
   const FEE_MODES = [
     { id: "buyback", icon: "🔥", title: "Buyback & Lock", desc: "Route the fee's buyback share into buying the token back and locking it in the 5-year vault.", live: true },
@@ -138,6 +164,27 @@ export default function LaunchPage() {
       setToast("Launching is disabled: a platform contract's live code does not match its pinned hash.");
       return;
     }
+    // Template config is validated here against the same bounds the router enforces,
+    // so a bad value is a toast, not a reverted launch.
+    const viaTemplate = template !== "standard";
+    if (viaTemplate && !hasLaunchRouter) {
+      setToast("Templates need the launch router, which is not deployed on this network.");
+      return;
+    }
+    if (template === "wall" && !quote.stock) {
+      setToast("The Wall needs a stock as the paired market.");
+      return;
+    }
+    const wallBuilt = template === "wall" ? buildWallConfig(wallCfg, quote.decimals) : null;
+    if (wallBuilt?.error) {
+      setToast(wallBuilt.error);
+      return;
+    }
+    const pofBuilt = template === "pof" ? buildPoFConfig(pofCfg, quote.decimals) : null;
+    if (pofBuilt?.error) {
+      setToast(pofBuilt.error);
+      return;
+    }
     setBusy(true);
     try {
       const wc = await getWalletClient();
@@ -158,11 +205,13 @@ export default function LaunchPage() {
         logo: logo.trim(),
         description: description.trim(),
         socials: { twitter: twitter.trim(), telegram: "", discord: "", website: website.trim(), farcaster: "" },
-        creatorFeeRecipient: (feeMode === "creator" && /^0x[a-fA-F0-9]{40}$/.test(feeRecipient.trim())
+        // Templates: the router overwrites recipient + buyback mode (fees must reach the
+        // treasury / vault), so these are sent as-is and the creator tax stays 0.
+        creatorFeeRecipient: (!viaTemplate && feeMode === "creator" && /^0x[a-fA-F0-9]{40}$/.test(feeRecipient.trim())
           ? feeRecipient.trim()
           : account) as `0x${string}`,
-        creatorTaxBps: feeMode === "creator" ? Math.round(Math.min(10, Math.max(0, Number(creatorTax) || 0)) * 100) : 0,
-        buybackEnabled: feeMode === "buyback",
+        creatorTaxBps: !viaTemplate && feeMode === "creator" ? Math.round(Math.min(10, Math.max(0, Number(creatorTax) || 0)) * 100) : 0,
+        buybackEnabled: !viaTemplate && feeMode === "buyback",
         expectedEconomics: "0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`,
         salt,
       };
@@ -171,10 +220,11 @@ export default function LaunchPage() {
       // still attributes the launch to the user (creator fees, snipe-tax exemption)
       // and the opening buy settles in the same block, before anyone else can see
       // the curve. Without a router (mainnet until deployed) fall back to two txs.
-      const viaRouter = hasLaunchRouter && buyAmt > 0n;
+      // Templates always go through the router, with or without a first buy.
+      const viaRouter = hasLaunchRouter && (buyAmt > 0n || viaTemplate);
       let hash: `0x${string}`;
       if (viaRouter) {
-        if (!quote.native) {
+        if (!quote.native && buyAmt > 0n) {
           const allowance = (await publicClient.readContract({
             address: quote.address, abi: erc20Abi, functionName: "allowance", args: [account, RADIAN.router],
           })) as bigint;
@@ -192,14 +242,29 @@ export default function LaunchPage() {
             if (after < buyAmt) throw new Error("Your wallet approved a smaller amount, so nothing was launched. Approve the full amount to continue.");
           }
         }
-        setToast("Confirm the launch + first buy in your wallet…");
+        setToast(buyAmt > 0n ? "Confirm the launch + first buy in your wallet…" : "Confirm the launch in your wallet…");
         // minTokensOut 0 is safe: the buy is atomic with the launch, so the opening
         // price is fixed by the curve config and nothing can trade ahead of it.
-        hash = await client.writeContract({
-          account, chain: arcTestnet, address: RADIAN.router, abi: routerAbi, functionName: "launchAndBuy",
-          args: [params, 0n, quote.address, buyAmt, 0n, []],
-          value: launchFee + (quote.native ? buyAmt : 0n),
-        });
+        const value = launchFee + (quote.native ? buyAmt : 0n);
+        if (wallBuilt?.cfg) {
+          hash = await client.writeContract({
+            account, chain: arcTestnet, address: RADIAN.router, abi: routerAbi, functionName: "launchWall",
+            args: [params, 0n, quote.address, buyAmt, 0n, [], wallBuilt.cfg],
+            value,
+          });
+        } else if (pofBuilt?.cfg) {
+          hash = await client.writeContract({
+            account, chain: arcTestnet, address: RADIAN.router, abi: routerAbi, functionName: "launchPoF",
+            args: [params, 0n, quote.address, buyAmt, 0n, [], pofBuilt.cfg],
+            value,
+          });
+        } else {
+          hash = await client.writeContract({
+            account, chain: arcTestnet, address: RADIAN.router, abi: routerAbi, functionName: "launchAndBuy",
+            args: [params, 0n, quote.address, buyAmt, 0n, []],
+            value,
+          });
+        }
       } else {
         setToast("Confirm the launch in your wallet…");
         hash = await client.writeContract({
@@ -390,6 +455,115 @@ export default function LaunchPage() {
           <div style={{ borderTop: "1px solid var(--border-soft)", margin: "6px 0 18px" }} />
 
           <div className="field">
+            <label>Template</label>
+            <p className="hint" style={{ marginTop: 0, marginBottom: 12 }}>
+              What the creator-fee share does. Fixed at launch; the treasury or vault is a contract nobody can redirect.
+            </p>
+            <div className="feemode-grid" style={{ gridTemplateColumns: "1fr" }}>
+              {TEMPLATES.map((t) => {
+                const on = template === t.id;
+                const needsStock = t.id === "wall" && !quote.stock;
+                const off = t.id !== "standard" && (!routerLive || needsStock);
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    disabled={off}
+                    onClick={() => !off && setTemplate(t.id)}
+                    className={`feemode-card${on ? " on" : ""}${off ? " soon" : ""}`}
+                  >
+                    <span style={{ fontSize: 18 }}>{t.icon}</span>
+                    <span className="fm-title">
+                      {t.title}
+                      {off && <span className="fm-soon">{!routerLive ? "Not on this network" : "Pick a stock above"}</span>}
+                    </span>
+                    <span className="fm-desc">{t.desc}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {template === "wall" && (
+              <div style={{ marginTop: 14 }}>
+                <p className="hint" style={{ marginTop: 0, marginBottom: 10 }}>
+                  The pile is {quote.symbol}{quote.stock?.standIn ? " (a testnet stand-in)" : ""}. The wall is a standing bid funded by fees — it is not a guarantee, and it only bids while the token is on its curve.
+                </p>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <div>
+                    <label style={{ fontSize: 12 }}>Margin % <span style={{ color: "var(--fg-faint)", fontWeight: 400 }}>≤ {WALL_BOUNDS.marginBpsMax / 100}</span></label>
+                    <input className="input" type="number" min="0" max={WALL_BOUNDS.marginBpsMax / 100} step="0.5" value={wallCfg.marginPct} onChange={(e) => setWallCfg({ ...wallCfg, marginPct: e.target.value })} />
+                    <p className="hint">Defend when spot is under book value × (1 + margin).</p>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12 }}>Daily budget % <span style={{ color: "var(--fg-faint)", fontWeight: 400 }}>≤ {WALL_BOUNDS.epochBudgetBpsMax / 100}</span></label>
+                    <input className="input" type="number" min="0" max={WALL_BOUNDS.epochBudgetBpsMax / 100} step="1" value={wallCfg.budgetPct} onChange={(e) => setWallCfg({ ...wallCfg, budgetPct: e.target.value })} />
+                    <p className="hint">Max share of the pile spent per 24h.</p>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12 }}>Stream to stakers % <span style={{ color: "var(--fg-faint)", fontWeight: 400 }}>≤ {WALL_BOUNDS.streamBpsMax / 100}</span></label>
+                    <input className="input" type="number" min="0" max={WALL_BOUNDS.streamBpsMax / 100} step="1" value={wallCfg.streamPct} onChange={(e) => setWallCfg({ ...wallCfg, streamPct: e.target.value })} />
+                    <p className="hint">Share of every fee claim paid to stakers in {quote.symbol}, over 7 days.</p>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12 }}>Max slippage % <span style={{ color: "var(--fg-faint)", fontWeight: 400 }}>≤ {WALL_BOUNDS.maxSlippageBpsMax / 100}</span></label>
+                    <input className="input" type="number" min="0" max={WALL_BOUNDS.maxSlippageBpsMax / 100} step="0.5" value={wallCfg.slippagePct} onChange={(e) => setWallCfg({ ...wallCfg, slippagePct: e.target.value })} />
+                    <p className="hint">Floor on the keeper&apos;s minimum output vs. spot.</p>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12 }}>Min interval (minutes) <span style={{ color: "var(--fg-faint)", fontWeight: 400 }}>≥ {WALL_BOUNDS.minIntervalMin / 60}</span></label>
+                    <input className="input" type="number" min={WALL_BOUNDS.minIntervalMin / 60} step="1" value={wallCfg.minIntervalMin} onChange={(e) => setWallCfg({ ...wallCfg, minIntervalMin: e.target.value })} />
+                    <p className="hint">Between two defends.</p>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12 }}>Keeper bounty ({quote.symbol})</label>
+                    <input className="input" type="number" min="0" step="0.001" value={wallCfg.keeperBounty} onChange={(e) => setWallCfg({ ...wallCfg, keeperBounty: e.target.value })} />
+                    <p className="hint">Per successful defend; capped on-chain at 1% of the pile.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            {template === "pof" && (
+              <div style={{ marginTop: 14 }}>
+                <p className="hint" style={{ marginTop: 0, marginBottom: 10 }}>
+                  Only buys through the official PoF router earn Work; direct curve buys and sells earn nothing. Rewards can never exceed what fees actually bought back.
+                </p>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <div>
+                    <label style={{ fontSize: 12 }}>Round length (minutes) <span style={{ color: "var(--fg-faint)", fontWeight: 400 }}>1–1440</span></label>
+                    <input className="input" type="number" min={POF_BOUNDS.roundSecondsMin / 60} max={POF_BOUNDS.roundSecondsMax / 60} step="1" value={pofCfg.roundMin} onChange={(e) => setPofCfg({ ...pofCfg, roundMin: e.target.value })} />
+                    <p className="hint">Rounds settle lazily after they end.</p>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12 }}>Target work per round ({quote.symbol})</label>
+                    <input className="input" type="number" min="0" step="0.1" value={pofCfg.targetWork} onChange={(e) => setPofCfg({ ...pofCfg, targetWork: e.target.value })} />
+                    <p className="hint">Below this much quote spent in a round, the payout is pro-rated and the rest rolls over.</p>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12 }}>Buyback cap % of curve reserve <span style={{ color: "var(--fg-faint)", fontWeight: 400 }}>≤ {POF_BOUNDS.maxBuybackReserveBpsMax / 100}</span></label>
+                    <input className="input" type="number" min="0" max={POF_BOUNDS.maxBuybackReserveBpsMax / 100} step="0.5" value={pofCfg.buybackCapPct} onChange={(e) => setPofCfg({ ...pofCfg, buybackCapPct: e.target.value })} />
+                    <p className="hint">Per buyback.</p>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12 }}>Min interval (minutes) <span style={{ color: "var(--fg-faint)", fontWeight: 400 }}>≥ {POF_BOUNDS.minIntervalMin / 60}</span></label>
+                    <input className="input" type="number" min={POF_BOUNDS.minIntervalMin / 60} step="1" value={pofCfg.minIntervalMin} onChange={(e) => setPofCfg({ ...pofCfg, minIntervalMin: e.target.value })} />
+                    <p className="hint">Between two buybacks.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div style={{ borderTop: "1px solid var(--border-soft)", margin: "6px 0 18px" }} />
+
+          {template !== "standard" ? (
+            <div className="field">
+              <label>Fee mode</label>
+              <p className="hint" style={{ marginTop: 0 }}>
+                Set by the template: creator-fee mode with the {template === "wall" ? "treasury" : "vault"} as the only recipient. The router
+                writes this on-chain at launch; no wallet can be substituted later.
+              </p>
+            </div>
+          ) : (
+          <div className="field">
             <label>Fee mode</label>
             <p className="hint" style={{ marginTop: 0, marginBottom: 12 }}>
               How the quote-asset fee is used. Snapshotted on-chain at launch.
@@ -428,13 +602,19 @@ export default function LaunchPage() {
               </div>
             )}
           </div>
+          )}
 
           <div style={{ borderTop: "1px solid var(--border-soft)", margin: "6px 0 16px" }} />
+          <div className="kv"><span>Template</span><span className="v">{TEMPLATES.find((t) => t.id === template)?.title ?? "Standard"}</span></div>
           <div className="kv"><span>Quote asset</span><span className="v">{quote.native ? "Native USDC" : quote.symbol}</span></div>
           <div className="kv"><span>Supply</span><span className="v">1,000,000,000</span></div>
           <div className="kv"><span>Graduation goal</span><span className="v">{quote.gradGoal} {quote.symbol} in curve</span></div>
           <div className="kv"><span>First buy</span><span className="v">{devBuy && Number(devBuy) > 0 ? `${devBuy} ${quote.symbol}` : "—"}</span></div>
-          <div className="kv"><span>Trade fee</span><span className="v">{feeMode === "buyback" ? "1% (35% to you · 35% buyback · 30% protocol)" : "1% (70% to you · 30% protocol)"}</span></div>
+          <div className="kv"><span>Trade fee</span><span className="v">
+            {template === "wall" ? "1% (70% to the treasury · 30% protocol)"
+              : template === "pof" ? "1% (70% to the vault · 30% protocol)"
+              : feeMode === "buyback" ? "1% (35% to you · 35% buyback · 30% protocol)" : "1% (70% to you · 30% protocol)"}
+          </span></div>
 
           <button className="btn btn-primary" style={{ width: "100%", marginTop: 20, justifyContent: "center" }} onClick={launch} disabled={busy || (identity.checked && !identity.ok)}>
             {busy ? <span className="spinner" /> : authenticated ? `Launch for ${formatUnits(launchFee, 18)} USDC` : "Sign in to launch"}

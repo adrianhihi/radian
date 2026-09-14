@@ -21,6 +21,11 @@ export function TokenCard({ row, delay }: { row: LaunchRow; delay: number }) {
           <div className="card-name">{row.name}</div>
           <div className="card-sym">${row.symbol}</div>
         </div>
+        {row.template && (
+          <span className="badge badge-soon" title={row.template.kind === "wall" ? "Stock Treasury template" : "Proof-of-Fee template"}>
+            {row.template.kind === "wall" ? "Wall" : "PoF"}
+          </span>
+        )}
         <span className={`badge ${row.graduated ? "badge-grad" : "badge-live"}`}>
           {row.graduated ? "Graduated" : "Live"}
         </span>

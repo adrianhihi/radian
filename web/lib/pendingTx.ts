@@ -10,7 +10,10 @@ import { getActiveNetworkKey } from "./networks";
 // record instead of being reported as a failure, and the record is resolved
 // from chain on the next visit. Nothing here ever resends a transaction.
 
-export type PendingKind = "launch" | "buy" | "sell" | "approve" | "stake" | "claim" | "unstake";
+export type PendingKind =
+  | "launch" | "buy" | "sell" | "approve" | "stake" | "claim" | "unstake"
+  // RadianExecutor (auto-buy): fund, pull funds, void every schedule
+  | "deposit" | "withdraw" | "cancel";
 export type PendingTx = { hash: Hex; kind: PendingKind; createdAt: number; meta?: Record<string, string> };
 
 const KEY = () => `radian.pending.${getActiveNetworkKey()}`;
