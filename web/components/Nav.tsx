@@ -12,6 +12,7 @@ const LINKS = [
   { href: "/earn", label: "Earn" },
   { href: "/portfolio", label: "Portfolio" },
   { href: "/docs", label: "Docs" },
+  { href: "/verify", label: "Verify" },
 ];
 
 export function BrandMark({ size = 26 }: { size?: number }) {

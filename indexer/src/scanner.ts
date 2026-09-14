@@ -1,4 +1,4 @@
-import { decodeEventLog, formatUnits, type Address } from "viem";
+import { decodeEventLog, formatUnits, keccak256, type Address } from "viem";
 import {
   publicClient,
   singleClient,
@@ -14,6 +14,8 @@ import {
   vaultAbi,
   quoteMeta,
   LAUNCH_ROUTER,
+  treasuryEventsAbi,
+  CODE_HASHES,
 } from "./config.js";
 import { store } from "./store.js";
 
@@ -35,6 +37,7 @@ const CONCURRENCY = Number(process.env.SCAN_CONCURRENCY ?? 8);
 const SCAN_INTERVAL_MS = Number(process.env.SCAN_INTERVAL_MS ?? 5000);
 
 const FACTORY_LC = FACTORY.toLowerCase();
+const TREASURY_LC = RADIAN.treasury.toLowerCase();
 // Contracts that route buys/sells on users' behalf. The treasury's flush()
 // buys RADIAN on its curve; add others via EXTRA_ROUTERS (comma-separated).
 const ROUTERS = new Set(
@@ -201,7 +204,7 @@ async function collectBackfill(nums: bigint[]): Promise<BlockLogs[]> {
   return out;
 }
 
-function decode(abi: typeof factoryAbi | typeof curveEventsAbi, log: RawLog) {
+function decode(abi: typeof factoryAbi | typeof curveEventsAbi | typeof treasuryEventsAbi, log: RawLog) {
   try {
     if (log.topics.length === 0) return null;
     return decodeEventLog({ abi, topics: log.topics, data: log.data }) as unknown as {
@@ -238,6 +241,11 @@ function applyBlock(b: BlockLogs) {
           createdAt: b.ts,
         });
       }
+      continue;
+    }
+    if (addr === TREASURY_LC) {
+      const ev = decode(treasuryEventsAbi, log);
+      if (ev) recordFlywheel(ev, log, n.toString(), b.ts);
       continue;
     }
     const launch = store.hasCurve(addr);
@@ -279,6 +287,66 @@ async function processBlockRange(
       applyBlock(b);
       advance(b.number);
     }
+  }
+}
+
+// ---- treasury ledger + identity ----
+
+function recordFlywheel(ev: { eventName: string; args: unknown }, log: RawLog, block: string, ts: number) {
+  const base = { txHash: log.transactionHash, logIndex: toNum(log.logIndex), block, ts };
+  if (ev.eventName === "Flushed") {
+    const a = ev.args as { usdcIn: bigint; radianBurned: bigint; toStakers: bigint };
+    store.addFlywheel({ ...base, kind: "flush", usdcIn: a.usdcIn.toString(), radianBurned: a.radianBurned.toString(), toStakers: a.toStakers.toString() });
+  } else if (ev.eventName === "FeesClaimed") {
+    const a = ev.args as { amount: bigint };
+    store.addFlywheel({ ...base, kind: "claim", amount: a.amount.toString() });
+  } else if (ev.eventName === "TokenFeesClaimed") {
+    const a = ev.args as { token: Address; amount: bigint };
+    store.addFlywheel({ ...base, kind: "claimToken", token: a.token, amount: a.amount.toString() });
+  }
+}
+
+// Flushes scanned before the ledger existed are already in the store as the
+// treasury's curve buys; pull their receipts once and decode the treasury
+// events, so the ledger is complete without a full re-scan.
+async function backfillFlywheel() {
+  const seen = new Set<string>();
+  for (const t of store.trades) {
+    if (t.trader.toLowerCase() !== TREASURY_LC) continue;
+    const h = t.txHash.toLowerCase();
+    if (seen.has(h) || store.hasFlywheelTx(h)) continue;
+    seen.add(h);
+    try {
+      const r = await singleClient.getTransactionReceipt({ hash: t.txHash as `0x${string}` });
+      for (const log of r.logs) {
+        if (log.address.toLowerCase() !== TREASURY_LC) continue;
+        const raw: RawLog = { address: log.address, topics: log.topics as RawLog["topics"], data: log.data, logIndex: log.logIndex, transactionHash: t.txHash as `0x${string}` };
+        const ev = decode(treasuryEventsAbi, raw);
+        if (ev) recordFlywheel(ev, raw, r.blockNumber.toString(), t.ts);
+      }
+    } catch (e) {
+      console.warn(`[ledger] receipt ${t.txHash} unavailable:`, (e as Error)?.message ?? e);
+    }
+  }
+  if (seen.size) console.log(`[ledger] backfilled ${seen.size} treasury tx, ${store.flywheel.length} ledger rows`);
+}
+
+// Re-hash the live code of every pinned contract. A mismatch never stops the
+// indexer (reads are still useful for forensics) but is reported on /health.
+export async function verifyIdentity() {
+  const mismatches: string[] = [];
+  try {
+    for (const c of CODE_HASHES) {
+      const code = await singleClient.getCode({ address: c.address });
+      const actual = code && code !== "0x" ? keccak256(code) : null;
+      if (actual !== c.hash) mismatches.push(`${c.name}@${c.address}: expected ${c.hash}, live ${actual ?? "no code"}`);
+    }
+    store.identity = { checked: true, ok: mismatches.length === 0, mismatches, checkedAt: Date.now() };
+    if (mismatches.length) console.error("[identity] CONTRACT CODE MISMATCH\n  " + mismatches.join("\n  "));
+    else console.log(`[identity] ${CODE_HASHES.length} pinned contracts match their runtime code hashes`);
+  } catch (e) {
+    store.identity = { checked: false, ok: true, mismatches: [], checkedAt: Date.now() };
+    console.warn("[identity] check skipped (RPC):", (e as Error)?.message ?? e);
   }
 }
 
@@ -346,6 +414,8 @@ export async function tick(): Promise<boolean> {
 
 export async function startScanner() {
   store.load();
+  await verifyIdentity();
+  await backfillFlywheel();
   await seedLaunches();
   const loop = async () => {
     const busy = await tick();

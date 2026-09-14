@@ -61,3 +61,16 @@ test("snapshot round-trips atomically and falls back to .bak when the live file 
   assert.equal(fresh.trades.length, store.trades.length);
   assert.ok(fresh.hasCurve("0xcurve"), "curve index rebuilt case-insensitively");
 });
+
+test("treasury ledger rows dedupe by (txHash, logIndex) and survive a snapshot round-trip", () => {
+  const row = { txHash: "0xFF", logIndex: 3, block: "9", ts: 9000, kind: "flush" as const, usdcIn: "10", radianBurned: "5", toStakers: "4" };
+  assert.equal(store.addFlywheel(row), true);
+  assert.equal(store.addFlywheel({ ...row, txHash: "0xff" }), false, "same event, case-insensitive hash");
+  assert.equal(store.addFlywheel({ ...row, logIndex: 4, kind: "claim", amount: "1" }), true);
+  assert.ok(store.hasFlywheelTx("0xff"));
+  store.save();
+  const fresh = new (Object.getPrototypeOf(store).constructor)();
+  fresh.load();
+  assert.equal(fresh.flywheel.length, 2);
+  assert.equal(fresh.addFlywheel(row), false, "index rebuilt on load");
+});

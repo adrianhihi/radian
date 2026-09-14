@@ -56,6 +56,10 @@ export type NetworkConfig = {
     treasury: Address;
   };
   quoteAssets: QuoteAssetDef[];
+  // keccak256 of each deployed contract's runtime code, recorded at deploy
+  // (`cast keccak $(cast code <addr>)`). The site re-hashes the live code and
+  // refuses to launch or trade on a mismatch (lib/identity.ts). Fill on deploy.
+  codeHashes: Partial<Record<"factory" | "hook" | "router" | "escrow" | "vault" | "locker" | "poolManager" | "staking" | "treasury", `0x${string}`>>;
 };
 
 const ZERO = "0x0000000000000000000000000000000000000000" as Address;
@@ -88,6 +92,18 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
       // v2 (2026-09-10): two-step ownership, escrow claim, bounded flush.
       staking: "0xf3832Fa6EBa9cD09161C2010c7E93a1A2B7f8B4c",
       treasury: "0xebCcaE2eDDaEfcaA5452058fc8f426dfC9570ba0",
+    },
+    codeHashes: {
+      // Arc testnet, recorded 2026-09-13
+      factory: "0x4444b7a1dbfc5b7b43f7ea4213be5db1720e8e381628a0a5024a3bba57d71595",
+      hook: "0x4d459c2b449407539e90df566a137db52aa6a34f69e45f1a062bd57e785a4bb2",
+      router: "0x618e05006c7461293559f681742b16db89f3c0d7baa8b853bfa17d587275ec35",
+      escrow: "0xdbc3d137ff3b35ee6fa87e0bb86ddbf9a6006fb3204b16006b5b0717acaff686",
+      vault: "0xa3f5985eb0b204f7659581846c6335006148665a5572b7e47567e8a5362e3edb",
+      locker: "0x38748c627ad799e26df81475147c567afe965b35467741aceaf10f49c7b8939e",
+      poolManager: "0xb13c6cc815ee74f897a9168dfd9bce10a140e87981b7f9d83f3d90250dda70ad",
+      staking: "0xf7e675e11f13fbc04cebd15754c1ae0c14994d5e2f3815b9d8eea04992bafb57",
+      treasury: "0x232fdd7004bfce03847d90b4d777acfdacdb0d1549b7261f051a6ea475bacd87",
     },
     quoteAssets: [
       { key: "usdc", symbol: "USDC", address: ZERO, decimals: 18, native: true, gradGoal: 20, blurb: "Native dollar — the Arc gas coin" },
@@ -123,6 +139,7 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
       router: ZERO,
     },
     radian: { token: ZERO, curve: ZERO, staking: ZERO, treasury: ZERO },
+    codeHashes: {},
     quoteAssets: [
       { key: "usdc", symbol: "USDC", address: ZERO, decimals: 18, native: true, gradGoal: 20, blurb: "Native dollar — the Arc gas coin" },
     ],
@@ -154,6 +171,7 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
       router: ZERO,
     },
     radian: { token: ZERO, curve: ZERO, staking: ZERO, treasury: ZERO },
+    codeHashes: {},
     quoteAssets: [
       // Base USDC (native Circle USDC on Base, 6-dec) — the featured quote.
       { key: "usdc", symbol: "USDC", address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", decimals: 6, native: false, gradGoal: 20, blurb: "Circle USDC on Base" },

@@ -118,7 +118,7 @@ export function startServer() {
       .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0) || Number(BigInt(b.trackedQuote) - BigInt(a.trackedQuote)));
 
   app.get("/health", (_req, res) => {
-    res.json({ ok: true, checkpoint: store.checkpoint.toString(), launches: store.launches.size, trades: store.trades.length });
+    res.json({ ok: true, checkpoint: store.checkpoint.toString(), launches: store.launches.size, trades: store.trades.length, ledger: store.flywheel.length, identity: store.identity });
   });
 
   app.get("/launches", (_req, res) => {
@@ -253,6 +253,8 @@ export function startServer() {
         radianSupply: num(7),
         buybackBps: Number((r[6].result as number | undefined) ?? 0),
         treasuryBalance: treasuryBal,
+        // append-only ledger of treasury events, newest first
+        ledger: [...store.flywheel].sort((a, b) => b.ts - a.ts || b.logIndex - a.logIndex).slice(0, 50),
       });
     } catch (e: any) {
       res.status(500).json({ error: e?.shortMessage ?? String(e) });

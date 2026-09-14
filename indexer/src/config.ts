@@ -143,3 +143,22 @@ export const treasuryAbi = parseAbi([
 export const radianTokenAbi = parseAbi([
   "function totalSupply() view returns (uint256)",
 ]);
+
+// RadianTreasury events → the public treasury ledger (see /radian.ledger).
+export const treasuryEventsAbi = parseAbi([
+  "event Flushed(uint256 usdcIn, uint256 radianBurned, uint256 toStakers)",
+  "event FeesClaimed(uint256 amount)",
+  "event TokenFeesClaimed(address indexed token, uint256 amount)",
+]);
+
+// Runtime code hashes recorded at deploy (`cast keccak $(cast code <addr>)`).
+// The scanner re-hashes the live code at startup and reports the result on
+// /health; a mismatch is logged loudly. The website does the same check and
+// disables launching/trading on a proven mismatch.
+export const CODE_HASHES: { name: string; address: Address; hash: `0x${string}` }[] = [
+  { name: "PonsV2LaunchFactory", address: FACTORY, hash: "0x4444b7a1dbfc5b7b43f7ea4213be5db1720e8e381628a0a5024a3bba57d71595" },
+  { name: "PonsV2MemeHook", address: "0x15eB3aeE2f96A199165dc58e6C8dc3Ce2e02e044" as Address, hash: "0x4d459c2b449407539e90df566a137db52aa6a34f69e45f1a062bd57e785a4bb2" },
+  { name: "RadianLaunchRouter", address: LAUNCH_ROUTER, hash: "0x618e05006c7461293559f681742b16db89f3c0d7baa8b853bfa17d587275ec35" },
+  { name: "RadianStaking", address: RADIAN.staking, hash: "0xf7e675e11f13fbc04cebd15754c1ae0c14994d5e2f3815b9d8eea04992bafb57" },
+  { name: "RadianTreasury", address: RADIAN.treasury, hash: "0x232fdd7004bfce03847d90b4d777acfdacdb0d1549b7261f051a6ea475bacd87" },
+];

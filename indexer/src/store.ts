@@ -40,12 +40,29 @@ export type Trade = {
   tokens: string; // token leg (18-dec)
 };
 
+// One RadianTreasury event: a fee claim or a flush (buyback + burn + stream).
+export type FlywheelEvent = {
+  txHash: string;
+  logIndex: number;
+  block: string;
+  ts: number; // ms
+  kind: "flush" | "claim" | "claimToken";
+  usdcIn?: string; // 18-dec native USDC (flush)
+  radianBurned?: string; // 18-dec (flush)
+  toStakers?: string; // 18-dec (flush)
+  amount?: string; // claim / claimToken
+  token?: string; // claimToken
+};
+
+export type Identity = { checked: boolean; ok: boolean; mismatches: string[]; checkedAt?: number };
+
 type Snapshot = {
   checkpoint: string; // live cursor: last block scanned at the head
   backfillFrom?: string; // history is complete once backfillCursor reaches this (the block the live cursor started from)
   backfillCursor?: string; // last history block scanned, ascending from the factory deploy block; "0" = not started
   launches: Launch[];
   trades: Trade[];
+  flywheel?: FlywheelEvent[];
 };
 
 const SNAPSHOT = process.env.SNAPSHOT_PATH ?? "./radian-index.json";
@@ -61,6 +78,9 @@ class Store {
   backfillCursor = 0n;
   launches = new Map<string, Launch>();
   trades: Trade[] = [];
+  flywheel: FlywheelEvent[] = [];
+  identity: Identity = { checked: false, ok: true, mismatches: [] };
+  private flywheelKeys = new Set<string>();
   private curveIndex = new Map<string, Launch>();
   // Two indexes: by event (txHash:logIndex) and, for rows that predate
   // logIndex, by the legacy (txHash:side:trader) key.
@@ -82,6 +102,7 @@ class Store {
         // (written before logIndex existed) are recognised and dropped.
         const rows = [...(s.trades ?? [])].sort((a, b) => (a.logIndex != null ? 0 : 1) - (b.logIndex != null ? 0 : 1));
         for (const t of rows) this.addTrade(t);
+        for (const f of s.flywheel ?? []) this.addFlywheel(f);
         console.log(
           `[store] loaded ${path === BACKUP ? "BACKUP " : ""}snapshot: ${this.launches.size} launches, ${this.trades.length} trades (${(s.trades ?? []).length} rows), checkpoint ${this.checkpoint}, backfill ${this.backfillCursor}/${this.backfillFrom}`,
         );
@@ -100,6 +121,7 @@ class Store {
       backfillCursor: this.backfillCursor.toString(),
       launches: [...this.launches.values()],
       trades: this.trades.slice(-MAX_TRADES),
+      flywheel: this.flywheel.slice(-2000),
     };
     const tmp = `${SNAPSHOT}.tmp`;
     try {
@@ -110,6 +132,18 @@ class Store {
     } catch (e) {
       console.error("[store] snapshot write failed", e);
     }
+  }
+
+  addFlywheel(f: FlywheelEvent): boolean {
+    const key = `${f.txHash.toLowerCase()}:${f.logIndex}`;
+    if (this.flywheelKeys.has(key)) return false;
+    this.flywheelKeys.add(key);
+    this.flywheel.push(f);
+    return true;
+  }
+  hasFlywheelTx(txHash: string): boolean {
+    const h = txHash.toLowerCase();
+    return this.flywheel.some((f) => f.txHash.toLowerCase() === h);
   }
 
   upsertLaunch(l: Launch) {

@@ -10,10 +10,27 @@ import { publicClient, RADIAN, factoryAbi, routerAbi, hasLaunchRouter, curveAbi,
 import { useRadianWallet } from "@/lib/useRadianWallet";
 import { addLocalLaunch } from "@/lib/registry";
 import { INDEXER_URL, hasIndexer } from "@/lib/indexer";
+import { useIdentity } from "@/lib/identity";
+import { waitReceipt, ReceiptTimeout, usePendingResume } from "@/lib/pendingTx";
+import { IdentityBanner, PendingBar } from "@/components/TrustBanners";
 
 // Display default until the factory's current launchFee() is read on mount —
 // the owner can change the fee, and a hardcoded value would make every launch revert.
 const DEFAULT_LAUNCH_FEE = parseEther("1");
+
+// The new token + curve from the TokenLaunched event in a receipt.
+function decodeLaunch(logs: readonly { data: `0x${string}`; topics: readonly `0x${string}`[] }[]) {
+  for (const log of logs) {
+    try {
+      const parsed = decodeEventLog({ abi: factoryAbi, data: log.data, topics: log.topics as [`0x${string}`, ...`0x${string}`[]] });
+      if (parsed.eventName === "TokenLaunched") {
+        const a = parsed.args as any;
+        return { token: a.token as `0x${string}`, curve: a.curve as `0x${string}`, gthr: (a.graduationThreshold as bigint).toString() };
+      }
+    } catch {}
+  }
+  return null;
+}
 
 export default function LaunchPage() {
   useReveal();
@@ -37,6 +54,21 @@ export default function LaunchPage() {
   const [uploading, setUploading] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [launchFee, setLaunchFee] = useState<bigint>(DEFAULT_LAUNCH_FEE);
+  const identity = useIdentity();
+  const [pendingHash, setPendingHash] = useState<`0x${string}` | null>(null);
+  // A launch whose receipt this tab lost (timeout, closed tab) is resolved from
+  // chain here and registered locally. It is never resent.
+  usePendingResume(["launch"], (p, receipt) => {
+    const found = decodeLaunch(receipt.logs);
+    if (!found) return;
+    addLocalLaunch({
+      token: found.token, curve: found.curve,
+      deployer: (p.meta?.account ?? "0x0000000000000000000000000000000000000000") as `0x${string}`,
+      graduationThreshold: found.gthr,
+    });
+    setPendingHash(null);
+    setToast(`Your earlier launch ${p.meta?.symbol ?? ""} confirmed ✓`);
+  });
 
   useEffect(() => {
     if (!activeNetwork.live) return;
@@ -102,6 +134,10 @@ export default function LaunchPage() {
       setToast("Name and symbol are required.");
       return;
     }
+    if (identity.checked && !identity.ok) {
+      setToast("Launching is disabled: a platform contract's live code does not match its pinned hash.");
+      return;
+    }
     setBusy(true);
     try {
       const wc = await getWalletClient();
@@ -148,7 +184,12 @@ export default function LaunchPage() {
               account, chain: arcTestnet, address: quote.address, abi: erc20Abi,
               functionName: "approve", args: [RADIAN.router, buyAmt],
             });
-            await publicClient.waitForTransactionReceipt({ hash: ah });
+            await waitReceipt(ah, "approve");
+            // The wallet may have edited the amount: re-read before spending on it.
+            const after = (await publicClient.readContract({
+              address: quote.address, abi: erc20Abi, functionName: "allowance", args: [account, RADIAN.router],
+            })) as bigint;
+            if (after < buyAmt) throw new Error("Your wallet approved a smaller amount, so nothing was launched. Approve the full amount to continue.");
           }
         }
         setToast("Confirm the launch + first buy in your wallet…");
@@ -169,25 +210,13 @@ export default function LaunchPage() {
       }
 
       setToast("Launching… waiting for confirmation.");
-      const receipt = await publicClient.waitForTransactionReceipt({ hash });
-      // find the new token + curve from the TokenLaunched event in our own receipt
-      let tokenAddr: string | null = null;
-      let curveAddr: string | null = null;
+      const receipt = await waitReceipt(hash, "launch", { symbol: params.symbol, account });
+      const found = decodeLaunch(receipt.logs);
+      const tokenAddr: string | null = found?.token ?? null;
+      const curveAddr: string | null = found?.curve ?? null;
       // Fallback if the TokenLaunched log can't be decoded: the goal for the chosen
       // quote asset in its own decimals (the indexer overrides this once it has seen the launch).
-      let gthr = parseUnits(String(quote.gradGoal), quote.decimals).toString();
-      for (const log of receipt.logs) {
-        try {
-          const parsed = decodeEventLog({ abi: factoryAbi, data: log.data, topics: log.topics });
-          if (parsed.eventName === "TokenLaunched") {
-            const a = parsed.args as any;
-            tokenAddr = a.token;
-            curveAddr = a.curve;
-            gthr = (a.graduationThreshold as bigint).toString();
-            break;
-          }
-        } catch {}
-      }
+      const gthr = found?.gthr ?? parseUnits(String(quote.gradGoal), quote.decimals).toString();
       // Save to the in-browser registry so it shows up immediately (Arc's
       // getLogs is unreliable; an indexer replaces this in Phase 4b).
       if (tokenAddr && curveAddr) {
@@ -210,20 +239,20 @@ export default function LaunchPage() {
             account, chain: arcTestnet, address: curveAddr as `0x${string}`, abi: curveAbi,
             functionName: "buy", args: [buyAmt, 0n, account], value: buyAmt,
           });
-          await publicClient.waitForTransactionReceipt({ hash: bh });
+          await waitReceipt(bh, "buy", { token: tokenAddr ?? "" });
         } else {
           setToast(`Approve ${quote.symbol}…`);
           const ah = await client.writeContract({
             account, chain: arcTestnet, address: quote.address, abi: erc20Abi,
             functionName: "approve", args: [curveAddr as `0x${string}`, buyAmt],
           });
-          await publicClient.waitForTransactionReceipt({ hash: ah });
+          await waitReceipt(ah, "approve");
           setToast("Confirm your first buy…");
           const bh = await client.writeContract({
             account, chain: arcTestnet, address: curveAddr as `0x${string}`, abi: curveAbi,
             functionName: "buy", args: [buyAmt, 0n, account],
           });
-          await publicClient.waitForTransactionReceipt({ hash: bh });
+          await waitReceipt(bh, "buy", { token: tokenAddr ?? "" });
         }
       }
 
@@ -231,7 +260,12 @@ export default function LaunchPage() {
       if (tokenAddr) router.push(`/token/${tokenAddr}`);
       else router.push("/#explore");
     } catch (e: any) {
-      setToast(e?.shortMessage ?? e?.message ?? "Launch failed.");
+      if (e instanceof ReceiptTimeout) {
+        setPendingHash(e.hash);
+        setToast("Submitted, but not confirmed yet. This page keeps checking and never resends.");
+      } else {
+        setToast(e?.shortMessage ?? e?.message ?? "Launch failed.");
+      }
       setBusy(false);
     }
   }
@@ -248,7 +282,11 @@ export default function LaunchPage() {
           </p>
         </div>
 
-        <div className="panel reveal" data-reveal-delay={100} style={{ marginTop: 28 }}>
+        <div style={{ marginTop: 20 }}>
+          <IdentityBanner identity={identity} />
+          <PendingBar hash={pendingHash} onClose={() => setPendingHash(null)} />
+        </div>
+        <div className="panel reveal" data-reveal-delay={100} style={{ marginTop: 8 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div className="field">
               <label>Name *</label>
@@ -398,7 +436,7 @@ export default function LaunchPage() {
           <div className="kv"><span>First buy</span><span className="v">{devBuy && Number(devBuy) > 0 ? `${devBuy} ${quote.symbol}` : "—"}</span></div>
           <div className="kv"><span>Trade fee</span><span className="v">{feeMode === "buyback" ? "1% (35% to you · 35% buyback · 30% protocol)" : "1% (70% to you · 30% protocol)"}</span></div>
 
-          <button className="btn btn-primary" style={{ width: "100%", marginTop: 20, justifyContent: "center" }} onClick={launch} disabled={busy}>
+          <button className="btn btn-primary" style={{ width: "100%", marginTop: 20, justifyContent: "center" }} onClick={launch} disabled={busy || (identity.checked && !identity.ok)}>
             {busy ? <span className="spinner" /> : authenticated ? `Launch for ${formatUnits(launchFee, 18)} USDC` : "Sign in to launch"}
           </button>
           <p className="hint" style={{ textAlign: "center" }}>

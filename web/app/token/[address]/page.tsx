@@ -10,6 +10,9 @@ import { useRadianWallet } from "@/lib/useRadianWallet";
 import { findCurve } from "@/lib/registry";
 import { fetchTokenMeta, hasIndexer, type Sunset } from "@/lib/indexer";
 import { projectLinks, safeHttpUrl, xUrl } from "@/lib/projects";
+import { useIdentity } from "@/lib/identity";
+import { waitReceipt, ReceiptTimeout, usePendingResume } from "@/lib/pendingTx";
+import { IdentityBanner, PendingBar } from "@/components/TrustBanners";
 import { parseUnits } from "viem";
 
 type State = {
@@ -58,6 +61,8 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
   const [snipeBps, setSnipeBps] = useState<bigint>(0n);
   const [sunset, setSunset] = useState<Sunset | null>(null);
   const loadedRef = useRef(false);
+  const identity = useIdentity();
+  const [pendingHash, setPendingHash] = useState<Address | null>(null);
 
   const load = useCallback(async () => {
     // Curve address comes from the local registry (getLogs is unreliable on
@@ -251,12 +256,24 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
       : `${Number(formatUnits(v, st?.quoteDecimals ?? 18)).toLocaleString(undefined, { maximumFractionDigits: 4 })} ${st?.quoteSymbol ?? ""}`;
   const pctOf = (bps: bigint) => `${(Number(bps) / 100).toFixed(Number(bps) % 100 === 0 ? 0 : 2)}%`;
 
+  // Trades whose receipt this tab lost are resolved from chain, never resent.
+  usePendingResume(["buy", "sell"], (p) => {
+    if ((p.meta?.token ?? "").toLowerCase() !== token.toLowerCase()) return;
+    setPendingHash(null);
+    setToast(`Your earlier ${p.kind} confirmed ✓`);
+    load();
+  });
+
   async function trade() {
     if (!authenticated) {
       login();
       return;
     }
     if (!st || !q) return;
+    if (identity.checked && !identity.ok) {
+      setToast("Trading is disabled: a platform contract's live code does not match its pinned hash.");
+      return;
+    }
     const minOut = q.minOut;
     setBusy(true);
     try {
@@ -275,20 +292,25 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
             account: acct, chain: arcTestnet, address: st.curve, abi: curveAbi,
             functionName: "buy", args: [inWei, minOut, acct], value: inWei,
           });
-          await publicClient.waitForTransactionReceipt({ hash });
+          await waitReceipt(hash, "buy", { token });
         } else {
           setToast(`Approve ${st.quoteSymbol}…`);
           const ah = await client.writeContract({
             account: acct, chain: arcTestnet, address: st.pairToken, abi: erc20Abi,
             functionName: "approve", args: [st.curve, inWei],
           });
-          await publicClient.waitForTransactionReceipt({ hash: ah });
+          await waitReceipt(ah, "approve");
+          // The wallet may have edited the amount: re-read before spending on it.
+          const allowed = (await publicClient.readContract({
+            address: st.pairToken, abi: erc20Abi, functionName: "allowance", args: [acct, st.curve],
+          })) as bigint;
+          if (allowed < inWei) throw new Error("Your wallet approved a smaller amount, so nothing was bought. Approve the full amount to continue.");
           setToast("Confirm buy…");
           const hash = await client.writeContract({
             account: acct, chain: arcTestnet, address: st.curve, abi: curveAbi,
             functionName: "buy", args: [inWei, minOut, acct],
           });
-          await publicClient.waitForTransactionReceipt({ hash });
+          await waitReceipt(hash, "buy", { token });
         }
         setToast("Bought ✓");
       } else {
@@ -302,7 +324,11 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
           functionName: "approve",
           args: [st.curve, inTok],
         });
-        await publicClient.waitForTransactionReceipt({ hash: ah });
+        await waitReceipt(ah, "approve");
+        const allowed = (await publicClient.readContract({
+          address: token, abi: erc20Abi, functionName: "allowance", args: [acct, st.curve],
+        })) as bigint;
+        if (allowed < inTok) throw new Error("Your wallet approved a smaller amount, so nothing was sold. Approve the full amount to continue.");
         setToast("Confirm sell…");
         const hash = await client.writeContract({
           account: acct,
@@ -312,13 +338,18 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
           functionName: "sell",
           args: [inTok, minOut, acct],
         });
-        await publicClient.waitForTransactionReceipt({ hash });
+        await waitReceipt(hash, "sell", { token });
         setToast("Sold ✓");
       }
       setAmount("");
       await load();
     } catch (e: any) {
-      setToast(e?.shortMessage ?? e?.message ?? "Trade failed.");
+      if (e instanceof ReceiptTimeout) {
+        setPendingHash(e.hash);
+        setToast("Submitted, but not confirmed yet. This page keeps checking and never resends.");
+      } else {
+        setToast(e?.shortMessage ?? e?.message ?? "Trade failed.");
+      }
     } finally {
       setBusy(false);
     }
@@ -359,6 +390,10 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
   return (
     <>
       <Nav />
+      <div className="wrap" style={{ padding: "16px 24px 0" }}>
+        <IdentityBanner identity={identity} />
+        <PendingBar hash={pendingHash} onClose={() => setPendingHash(null)} />
+      </div>
       <main className="wrap" style={{ padding: "40px 24px 0" }}>
         <Link href="/#explore" style={{ color: "var(--fg-faint)", fontSize: 14 }}>← All launches</Link>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 28, marginTop: 20, alignItems: "start" }} className="detail-grid">

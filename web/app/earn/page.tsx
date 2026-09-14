@@ -10,6 +10,10 @@ import { publicClient, arcTestnet, activeNetwork, explorer } from "@/lib/radian"
 import { useRadianWallet } from "@/lib/useRadianWallet";
 import { useFlywheel } from "@/lib/useFlywheel";
 import { RADIAN_ADDR, stakingAbi, radianErc20Abi } from "@/lib/radianToken";
+import { formatUnits } from "viem";
+import { useIdentity } from "@/lib/identity";
+import { waitReceipt, ReceiptTimeout, usePendingResume } from "@/lib/pendingTx";
+import { IdentityBanner, PendingBar } from "@/components/TrustBanners";
 
 function Stat({ k, l, color }: { k: string; l: string; color?: string }) {
   return (
@@ -29,6 +33,13 @@ export default function EarnPage() {
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const s = fw.stats;
+  const identity = useIdentity();
+  const [pendingHash, setPendingHash] = useState<`0x${string}` | null>(null);
+  usePendingResume(["stake", "claim", "unstake"], (p) => {
+    setPendingHash(null);
+    setToast(`Your earlier ${p.kind} confirmed ✓`);
+    fw.refresh();
+  });
 
   async function withWallet(fn: (c: any, acct: `0x${string}`) => Promise<void>) {
     if (!authenticated) return login();
@@ -39,7 +50,12 @@ export default function EarnPage() {
       await fn(wc.client, wc.account);
       fw.refresh();
     } catch (e: any) {
-      setToast(e?.shortMessage ?? e?.message ?? "Failed.");
+      if (e instanceof ReceiptTimeout) {
+        setPendingHash(e.hash);
+        setToast("Submitted, but not confirmed yet. This page keeps checking and never resends.");
+      } else {
+        setToast(e?.shortMessage ?? e?.message ?? "Failed.");
+      }
     } finally {
       setBusy(false);
     }
@@ -51,10 +67,10 @@ export default function EarnPage() {
       if (amt <= 0n) return;
       setToast("Approve RADIAN…");
       const ah = await client.writeContract({ account: acct, chain: arcTestnet, address: RADIAN_ADDR.token, abi: radianErc20Abi, functionName: "approve", args: [RADIAN_ADDR.staking, amt] });
-      await publicClient.waitForTransactionReceipt({ hash: ah });
+      await waitReceipt(ah, "approve");
       setToast("Confirm stake…");
       const h = await client.writeContract({ account: acct, chain: arcTestnet, address: RADIAN_ADDR.staking, abi: stakingAbi, functionName: "stake", args: [amt] });
-      await publicClient.waitForTransactionReceipt({ hash: h });
+      await waitReceipt(h, "stake");
       setToast("Staked ✓"); setAmount("");
     });
 
@@ -62,7 +78,7 @@ export default function EarnPage() {
     withWallet(async (client, acct) => {
       setToast("Claiming…");
       const h = await client.writeContract({ account: acct, chain: arcTestnet, address: RADIAN_ADDR.staking, abi: stakingAbi, functionName: "getReward" });
-      await publicClient.waitForTransactionReceipt({ hash: h });
+      await waitReceipt(h, "claim");
       setToast("Claimed USDC ✓");
     });
 
@@ -71,7 +87,7 @@ export default function EarnPage() {
       if (fw.staked <= 0n) return;
       setToast("Unstaking…");
       const h = await client.writeContract({ account: acct, chain: arcTestnet, address: RADIAN_ADDR.staking, abi: stakingAbi, functionName: "withdraw", args: [fw.staked] });
-      await publicClient.waitForTransactionReceipt({ hash: h });
+      await waitReceipt(h, "unstake");
       setToast("Unstaked ✓");
     });
 
@@ -82,6 +98,8 @@ export default function EarnPage() {
         <SoonBanner />
         {net.live && (
           <>
+            <IdentityBanner identity={identity} />
+            <PendingBar hash={pendingHash} onClose={() => setPendingHash(null)} />
             <div className="reveal" style={{ maxWidth: 640 }}>
               <span className="eyebrow">◆ $RADIAN — the protocol token</span>
               <h1 style={{ fontSize: 36, marginTop: 16 }}>Earn a share of every fee.</h1>
@@ -150,6 +168,48 @@ export default function EarnPage() {
                 </div>
                 <p className="hint" style={{ textAlign: "center", marginTop: 10 }}>Rewards are real fees, paid in USDC.</p>
               </div>
+            </div>
+
+            {/* append-only treasury ledger: every claim and flush, straight from chain events */}
+            <div className="panel reveal" style={{ marginTop: 24, overflowX: "auto" }}>
+              <h3 style={{ fontSize: 18, marginBottom: 6 }}>Treasury ledger</h3>
+              <p className="hint" style={{ marginTop: 0, marginBottom: 10 }}>
+                Every fee claim and every flush the treasury has executed, decoded from its own events. Nothing here is
+                estimated; each row links to its transaction.
+              </p>
+              {!s?.ledger?.length ? (
+                <p className="hint">No entries indexed yet.</p>
+              ) : (
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ textAlign: "left", color: "var(--fg-dim)" }}>
+                      <th style={{ padding: "6px 8px" }}>When</th>
+                      <th style={{ padding: "6px 8px" }}>Event</th>
+                      <th style={{ padding: "6px 8px" }}>USDC in</th>
+                      <th style={{ padding: "6px 8px" }}>$RADIAN burned</th>
+                      <th style={{ padding: "6px 8px" }}>USDC to stakers</th>
+                      <th style={{ padding: "6px 8px" }}>Tx</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {s.ledger.map((r) => {
+                      const n = (v?: string, d = 4) => (v == null ? "—" : Number(formatUnits(BigInt(v), 18)).toLocaleString(undefined, { maximumFractionDigits: d }));
+                      return (
+                        <tr key={`${r.txHash}-${r.kind}-${r.ts}`} style={{ borderTop: "1px solid var(--border-soft)" }}>
+                          <td style={{ padding: "8px", whiteSpace: "nowrap" }}>{new Date(r.ts).toLocaleString()}</td>
+                          <td style={{ padding: "8px" }}>{r.kind === "flush" ? "Flush (buyback + stream)" : r.kind === "claim" ? "Fees claimed" : "Token fees claimed"}</td>
+                          <td style={{ padding: "8px" }}>{r.kind === "flush" ? n(r.usdcIn) : n(r.amount)}</td>
+                          <td style={{ padding: "8px", color: "var(--grad)" }}>{r.kind === "flush" ? n(r.radianBurned, 0) : "—"}</td>
+                          <td style={{ padding: "8px", color: "var(--up)" }}>{r.kind === "flush" ? n(r.toStakers) : "—"}</td>
+                          <td style={{ padding: "8px" }}>
+                            <a href={`${net.explorer}/tx/${r.txHash}`} target="_blank" rel="noreferrer" style={{ color: "var(--radian-2)" }}>{r.txHash.slice(0, 10)}…</a>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
             </div>
 
             <p className="hint reveal" style={{ marginTop: 20, marginBottom: 60 }}>
