@@ -21,3 +21,5 @@ fs_permissions = [{ access = "read", path = "./test" }]
 arc_testnet = "https://rpc.testnet.arc.io"
 # Set ARC_MAINNET_RPC in your environment (Arc mainnet public RPC / a provider key).
 arc_mainnet = "${ARC_MAINNET_RPC}"
+robinhood_testnet = "https://rpc.testnet.chain.robinhood.com"
+robinhood_mainnet = "https://rpc.mainnet.chain.robinhood.com"

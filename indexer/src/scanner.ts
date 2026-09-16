@@ -21,6 +21,9 @@ import {
   EXECUTOR,
   routerEventsAbi,
   RESCAN_RANGES,
+  SCAN_MODE,
+  LOGS_RANGE,
+  HAS_RADIAN,
 } from "./config.js";
 import { store } from "./store.js";
 
@@ -34,9 +37,9 @@ import { store } from "./store.js";
 //    old snapshot) converges on the full record without ever hiding what is
 //    happening right now. History only needs to look at transactions sent to
 //    the factory, a curve or the treasury, which makes it ~10× cheaper.
-const LIVE_BLOCKS_PER_TICK = BigInt(process.env.MAX_BLOCKS_PER_TICK ?? 300);
-const BACKFILL_BLOCKS_PER_TICK = BigInt(process.env.BACKFILL_BLOCKS_PER_TICK ?? 400);
-const INITIAL_LOOKBACK = BigInt(process.env.INITIAL_LOOKBACK ?? 3000); // ~25 min at Arc's ~0.5 s blocks
+const LIVE_BLOCKS_PER_TICK = BigInt(process.env.MAX_BLOCKS_PER_TICK ?? (SCAN_MODE === "logs" ? 20_000 : 300));
+const BACKFILL_BLOCKS_PER_TICK = BigInt(process.env.BACKFILL_BLOCKS_PER_TICK ?? (SCAN_MODE === "logs" ? 40_000 : 400));
+const INITIAL_LOOKBACK = BigInt(process.env.INITIAL_LOOKBACK ?? (SCAN_MODE === "logs" ? 20_000 : 3000)); // ~25 min at Arc's ~0.5 s blocks
 // Blocks whose headers are fetched concurrently (batched 8 per JSON-RPC request).
 const CONCURRENCY = Number(process.env.SCAN_CONCURRENCY ?? 8);
 const SCAN_INTERVAL_MS = Number(process.env.SCAN_INTERVAL_MS ?? 5000);
@@ -210,6 +213,54 @@ async function collectBackfill(nums: bigint[]): Promise<BlockLogs[]> {
   return out;
 }
 
+// LOGS MODE: one eth_getLogs per block range, filtered to our event topics.
+// Timestamps come from the logs (standard RPCs include blockTimestamp); blocks
+// without a matching log are simply skipped. The range shrinks on a provider
+// limit error and grows back slowly.
+const SCAN_EVENTS = [...factoryAbi, ...curveEventsAbi, ...treasuryEventsAbi, ...routerEventsAbi].filter((x) => x.type === "event");
+let logsRange = BigInt(Math.max(10, LOGS_RANGE));
+const blockTsCache = new Map<string, number>();
+
+async function collectLogs(nums: bigint[]): Promise<BlockLogs[]> {
+  if (nums.length === 0) return [];
+  const from = nums[0];
+  const to = nums[nums.length - 1];
+  let logs: Awaited<ReturnType<typeof publicClient.getLogs>>;
+  try {
+    logs = await publicClient.getLogs({ fromBlock: from, toBlock: to, events: SCAN_EVENTS as never });
+    if (logsRange < BigInt(LOGS_RANGE)) logsRange = logsRange * 2n > BigInt(LOGS_RANGE) ? BigInt(LOGS_RANGE) : logsRange * 2n;
+  } catch (e) {
+    const msg = String((e as { shortMessage?: string })?.shortMessage ?? (e as Error)?.message ?? e);
+    if (nums.length > 10) {
+      logsRange = BigInt(Math.max(10, Math.floor(nums.length / 2)));
+      console.warn(`[scan] eth_getLogs ${from}-${to} failed (${msg.split("\n")[0]}); range → ${logsRange}`);
+      const mid = Math.floor(nums.length / 2);
+      return [...(await collectLogs(nums.slice(0, mid))), ...(await collectLogs(nums.slice(mid)))];
+    }
+    throw e;
+  }
+  const byBlock = new Map<string, BlockLogs>();
+  for (const l of logs) {
+    if (l.blockNumber == null) continue;
+    const key = l.blockNumber.toString();
+    let b = byBlock.get(key);
+    if (!b) {
+      const tsHex = (l as unknown as { blockTimestamp?: `0x${string}` }).blockTimestamp;
+      let ts = tsHex ? Number(BigInt(tsHex)) * 1000 : (blockTsCache.get(key) ?? 0);
+      if (!ts) {
+        const blk = await singleClient.getBlock({ blockNumber: l.blockNumber });
+        ts = Number(blk.timestamp) * 1000;
+      }
+      blockTsCache.set(key, ts);
+      if (blockTsCache.size > 5000) blockTsCache.delete(blockTsCache.keys().next().value as string);
+      b = { number: l.blockNumber, ts, logs: [] };
+      byBlock.set(key, b);
+    }
+    b.logs.push({ address: l.address, topics: l.topics as RawLog["topics"], data: l.data, logIndex: l.logIndex, transactionHash: l.transactionHash ?? "0x" });
+  }
+  return [...byBlock.values()].sort((a, b) => (a.number < b.number ? -1 : 1));
+}
+
 function decode(abi: typeof factoryAbi | typeof curveEventsAbi | typeof treasuryEventsAbi | typeof routerEventsAbi, log: RawLog) {
   try {
     if (log.topics.length === 0) return null;
@@ -299,8 +350,8 @@ async function processBlockRange(
   collect: (nums: bigint[]) => Promise<BlockLogs[]>,
   advance: (n: bigint) => void,
 ) {
-  const width = BigInt(CONCURRENCY);
-  for (let start = from; start <= to; start += width) {
+  for (let start = from; start <= to; ) {
+    const width = SCAN_MODE === "logs" ? logsRange : BigInt(CONCURRENCY);
     const end = start + width - 1n > to ? to : start + width - 1n;
     const nums: bigint[] = [];
     for (let n = start; n <= end; n++) nums.push(n);
@@ -309,6 +360,8 @@ async function processBlockRange(
       applyBlock(b);
       advance(b.number);
     }
+    advance(end); // a chunk with no matching logs still moves the cursor
+    start = end + 1n;
   }
 }
 
@@ -332,6 +385,7 @@ function recordFlywheel(ev: { eventName: string; args: unknown }, log: RawLog, b
 // treasury's curve buys; pull their receipts once and decode the treasury
 // events, so the ledger is complete without a full re-scan.
 async function backfillFlywheel() {
+  if (!HAS_RADIAN) return;
   const seen = new Set<string>();
   for (const t of store.trades) {
     if (t.trader.toLowerCase() !== TREASURY_LC) continue;
@@ -365,7 +419,7 @@ async function rescanRanges() {
       continue;
     }
     console.log(`[scan] rescanning ${a}-${b}`);
-    await processBlockRange(a, b, collectBackfill, () => {});
+    await processBlockRange(a, b, SCAN_MODE === "logs" ? collectLogs : collectBackfill, () => {});
     store.rescansDone.add(r);
     store.save();
   }
@@ -375,6 +429,11 @@ async function rescanRanges() {
 // indexer (reads are still useful for forensics) but is reported on /health.
 export async function verifyIdentity() {
   const mismatches: string[] = [];
+  if (CODE_HASHES.length === 0) {
+    store.identity = { checked: false, ok: true, mismatches: [], checkedAt: Date.now() };
+    console.log("[identity] nothing pinned on this chain (set CODE_HASHES_JSON)");
+    return;
+  }
   try {
     for (const c of CODE_HASHES) {
       const code = await singleClient.getCode({ address: c.address });
@@ -421,14 +480,14 @@ export async function tick(): Promise<boolean> {
     const from = store.checkpoint + 1n;
     if (head >= from) {
       const to = head - from > LIVE_BLOCKS_PER_TICK ? from + LIVE_BLOCKS_PER_TICK : head;
-      await processBlockRange(from, to, collectLive, (n) => (store.checkpoint = n));
+      await processBlockRange(from, to, SCAN_MODE === "logs" ? collectLogs : collectLive, (n) => (store.checkpoint = n));
     }
 
     // Backfill: a bounded slice of history per tick.
     if (store.backfillCursor < store.backfillFrom) {
       const bFrom = store.backfillCursor + 1n;
       const bTo = store.backfillFrom - bFrom > BACKFILL_BLOCKS_PER_TICK ? bFrom + BACKFILL_BLOCKS_PER_TICK : store.backfillFrom;
-      await processBlockRange(bFrom, bTo, collectBackfill, (n) => (store.backfillCursor = n));
+      await processBlockRange(bFrom, bTo, SCAN_MODE === "logs" ? collectLogs : collectBackfill, (n) => (store.backfillCursor = n));
       if (store.backfillCursor >= store.backfillFrom) console.log("[scan] backfill complete");
     }
 
@@ -454,6 +513,7 @@ export async function tick(): Promise<boolean> {
 
 export async function startScanner() {
   store.load();
+  console.log(`[scan] mode=${SCAN_MODE}${SCAN_MODE === "logs" ? ` range=${LOGS_RANGE}` : ""}`);
   await verifyIdentity();
   await backfillFlywheel();
   await rescanRanges();

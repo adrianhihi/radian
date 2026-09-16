@@ -16,6 +16,7 @@ import {
   radianTokenAbi,
   curveReadAbi,
   isHidden,
+  HAS_RADIAN,
 } from "./config.js";
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR ?? "./uploads";
@@ -213,6 +214,7 @@ export function startServer() {
 
   // $RADIAN flywheel state — staked, APR, buyback burned, revenue distributed.
   app.get("/radian", async (_req, res) => {
+    if (!HAS_RADIAN) return res.status(404).json({ error: "no $RADIAN flywheel on this chain" });
     try {
       const r = await publicClient.multicall({
         allowFailure: true,
