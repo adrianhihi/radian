@@ -282,7 +282,8 @@ export function getActiveNetworkKey(): NetworkKey {
   if (typeof window === "undefined") return "testnet";
   try {
     const k = window.localStorage.getItem(LS_KEY);
-    if (k === "mainnet" || k === "testnet") return k;
+    // any configured, non-hidden network is a valid choice (hidden ones are scaffolds)
+    if (k && k in NETWORKS && !NETWORKS[k as NetworkKey].hidden) return k as NetworkKey;
   } catch {}
   return "testnet";
 }
