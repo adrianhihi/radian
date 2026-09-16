@@ -65,6 +65,9 @@ export type NetworkConfig = {
     curve: Address;
     staking: Address;
     treasury: Address;
+    // reward asset of the staking pool: the gas coin on Arc (native USDC), an ERC-20 dollar elsewhere
+    rewardSymbol?: string;
+    rewardDecimals?: number;
   };
   quoteAssets: QuoteAssetDef[];
   // keccak256 of each deployed contract's runtime code, recorded at deploy
@@ -215,8 +218,15 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
       wallStakingImpl: "0x8F523C5240714033c408760fb8C7f7bF4F3BaD99",
       pofVaultImpl: "0xd08304E63ADf9EFc7a0700d9b2aB613A0cA37C37",
     },
-    // no $RADIAN flywheel here (its contracts pay the gas coin; an ERC-20 variant comes first)
-    radian: { token: ZERO, curve: ZERO, staking: ZERO, treasury: ZERO },
+    // $RADIAN on Robinhood testnet: priced in USDGx; ERC-20-reward flywheel (RadianStakingERC20 / RadianTreasuryERC20), 2026-09-16
+    radian: {
+      token: "0x5300d9Df3D687C1b037A6D124Eb6334cD9dE1B9a",
+      curve: "0x7387Caee85c6B6E387CF3eb1A1BbE45E2fbc75BA",
+      staking: "0x92237eb32b2b4fA5C6EdB72931b2F515071D1603",
+      treasury: "0x4Ed57EAe3ba1e3399a34fF1D5e56bB79e4cfdb0f",
+      rewardSymbol: "USDGx",
+      rewardDecimals: 6,
+    },
     quoteAssets: [
       // index 0 must be the native coin (quoteByAddress resolves the zero address to it)
       { key: "eth", symbol: "ETH", address: ZERO, decimals: 18, native: true, gradGoal: 0.042, blurb: "The gas coin" },
@@ -239,6 +249,8 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
       wallTreasuryImpl: "0x718ad47a561ab9daedadef3db329acbac22a8c54106b76e38ca6312854de63e4",
       wallStakingImpl: "0x0128ecfb818d294790edc549a882cf0efa8a2ee787e249fca92ca888c3d5c012",
       pofVaultImpl: "0x95f3971dff5cc41428090a979a462c5784b5204b8833c2b5716fdb4ceffe0674",
+      staking: "0x103939eed07bdf25cd272d4381e28c641e30a0e9cf8a29169f357091d624ec33",
+      treasury: "0xf1d4036f5918904232ed9475fcea2cba84eef24914e6bdddcd858a0ff02b008b",
     },
   },
   base: {

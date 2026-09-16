@@ -17,6 +17,10 @@ import {
   curveReadAbi,
   isHidden,
   HAS_RADIAN,
+  RADIAN_QUOTE,
+  RADIAN_QUOTE_DECIMALS,
+  RADIAN_QUOTE_SYMBOL,
+  erc20BalanceAbi,
 } from "./config.js";
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR ?? "./uploads";
@@ -230,16 +234,20 @@ export function startServer() {
           { address: RADIAN.curve, abi: curveReadAbi, functionName: "getReserves" },
         ],
       });
-      const num = (i: number) => Number(formatUnits((r[i].result as bigint | undefined) ?? 0n, 18));
+      const QD = RADIAN_QUOTE_DECIMALS;
+      const num = (i: number, d = 18) => Number(formatUnits((r[i].result as bigint | undefined) ?? 0n, d));
       const totalStaked = num(0);
-      const rewardRate = num(1); // USDC/sec
+      const rewardRate = num(1, QD); // quote units per second
       const reserves = r[8].result as [bigint, bigint] | undefined;
-      const quoteReserve = reserves ? Number(formatUnits(reserves[0], 18)) : 0;
+      const quoteReserve = reserves ? Number(formatUnits(reserves[0], QD)) : 0;
       const tokenReserve = reserves ? Number(formatUnits(reserves[1], 18)) : 1;
       const radianPrice = tokenReserve > 0 ? quoteReserve / tokenReserve : 0; // USDC per RADIAN
       const annualRewards = rewardRate * 365 * 86400; // USDC/yr
       const stakedValue = totalStaked * radianPrice;
-      const treasuryBal = Number(formatUnits(await publicClient.getBalance({ address: RADIAN.treasury }), 18));
+      const treasuryBal =
+        RADIAN_QUOTE === "0x0000000000000000000000000000000000000000"
+          ? Number(formatUnits(await publicClient.getBalance({ address: RADIAN.treasury }), 18))
+          : Number(formatUnits((await publicClient.readContract({ address: RADIAN_QUOTE, abi: erc20BalanceAbi, functionName: "balanceOf", args: [RADIAN.treasury] })) as bigint, QD));
       res.json({
         token: RADIAN.token,
         curve: RADIAN.curve,
@@ -251,8 +259,10 @@ export function startServer() {
         apr: stakedValue > 0 ? (annualRewards / stakedValue) * 100 : 0,
         periodFinish: Number((r[2].result as bigint | undefined) ?? 0n),
         rewardRatePerSec: rewardRate,
-        distributedToStakers: num(5),
-        totalDistributedStaking: num(3),
+        distributedToStakers: num(5, QD),
+        totalDistributedStaking: num(3, QD),
+        quoteSymbol: RADIAN_QUOTE_SYMBOL,
+        quoteDecimals: QD,
         buybackBurned: num(4),
         radianSupply: num(7),
         buybackBps: Number((r[6].result as number | undefined) ?? 0),

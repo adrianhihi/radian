@@ -60,7 +60,7 @@ export function useFlywheel(account?: Address) {
     earned,
     balance,
     stakedNum: Number(formatUnits(staked, 18)),
-    earnedNum: Number(formatUnits(earned, 18)),
+    earnedNum: Number(formatUnits(earned, activeNetwork.radian.rewardDecimals ?? 18)),
     balanceNum: Number(formatUnits(balance, 18)),
     refresh: () => {
       refreshStats();

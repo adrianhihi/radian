@@ -51,9 +51,10 @@ snipe tax · creator fee share · stand-in *(testnet stocks)* · standing bid.
 - The snipe tax starts at 99% and decays to 0 over 15 seconds after launch; the creator
   and declared wallets are exempt.
 - Launch fee is read from the factory (`launchFee()`), currently 1 USDC.
-- $RADIAN stakers earn native USDC streamed over 7 days, funded only by fees the treasury
-  actually claimed. A flush buys back at most 5% of the curve's quote reserve and runs at
-  most once per hour.
+- $RADIAN stakers earn the chain's dollar (native USDC on Arc; USDGx, a testnet stand-in, on
+  Robinhood testnet) streamed over 7 days, funded only by fees the treasury actually claimed. A
+  flush buys back at most 5% of the curve's quote reserve and runs at most once per hour. Say
+  which asset on which chain; never "USDC" on a chain where it is not.
 - Launch + first buy is one transaction through the router for native USDC; ERC-20 quotes
   need one approval first.
 - Stock Treasury launches: the creator-fee share goes to a per-launch treasury that never

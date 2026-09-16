@@ -85,3 +85,30 @@ fee Radian collects, in USDC.* No promises about the price of anyone's memecoin.
 Done: contracts (v2, 15 tests), testnet deployment + wiring, `/radian` indexer endpoint, Earn page.
 Next: keeper cron (`claimFees` → `flush` with a quote), external review before mainnet, then the
 price-band buyback.
+
+## ERC-20 reward variant (chains whose gas coin is not a dollar) — 2026-09-16
+
+On Robinhood Chain gas is ETH and the dollar is USDG (6-dec ERC-20), so the flywheel there is
+`RadianStakingERC20` + `RadianTreasuryERC20` (`src/radian/`): identical rules and user surface,
+with the reward / flush asset being the ERC-20 `quote` the $RADIAN curve is priced in.
+
+- `claimFees()` pulls the quote-asset fee balance from the escrow (permissionless, never reverts
+  on empty); `claimNativeFees()` / `claimTokenFees(token)` pull gas-coin and other-asset fees,
+  which the owner may route (`rescueNative` / `rescueERC20`). The quote asset itself only ever
+  leaves through `flush`; $RADIAN is burn-only.
+- `flush(minRadianOut, deadline)`: same buyback cap (5% of the curve's quote reserve), same
+  rate limit (1 h), buys with `forceApprove` + `buy`, burns, streams the rest to stakers via
+  `notifyReward(amount)` (pulled, fee-on-transfer safe).
+- An ERC-20-quoted curve graduates at the pair token's threshold (per-token economics; a launch
+  cannot opt out like a native config), so after graduation flushes stream 100% to stakers until
+  a V4 pool-side buyback module exists.
+- 6-decimal rewards leave Synthetix integer-streaming dust (≤ ~0.6 USD per period); it stays in
+  the pool.
+- Deploy: `script/DeployRadianERC20.s.sol` (launch quoted in `QUOTE`, deploy, wire,
+  `hook.setProtocolFeeRecipient(treasury)`).
+
+**Automation** (both chains): the keeper is the hook's `feeSweepOperator` and the treasury's
+`keeper`; `indexer/src/keeper.ts` sweeps curves with pending fees (hourly per curve, buyback
+slice bounded to 99% of the constant-product output), claims, and flushes with a simulated
+`minRadianOut`. Fees only reach the treasury once a curve is swept — without the sweep the
+flywheel starves, which is why this is automated rather than left to a manual script.

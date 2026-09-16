@@ -154,5 +154,17 @@ Facts and per-chain notes: `MULTICHAIN.md` → "Robinhood Chain".
 | Launch config 0 | fee 0.0001 ETH · phantom 0.0168 ETH · graduation 0.042 ETH; USDGx phantom 4,000 / grad 10,000; stocks 20 / 50 shares |
 | Smoke launch `RHSMK` (hidden candidate) | token `0x59d27c21c159aba27206f75009506fc60b220c0e`, 200 USDGx opening buy in the launch tx |
 
-No `$RADIAN` flywheel there yet (its contracts pay the gas coin; an ERC-20-reward variant comes first).
+| `$RADIAN` token / curve (quoted in USDGx; opening buy 500 USDGx) | `0x5300d9Df3D687C1b037A6D124Eb6334cD9dE1B9a` / `0x7387Caee85c6B6E387CF3eb1A1BbE45E2fbc75BA` |
+| `RadianStakingERC20` (stake RADIAN, earn USDGx) / `RadianTreasuryERC20` | `0x92237eb32b2b4fA5C6EdB72931b2F515071D1603` / `0x4Ed57EAe3ba1e3399a34fF1D5e56bB79e4cfdb0f` |
+
+The flywheel here is the ERC-20-reward variant (`src/radian/RadianStakingERC20.sol`,
+`RadianTreasuryERC20.sol`, `script/DeployRadianERC20.s.sol`, 16 tests): protocol fees in USDGx
+buy $RADIAN back and burn it, the rest streams to stakers as USDGx; gas-coin and stock-quote
+fees are held for the owner to route. The curve graduates at USDGx's pair threshold (10,000),
+after which everything streams to stakers until a pool-side buyback module exists.
 Owner is still the deployer EOA; the testnet is not handed to a multisig.
+
+**Keeper roles (both chains, 2026-09-16):** the bot `0xBb5b…779c` is the hook's `feeSweepOperator`
+(sweeps every curve's pending fees hourly), the treasury `keeper` (claims + flushes), the template
+keeper (Wall `defend` / PoF `claimAndBuy`) and the executor keeper. All of it runs in
+`indexer/src/keeper.ts`; every send is simulated first.

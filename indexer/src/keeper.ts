@@ -12,6 +12,10 @@ import {
   executorAbi,
   curveTradeAbi,
   curveReadAbi,
+  HAS_RADIAN,
+  RADIAN,
+  treasuryAbi,
+  RADIAN_QUOTE_DECIMALS,
 } from "./config.js";
 
 // The platform keeper. Runs the maintenance calls the template contracts
@@ -56,6 +60,23 @@ async function tick() {
         else if (l.template?.kind === "pof") await pofTick(l.token, l.template.vault);
       } catch (e) {
         console.warn(`[keeper] ${l.symbol ?? l.token}:`, short(e));
+      }
+    }
+    // Fees sit on each curve until swept; the keeper is the hook's fee-sweep
+    // operator, so it sweeps every curve with pending fees (at most hourly each).
+    for (const l of store.launches.values()) {
+      if (l.graduated) continue;
+      try {
+        await sweepTick(l.token, l.curve);
+      } catch (e) {
+        console.warn(`[keeper] sweep ${l.symbol ?? l.token}:`, short(e));
+      }
+    }
+    if (HAS_RADIAN) {
+      try {
+        await radianTick();
+      } catch (e) {
+        console.warn("[keeper] radian flywheel:", short(e));
       }
     }
     for (const a of store.auths.values()) {
@@ -156,6 +177,76 @@ async function pofTick(token: Address, vault: Address) {
   await singleClient.simulateContract({ address: vault, abi: pofVaultAbi, functionName: "claimAndBuy", args: [minOut, deadline], account: account! });
   const h = await send(vault, pofVaultAbi, "claimAndBuy", [minOut, deadline]);
   console.log(`[keeper] pof ${token.slice(0, 8)} claimAndBuy spent=${formatUnits(spent, 18)} out=${formatUnits(out, 18)} ${h}`);
+}
+
+// ---- curve fee sweeps ----
+
+const SWEEP_MIN_INTERVAL_S = 3600;
+const lastSweep = new Map<string, number>();
+
+async function sweepTick(token: Address, curve: Address) {
+  const t = Number(now());
+  const prev = lastSweep.get(curve.toLowerCase()) ?? 0;
+  if (t - prev < SWEEP_MIN_INTERVAL_S) return;
+  const [feeBal, taxBal, bb, reserves, graduated] = (await singleClient.multicall({
+    allowFailure: false,
+    contracts: [
+      { address: curve, abi: curveTradeAbi, functionName: "quoteFeeBalance" },
+      { address: curve, abi: curveTradeAbi, functionName: "creatorTaxBalance" },
+      { address: curve, abi: curveTradeAbi, functionName: "buybackQuoteBalance" },
+      { address: curve, abi: curveTradeAbi, functionName: "getReserves" },
+      { address: curve, abi: curveTradeAbi, functionName: "graduated" },
+    ],
+  })) as unknown as [bigint, bigint, bigint, readonly [bigint, bigint], boolean];
+  if (graduated || feeBal + taxBal === 0n) return;
+  // the buyback slice buys against the curve's own reserves: bound it to 99% of the constant-product output
+  let minOut = 0n;
+  if (bb > 0n) {
+    const [q, tk] = reserves;
+    const out = tk - (q * tk) / (q + bb);
+    minOut = (out * 99n) / 100n;
+  }
+  await singleClient.simulateContract({ address: curve, abi: curveTradeAbi, functionName: "sweepFees", args: [minOut], account: account! });
+  const h = await send(curve, curveTradeAbi, "sweepFees", [minOut]);
+  lastSweep.set(curve.toLowerCase(), t);
+  console.log(`[keeper] swept ${token.slice(0, 8)} fees=${formatUnits(feeBal + taxBal, 18)} ${h}`);
+}
+
+// ---- $RADIAN flywheel: claim fees, then flush when the interval allows ----
+
+async function radianTick() {
+  const t = RADIAN.treasury;
+  const claimSim = await singleClient.simulateContract({ address: t, abi: treasuryAbi, functionName: "claimFees", account: account! });
+  const claimed = claimSim.result as bigint;
+  if (claimed > 0n) {
+    const h = await send(t, treasuryAbi, "claimFees", []);
+    console.log(`[keeper] radian claimFees ${formatUnits(claimed, RADIAN_QUOTE_DECIMALS)} ${h}`);
+  }
+  const [last, interval, kp] = (await singleClient.multicall({
+    allowFailure: false,
+    contracts: [
+      { address: t, abi: treasuryAbi, functionName: "lastFlushAt" },
+      { address: t, abi: treasuryAbi, functionName: "minFlushInterval" },
+      { address: t, abi: treasuryAbi, functionName: "keeper" },
+    ],
+  })) as unknown as [bigint, number, Address];
+  if (kp.toLowerCase() !== account!.address.toLowerCase()) return; // not our job on this chain
+  if (last !== 0n && now() < last + BigInt(interval)) return;
+  const deadline = now() + BigInt(DEADLINE_S);
+  // simulate with a nominal quote to learn the buyback size, then bind minOut to it
+  let sim;
+  try {
+    sim = await singleClient.simulateContract({ address: t, abi: treasuryAbi, functionName: "flush", args: [1n, deadline], account: account! });
+  } catch (e) {
+    const msg = short(e);
+    if (/empty|too soon|no staking/i.test(msg)) return;
+    throw e;
+  }
+  const [burned, toStakers] = sim.result as readonly [bigint, bigint];
+  const minOut = burned > 0n ? (burned * 99n) / 100n : 1n;
+  if (burned > 0n) await singleClient.simulateContract({ address: t, abi: treasuryAbi, functionName: "flush", args: [minOut, deadline], account: account! });
+  const h = await send(t, treasuryAbi, "flush", [minOut, deadline]);
+  console.log(`[keeper] radian flush burned=${formatUnits(burned, 18)} toStakers=${formatUnits(toStakers, RADIAN_QUOTE_DECIMALS)} ${h}`);
 }
 
 // ---- delegated buys ----

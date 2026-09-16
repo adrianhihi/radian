@@ -39,6 +39,11 @@ Two generations live in this repo:
 
 ## Also on Robinhood Chain testnet (2026-09-16)
 
+`$RADIAN` runs there too, quoted in USDGx, with the ERC-20-reward flywheel (`RadianStakingERC20`
++ `RadianTreasuryERC20`): same rules as Arc, rewards paid in the chain's dollar instead of the gas
+coin. The keeper in the indexer sweeps curve fees, claims and flushes on both chains.
+
+
 The same stack runs on Robinhood Chain testnet (chain 46630, ETH gas, canonical Uniswap V4) via
 `script/DeployChain.s.sol`, with a 6-decimal `USDGx` dollar stand-in as the featured quote and stock
 stand-ins for NVDA / TSLA / AAPL. Addresses in `HANDOFF.md`; chain facts in `MULTICHAIN.md`. The

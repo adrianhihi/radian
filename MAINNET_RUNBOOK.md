@@ -149,6 +149,13 @@ records the verified per-chain facts. The indexer is the same image with `CHAIN_
 `EXECUTOR`, `KEEPER_PRIVATE_KEY`, `QUOTE_ASSETS_JSON`, `CODE_HASHES_JSON` and `SCAN_MODE=logs`
 (standard RPCs) — one Railway service per chain.
 
+## 5e. Keeper roles (before the handover)
+
+The bot key that runs `indexer/src/keeper.ts` must be: `hook.setFeeSweepOperator(keeper)` (fees sit
+on every curve until swept), `treasury.setKeeper(keeper)`, `router.setKeeper(keeper)` and
+`executor.setKeeper(keeper)`. All four are owner-only, so do them while the deployer still owns the
+contracts (after the handover they are multisig transactions). Fund the keeper with a little gas.
+
 ## 6. Go live, then hand over ownership
 
 1. `cast send $FACTORY "setLaunchEnabled(bool)" true …` (if not already).

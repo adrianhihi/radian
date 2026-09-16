@@ -170,6 +170,12 @@ export const treasuryAbi = parseAbi([
   "function totalToStakers() view returns (uint256)",
   "function totalFlushed() view returns (uint256)",
   "function buybackBps() view returns (uint16)",
+  "function claimFees() returns (uint256)",
+  "function claimableFees() view returns (uint256)",
+  "function flush(uint256 minRadianOut, uint256 deadline) returns (uint256 burned, uint256 toStakers)",
+  "function lastFlushAt() view returns (uint64)",
+  "function minFlushInterval() view returns (uint32)",
+  "function keeper() view returns (address)",
 ]);
 
 export const radianTokenAbi = parseAbi([
@@ -253,10 +259,21 @@ export const curveTradeAbi = parseAbi([
   "function creatorTaxBps() view returns (uint256)",
   "function currentSnipeTaxBps(address recipient) view returns (uint256)",
   "function launchedAt() view returns (uint256)",
+  "function sweepFees(uint256 minBuybackTokensOut)",
+  "function creatorTaxBalance() view returns (uint256)",
+  "function buybackQuoteBalance() view returns (uint256)",
+  "function quoteFeeBalance() view returns (uint256)",
+  "function getReserves() view returns (uint256 quoteReserve, uint256 tokenReserve)",
+  "function graduated() view returns (bool)",
 ]);
 
 export const EXECUTOR_DOMAIN = { name: "RadianExecutor", version: "1" } as const;
 export const HAS_RADIAN = RADIAN.token !== "0x0000000000000000000000000000000000000000";
+// Reward / quote asset of the flywheel: the gas coin on Arc (zero address, 18-dec),
+// an ERC-20 dollar elsewhere (RADIAN_QUOTE=0x…, RADIAN_QUOTE_DECIMALS=6).
+export const RADIAN_QUOTE = (process.env.RADIAN_QUOTE ?? "0x0000000000000000000000000000000000000000") as Address;
+export const RADIAN_QUOTE_DECIMALS = Number(process.env.RADIAN_QUOTE_DECIMALS ?? 18);
+export const RADIAN_QUOTE_SYMBOL = process.env.RADIAN_QUOTE_SYMBOL ?? (RADIAN_QUOTE === "0x0000000000000000000000000000000000000000" ? NATIVE_SYMBOL : "USD");
 export const BUY_AUTH_TYPES = {
   BuyAuth: [
     { name: "user", type: "address" },
@@ -269,3 +286,5 @@ export const BUY_AUTH_TYPES = {
     { name: "nonce", type: "uint256" },
   ],
 } as const;
+
+export const erc20BalanceAbi = parseAbi(["function balanceOf(address) view returns (uint256)"]);
