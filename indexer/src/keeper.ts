@@ -67,7 +67,7 @@ async function tick() {
     for (const l of store.launches.values()) {
       if (l.graduated) continue;
       try {
-        await sweepTick(l.token, l.curve);
+        await sweepTick(l.token, l.curve, l.quoteDecimals ?? 18);
       } catch (e) {
         console.warn(`[keeper] sweep ${l.symbol ?? l.token}:`, short(e));
       }
@@ -184,7 +184,7 @@ async function pofTick(token: Address, vault: Address) {
 const SWEEP_MIN_INTERVAL_S = 3600;
 const lastSweep = new Map<string, number>();
 
-async function sweepTick(token: Address, curve: Address) {
+async function sweepTick(token: Address, curve: Address, quoteDecimals = 18) {
   const t = Number(now());
   const prev = lastSweep.get(curve.toLowerCase()) ?? 0;
   if (t - prev < SWEEP_MIN_INTERVAL_S) return;
@@ -209,15 +209,24 @@ async function sweepTick(token: Address, curve: Address) {
   await singleClient.simulateContract({ address: curve, abi: curveTradeAbi, functionName: "sweepFees", args: [minOut], account: account! });
   const h = await send(curve, curveTradeAbi, "sweepFees", [minOut]);
   lastSweep.set(curve.toLowerCase(), t);
-  console.log(`[keeper] swept ${token.slice(0, 8)} fees=${formatUnits(feeBal + taxBal, 18)} ${h}`);
+  console.log(`[keeper] swept ${token.slice(0, 8)} fees=${formatUnits(feeBal + taxBal, quoteDecimals)} ${h}`);
 }
 
 // ---- $RADIAN flywheel: claim fees, then flush when the interval allows ----
 
+const full = (e: unknown) => String((e as any)?.details ?? "") + " " + String((e as any)?.shortMessage ?? "") + " " + String((e as Error)?.message ?? e);
+
 async function radianTick() {
   const t = RADIAN.treasury;
-  const claimSim = await singleClient.simulateContract({ address: t, abi: treasuryAbi, functionName: "claimFees", account: account! });
-  const claimed = claimSim.result as bigint;
+  // The native treasury's claimFees reverts (NoBalance) when the escrow holds
+  // nothing for it; the ERC-20 one returns 0. Both mean "nothing to claim".
+  let claimed = 0n;
+  try {
+    const claimSim = await singleClient.simulateContract({ address: t, abi: treasuryAbi, functionName: "claimFees", account: account! });
+    claimed = claimSim.result as bigint;
+  } catch (e) {
+    if (!/NoBalance|0x669567ea/.test(full(e))) throw e;
+  }
   if (claimed > 0n) {
     const h = await send(t, treasuryAbi, "claimFees", []);
     console.log(`[keeper] radian claimFees ${formatUnits(claimed, RADIAN_QUOTE_DECIMALS)} ${h}`);
@@ -238,8 +247,7 @@ async function radianTick() {
   try {
     sim = await singleClient.simulateContract({ address: t, abi: treasuryAbi, functionName: "flush", args: [1n, deadline], account: account! });
   } catch (e) {
-    const msg = short(e);
-    if (/empty|too soon|no staking/i.test(msg)) return;
+    if (/empty|too soon|no staking|quote required/i.test(full(e))) return; // nothing to flush yet
     throw e;
   }
   const [burned, toStakers] = sim.result as readonly [bigint, bigint];
