@@ -225,7 +225,7 @@ async function radianTick() {
     const claimSim = await singleClient.simulateContract({ address: t, abi: treasuryAbi, functionName: "claimFees", account: account! });
     claimed = claimSim.result as bigint;
   } catch (e) {
-    if (!/NoBalance|0x669567ea/.test(full(e))) throw e;
+    if (!/NoBalance|0xc2caa2a6/.test(full(e))) throw e; // NoBalance() = 0xc2caa2a6
   }
   if (claimed > 0n) {
     const h = await send(t, treasuryAbi, "claimFees", []);
