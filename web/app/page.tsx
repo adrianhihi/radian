@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { formatUnits } from "viem";
 import { Nav } from "@/components/Nav";
+import { WordRoller } from "@/components/WordRoller";
 import { TokenCard } from "@/components/TokenCard";
 import { useReveal } from "@/lib/useReveal";
 import { useLaunches } from "@/lib/useLaunches";
@@ -52,9 +53,9 @@ export default function Home() {
       <Nav />
 
       <header className="hero wrap">
-        <span className="eyebrow reveal">◆ Live on Circle Arc testnet</span>
+        <span className="eyebrow reveal">◆ Live on {isArc ? "Circle Arc testnet" : net.label}</span>
         <h1 className="reveal" data-reveal-delay={80}>
-          Launch a token on <span className="grad">Arc</span>,
+          Launch a token on <WordRoller className="grad" words={isArc ? ["Arc", "Robinhood"] : ["Robinhood", "Arc"]} />,
           <br /> priced in real money.
         </h1>
         <p className="sub reveal" data-reveal-delay={160}>
