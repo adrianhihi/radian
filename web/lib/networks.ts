@@ -8,7 +8,7 @@ import { defineChain, type Address } from "viem";
 // config re-derives from the chosen network. Mainnet is a placeholder until
 // Arc mainnet is live (2026-09-16) and we fill its addresses + flip `live`.
 
-export type NetworkKey = "testnet" | "mainnet" | "base";
+export type NetworkKey = "testnet" | "mainnet" | "base" | "robinhood-testnet";
 
 export type QuoteAssetDef = {
   key: string;
@@ -33,6 +33,8 @@ export type NetworkConfig = {
   hidden?: boolean; // config-ready but not surfaced in the switcher yet
   chainId: number;
   chainName: string;
+  // gas coin symbol (USDC on Arc; ETH on Robinhood Chain / Base). Decimals are 18 everywhere we run.
+  nativeSymbol?: string;
   rpc: string;
   wsRpc?: string;
   explorer: string;
@@ -180,6 +182,42 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
   // real dollars" USP survives even though Base's gas coin is ETH. Hidden until
   // deployed: flip live+hidden, fill the Pons addresses + PositionManager, and
   // set NEXT_PUBLIC_BASE_RPC / NEXT_PUBLIC_BASE_INDEXER_URL in Vercel.
+  // Robinhood Chain testnet (Arbitrum Orbit, ETH gas). Canonical Uniswap V4 +
+  // Permit2 exist at the mainnet addresses; no USDG or stock tokens on the
+  // testnet, so dollar/stock stand-ins are deployed with the stack. Addresses
+  // are filled by script/DeployChain.s.sol output; hidden until then.
+  "robinhood-testnet": {
+    key: "robinhood-testnet",
+    label: "Robinhood Testnet",
+    live: false,
+    hidden: true,
+    chainId: 46630,
+    chainName: "Robinhood Chain Testnet",
+    nativeSymbol: "ETH",
+    rpc: process.env.NEXT_PUBLIC_ROBINHOOD_TESTNET_RPC ?? "https://rpc.testnet.chain.robinhood.com",
+    explorer: "https://explorer.testnet.chain.robinhood.com",
+    deployBlock: 0n,
+    indexerUrl: process.env.NEXT_PUBLIC_ROBINHOOD_TESTNET_INDEXER_URL?.replace(/\/$/, "") ?? "",
+    contracts: {
+      factory: ZERO,
+      locker: ZERO,
+      vault: ZERO,
+      escrow: ZERO,
+      hook: ZERO,
+      poolManager: "0x8366a39CC670B4001A1121B8F6A443A643e40951", // canonical V4, same as mainnet (verified 2026-09-16)
+      router: ZERO,
+      pofRouter: ZERO,
+      executor: ZERO,
+      wallTreasuryImpl: ZERO,
+      wallStakingImpl: ZERO,
+      pofVaultImpl: ZERO,
+    },
+    radian: { token: ZERO, curve: ZERO, staking: ZERO, treasury: ZERO },
+    quoteAssets: [
+      { key: "eth", symbol: "ETH", address: ZERO, decimals: 18, native: true, gradGoal: 0.042, blurb: "The gas coin — dollar quotes below are the default" },
+    ],
+    codeHashes: {},
+  },
   base: {
     key: "base",
     label: "Base",
@@ -254,10 +292,10 @@ export function toViemChain(n: NetworkConfig) {
   return defineChain({
     id: n.chainId,
     name: n.chainName,
-    nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
+    nativeCurrency: { name: n.nativeSymbol ?? "USDC", symbol: n.nativeSymbol ?? "USDC", decimals: 18 },
     rpcUrls: { default: { http: [http] } },
     contracts: { multicall3: { address: "0xcA11bde05977b3631167028862bE2a173976CA11" } },
-    blockExplorers: { default: { name: "Arcscan", url: n.explorer } },
+    blockExplorers: { default: { name: "Explorer", url: n.explorer } },
     testnet: !n.live ? true : n.key === "testnet",
   });
 }

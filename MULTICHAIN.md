@@ -20,13 +20,39 @@ Graduation needs Uniswap V4. Verified deployments (Sept 2026):
 | Arc mainnet | 5042 | `0x8366a39c…40951` | canonical (Uniswap ships v4 on Arc) |
 | **Base** | 8453 | `0x498581fF…52b2b` | canonical, verified on BaseScan |
 | **BSC** | 56 | `0x28e2ea09…e9e9df` | canonical, verified on BscScan |
-| Robinhood Chain | 4663 | (Pons uses it) | canonical |
+| Robinhood Chain | 4663 | `0x8366a39c…40951` | canonical; PositionManager `0x58daec31…04fa7`, Quoter `0x8dc178ef…98f94`, StateView `0xf3334192…e673b` (Uniswap docs, verified on-chain 2026-09-16) |
+| Robinhood Chain testnet | 46630 | `0x8366a39c…40951` | same addresses as mainnet incl. PositionManager (code verified on-chain); not in Uniswap docs |
 | X Layer (OKX) | 196 | **unverified** | check before assuming |
 
 Where a chain has **no** V4, we deploy our own base (as we did on Arc testnet). `Permit2`
 (`0x0000…78BA3`), `Multicall3` (`0xcA11…CA11`), and the CREATE2 deployer are canonical across
 chains. The **PositionManager** address per chain must be fetched from Uniswap's deployments at
 deploy time (not all are memorized here — do not guess).
+
+## Robinhood Chain (verified 2026-09-16)
+
+Arbitrum Orbit L2, **ETH gas**, mainnet 4663 (public RPC `https://rpc.mainnet.chain.robinhood.com`,
+~0.1–0.25 s blocks, baseFee ≈ 0.056 gwei), testnet 46630 (`https://rpc.testnet.chain.robinhood.com`,
+explorer `explorer.testnet.chain.robinhood.com`). Both networks have canonical Uniswap V4
+(PoolManager, PositionManager, Quoter, StateView), Permit2, Multicall3 and the CREATE2 deployer at
+the standard addresses; a 28 KB hook is deployed there, so the code-size limit is above EIP-170.
+
+- **Stablecoin**: USDG `0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168` (6-dec, mainnet only). No USDC
+  listed in Robinhood's docs. WETH `0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73` (mainnet only).
+- **Stock tokens**: 194 active, all on 4663 only (none on the testnet), 18-dec ERC-20, ERC-8056
+  `uiMultiplier()` for dividends/splits (NVDA `0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC`, multiplier
+  1.00078). Registry: `GET https://api.robinhood.com/rhj/assets` (`deployments[].contractAddress`,
+  `tradingCapabilities`). **Transfers are permissionless on-chain** (eth_call of `transfer` from the V4
+  PoolManager, which holds 33.7k NVDA, to an EOA and to a contract both succeed); the US-person and
+  UK/CA/CH restrictions are enforced by Robinhood off-chain. Issuer can pause/upgrade (beacon proxy).
+- **Deploying Radian there**: `script/DeployChain.s.sol` (amounts in wei of the gas coin; simulated
+  end-to-end on 46630: ≈38M gas, 0.00076 ETH). On the testnet we deploy dollar/stock stand-ins
+  (`DEPLOY_STANDINS=true`); on mainnet approve USDG as the dollar quote (`QUOTE_TOKEN`). The
+  indexer runs the same image with `CHAIN_ID=46630 RPC_URL=… NATIVE_SYMBOL=ETH SCAN_MODE=logs`
+  (eth_getLogs ranges of 20k blocks work on the public RPC). The $RADIAN flywheel contracts are
+  native-coin based and would pay ETH there; an ERC-20-reward variant is needed before launching
+  the flywheel on an ETH-gas chain.
+- **Testnet ETH**: faucets (QuickNode, Chainstack, Alchemy) need a human (login / captcha).
 
 ## Why Base / BSC matter for the RWA (stock) play
 

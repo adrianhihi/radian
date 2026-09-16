@@ -140,6 +140,15 @@ the three impls, plus their `codeHashes`) and set `LAUNCH_ROUTER`, `POF_ROUTER`,
 receipts whose `tx.to` is the factory, a known curve, or a registered router, so a router launch
 that lands before the indexer knows the address is never indexed.
 
+## 5d. Other chains (Robinhood Chain, Base, …)
+
+`script/DeployChain.s.sol` deploys the whole stack (suite + templates + executor) against a chain's
+canonical Uniswap V4 in one run, with all amounts in wei of that chain's gas coin; `MULTICHAIN.md`
+records the verified per-chain facts. The indexer is the same image with `CHAIN_ID`, `RPC_URL`,
+`NATIVE_SYMBOL`, `FACTORY`, `VAULT`, `FACTORY_DEPLOY_BLOCK`, `LAUNCH_ROUTER`, `POF_ROUTER`,
+`EXECUTOR`, `KEEPER_PRIVATE_KEY`, `QUOTE_ASSETS_JSON`, `CODE_HASHES_JSON` and `SCAN_MODE=logs`
+(standard RPCs) — one Railway service per chain.
+
 ## 6. Go live, then hand over ownership
 
 1. `cast send $FACTORY "setLaunchEnabled(bool)" true …` (if not already).

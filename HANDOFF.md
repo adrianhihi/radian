@@ -132,3 +132,11 @@ cd web && npm install && npm run build && npm run start   # http://localhost:304
 - **The Wall Phase 2** — treasury that accumulates NVDA + floor-price buy wall (spec in the
   product repo). Ships after mainnet, an audit, and a real tokenized stock.
 - **Multi-chain** — Arc-first, one real-stock spoke (BSC). Verified facts in `MULTICHAIN.md`.
+
+## Robinhood Chain testnet (46630) — in progress, 2026-09-16
+
+Deployment is scripted (`script/DeployChain.s.sol`, simulated successfully) and the indexer runs
+there in logs mode (smoke-tested). Broadcasting waits for testnet ETH on the deployer
+`0x13E6b6C635CAcD4B27C9309251A4D083457eb11C` and the keeper `0xBb5b9503562CB4a2C86776c55C57EfFF1889779c`
+(faucets need a human). The web config has a hidden `robinhood-testnet` network to fill with the
+deployed addresses. Facts: `MULTICHAIN.md` → "Robinhood Chain".
