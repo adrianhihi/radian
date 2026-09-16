@@ -133,10 +133,26 @@ cd web && npm install && npm run build && npm run start   # http://localhost:304
   product repo). Ships after mainnet, an audit, and a real tokenized stock.
 - **Multi-chain** — Arc-first, one real-stock spoke (BSC). Verified facts in `MULTICHAIN.md`.
 
-## Robinhood Chain testnet (46630) — in progress, 2026-09-16
+## Robinhood Chain testnet (46630) — live, 2026-09-16
 
-Deployment is scripted (`script/DeployChain.s.sol`, simulated successfully) and the indexer runs
-there in logs mode (smoke-tested). Broadcasting waits for testnet ETH on the deployer
-`0x13E6b6C635CAcD4B27C9309251A4D083457eb11C` and the keeper `0xBb5b9503562CB4a2C86776c55C57EfFF1889779c`
-(faucets need a human). The web config has a hidden `robinhood-testnet` network to fill with the
-deployed addresses. Facts: `MULTICHAIN.md` → "Robinhood Chain".
+Deployed with `script/DeployChain.s.sol` (Arbitrum Orbit, ETH gas, canonical Uniswap V4). Web:
+network switcher → "Robinhood Testnet". Indexer: `https://radian-indexer-robinhood-production.up.railway.app`
+(Railway service `radian-indexer-robinhood`, logs mode, own /data volume, same keeper key).
+Facts and per-chain notes: `MULTICHAIN.md` → "Robinhood Chain".
+
+| Contract | Address |
+|---|---|
+| `PonsV2LaunchFactory` | `0x55622f7eD404f982cb6C5fa12268894A580848F6` (deploy block 120304515) |
+| `PonsV2MemeHook` | `0x15d5B10A1fCe67c01196EF118E5632B0D18Ca044` |
+| `PonsV2FeeEscrow` / `PonsV2BuybackVault` / `PonsV2LaunchLocker` | `0x112923deC686B647D140Ee58C17b0e4B6F804149` / `0xD7aD9E5c0216E09238105363DdaA6Ce3B81eCca1` / `0x61171A1a50AA2493918f6EAf3d9cf112e569FAea` |
+| `PonsV2GraduationExecutor` / `PonsV2LaunchDeployer` | `0x24219d0F3611fE4E438850bB7DB165439957dc9f` / `0x76099b39E6678018FB5B65c4e977C93e27fa9aF1` |
+| `RadianLaunchRouter` (forwarder) / `PoFRouter` | `0x5AC74F2666d284D55e5AEACF122C75fF9268a3Da` / `0xa6B14Ab7490123De19a82521137cA1F59BFA4fC5` |
+| `RadianExecutor` | `0xefb3FBDCf95662177d66E264B8394E7BD4Ece11c` |
+| Template impls `WallTreasury` / `WallStaking` / `PoFVault` | `0xa8D3DFEE672ee92663298300030a1DFB078Cb552` / `0x8F523C5240714033c408760fb8C7f7bF4F3BaD99` / `0xd08304E63ADf9EFc7a0700d9b2aB613A0cA37C37` |
+| Uniswap V4 PoolManager / PositionManager (canonical) | `0x8366a39CC670B4001A1121B8F6A443A643e40951` / `0x58daec3116aae6d93017baaea7749052e8a04fa7` |
+| Stand-ins: `USDGx` (6-dec) · `NVDAx` · `TSLAx` · `AAPLx` | `0xf6f8fF47fEa2f2cE3195ad197B8A9BF520c13ed0` · `0x4B2E6503e10708d5be2245DE0DED7D0ccF5AeF19` · `0xE8a0d16201bfbA7c42712Fa000B86E0b3BfD0745` · `0x176892e311fB4e517Ed2419626d6F9691bD7DcC6` |
+| Launch config 0 | fee 0.0001 ETH · phantom 0.0168 ETH · graduation 0.042 ETH; USDGx phantom 4,000 / grad 10,000; stocks 20 / 50 shares |
+| Smoke launch `RHSMK` (hidden candidate) | token `0x59d27c21c159aba27206f75009506fc60b220c0e`, 200 USDGx opening buy in the launch tx |
+
+No `$RADIAN` flywheel there yet (its contracts pay the gas coin; an ERC-20-reward variant comes first).
+Owner is still the deployer EOA; the testnet is not handed to a multisig.

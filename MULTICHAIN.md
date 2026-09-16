@@ -52,7 +52,12 @@ the standard addresses; a 28 KB hook is deployed there, so the code-size limit i
   (eth_getLogs ranges of 20k blocks work on the public RPC). The $RADIAN flywheel contracts are
   native-coin based and would pay ETH there; an ERC-20-reward variant is needed before launching
   the flywheel on an ETH-gas chain.
-- **Testnet ETH**: faucets (QuickNode, Chainstack, Alchemy) need a human (login / captcha).
+- **Testnet ETH**: faucets need a human. QuickNode's checks for a small *Ethereum mainnet* balance on
+  the recipient; `faucet.zalalena.com/robinhood` only needs a captcha (60-min cooldown).
+- **Deployed 2026-09-16** (addresses in `HANDOFF.md`): factory `0x55622f7e…48F6`, router
+  `0x5AC74F26…a3Da`, executor `0xefb3FBDC…e11c`; indexer
+  `https://radian-indexer-robinhood-production.up.railway.app`. First launch + 200 USDGx opening
+  buy in one tx confirmed (3.8M gas ≈ 0.00004 ETH at 0.01 gwei).
 
 ## Why Base / BSC matter for the RWA (stock) play
 

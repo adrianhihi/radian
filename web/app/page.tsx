@@ -14,6 +14,7 @@ type Filter = "all" | "live" | "graduated";
 export default function Home() {
   const { rows, loading, error } = useLaunches();
   const net = useNetwork();
+  const isArc = net.key === "testnet" || net.key === "mainnet";
   const [sort, setSort] = useState<Sort>("new");
   const [filter, setFilter] = useState<Filter>("all");
   const [q, setQ] = useState("");
@@ -57,9 +58,9 @@ export default function Home() {
           <br /> priced in real money.
         </h1>
         <p className="sub reveal" data-reveal-delay={160}>
-          Radian is the launchpad for Circle&apos;s Arc chain. Every token is born on a fair
-          bonding curve quoted in the asset you choose — <strong>native USDC</strong> by default,
-          EURC, or a stock — with no seed capital, liquidity locked forever, and graduation into
+          Radian is the launchpad for {isArc ? <>Circle&apos;s Arc chain</> : net.chainName}. Every token is born on a fair
+          bonding curve quoted in the asset you choose — <strong>{isArc ? "native USDC" : "a dollar stablecoin"}</strong> by default,
+          {isArc ? " EURC," : ""} or a stock — with no seed capital, liquidity locked forever, and graduation into
           Uniswap V4.
         </p>
         <div className="hero-cta reveal" data-reveal-delay={240}>
@@ -77,7 +78,7 @@ export default function Home() {
             { k: stats.graduated.toString(), l: "Graduated" },
             {
               k: stats.tvl.toLocaleString(undefined, { maximumFractionDigits: 0 }),
-              l: "USDC in curves",
+              l: `${net.nativeSymbol ?? "USDC"} in curves`,
             },
             { k: "1%", l: "Trade fee" },
           ].map((s, i) => (
@@ -179,7 +180,7 @@ export default function Home() {
             {[
               {
                 t: "Create",
-                d: "Name it, add a logo, hit launch. A fixed 1B-supply token and its bonding curve deploy in a single transaction, quoted in the asset you choose — native USDC, EURC, or a stock.",
+                d: `Name it, add a logo, hit launch. A fixed 1B-supply token and its bonding curve deploy in a single transaction, quoted in the asset you choose — ${isArc ? "native USDC, EURC," : "a dollar stablecoin"} or a stock.`,
               },
               {
                 t: "Trade",
@@ -217,12 +218,14 @@ export default function Home() {
                 <Link href="/#explore">Explore</Link>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <a href="https://testnet.arcscan.app/address/0x90022cC2107De9c070F889E3A67009FcA270E4E2" target="_blank" rel="noreferrer">
+                <a href={`${net.explorer}/address/${net.contracts.factory}`} target="_blank" rel="noreferrer">
                   Factory
                 </a>
-                <a href="https://faucet.circle.com" target="_blank" rel="noreferrer">
-                  Get testnet USDC
-                </a>
+                {net.key === "testnet" && (
+                  <a href="https://faucet.circle.com" target="_blank" rel="noreferrer">
+                    Get testnet USDC
+                  </a>
+                )}
               </div>
             </div>
           </div>

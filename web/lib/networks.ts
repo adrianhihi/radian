@@ -18,6 +18,7 @@ export type QuoteAssetDef = {
   native: boolean;
   blurb: string;
   gradGoal: number; // whole units of this asset in the curve to graduate (display)
+  featured?: boolean; // default selection on the launch page (else the native coin)
   // When set, this quote asset is a tokenized STOCK: launches paired against it
   // are "denominated in shares," and the UI shows the real share price (via the
   // /api/stock-price route) purely as a human reference — the contract never
@@ -189,34 +190,56 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
   "robinhood-testnet": {
     key: "robinhood-testnet",
     label: "Robinhood Testnet",
-    live: false,
-    hidden: true,
+    live: true,
     chainId: 46630,
     chainName: "Robinhood Chain Testnet",
     nativeSymbol: "ETH",
     rpc: process.env.NEXT_PUBLIC_ROBINHOOD_TESTNET_RPC ?? "https://rpc.testnet.chain.robinhood.com",
     explorer: "https://explorer.testnet.chain.robinhood.com",
-    deployBlock: 0n,
-    indexerUrl: process.env.NEXT_PUBLIC_ROBINHOOD_TESTNET_INDEXER_URL?.replace(/\/$/, "") ?? "",
+    deployBlock: 120304515n,
+    indexerUrl:
+      process.env.NEXT_PUBLIC_ROBINHOOD_TESTNET_INDEXER_URL?.replace(/\/$/, "") ??
+      "https://radian-indexer-robinhood-production.up.railway.app",
+    // DeployChain.s.sol, 2026-09-16 (Arbitrum Orbit, ETH gas; canonical Uniswap V4)
     contracts: {
-      factory: ZERO,
-      locker: ZERO,
-      vault: ZERO,
-      escrow: ZERO,
-      hook: ZERO,
-      poolManager: "0x8366a39CC670B4001A1121B8F6A443A643e40951", // canonical V4, same as mainnet (verified 2026-09-16)
-      router: ZERO,
-      pofRouter: ZERO,
-      executor: ZERO,
-      wallTreasuryImpl: ZERO,
-      wallStakingImpl: ZERO,
-      pofVaultImpl: ZERO,
+      factory: "0x55622f7eD404f982cb6C5fa12268894A580848F6",
+      locker: "0x61171A1a50AA2493918f6EAf3d9cf112e569FAea",
+      vault: "0xD7aD9E5c0216E09238105363DdaA6Ce3B81eCca1",
+      escrow: "0x112923deC686B647D140Ee58C17b0e4B6F804149",
+      hook: "0x15d5B10A1fCe67c01196EF118E5632B0D18Ca044",
+      poolManager: "0x8366a39CC670B4001A1121B8F6A443A643e40951",
+      router: "0x5AC74F2666d284D55e5AEACF122C75fF9268a3Da",
+      pofRouter: "0xa6B14Ab7490123De19a82521137cA1F59BFA4fC5",
+      executor: "0xefb3FBDCf95662177d66E264B8394E7BD4Ece11c",
+      wallTreasuryImpl: "0xa8D3DFEE672ee92663298300030a1DFB078Cb552",
+      wallStakingImpl: "0x8F523C5240714033c408760fb8C7f7bF4F3BaD99",
+      pofVaultImpl: "0xd08304E63ADf9EFc7a0700d9b2aB613A0cA37C37",
     },
+    // no $RADIAN flywheel here (its contracts pay the gas coin; an ERC-20 variant comes first)
     radian: { token: ZERO, curve: ZERO, staking: ZERO, treasury: ZERO },
     quoteAssets: [
-      { key: "eth", symbol: "ETH", address: ZERO, decimals: 18, native: true, gradGoal: 0.042, blurb: "The gas coin — dollar quotes below are the default" },
+      // index 0 must be the native coin (quoteByAddress resolves the zero address to it)
+      { key: "eth", symbol: "ETH", address: ZERO, decimals: 18, native: true, gradGoal: 0.042, blurb: "The gas coin" },
+      { key: "usdgx", symbol: "USDGx", address: "0xf6f8fF47fEa2f2cE3195ad197B8A9BF520c13ed0", decimals: 6, native: false, gradGoal: 10000, featured: true, blurb: "Dollar stand-in for the testnet (USDG on mainnet)" },
+      { key: "nvdax", symbol: "NVDAx", address: "0x4B2E6503e10708d5be2245DE0DED7D0ccF5AeF19", decimals: 18, native: false, gradGoal: 50, blurb: "Nvidia — priced in shares, not dollars", stock: { refSymbol: "NVDA", standIn: true } },
+      { key: "tslax", symbol: "TSLAx", address: "0xE8a0d16201bfbA7c42712Fa000B86E0b3BfD0745", decimals: 18, native: false, gradGoal: 50, blurb: "Tesla — priced in shares, not dollars", stock: { refSymbol: "TSLA", standIn: true } },
+      { key: "aaplx", symbol: "AAPLx", address: "0x176892e311fB4e517Ed2419626d6F9691bD7DcC6", decimals: 18, native: false, gradGoal: 50, blurb: "Apple — priced in shares, not dollars", stock: { refSymbol: "AAPL", standIn: true } },
     ],
-    codeHashes: {},
+    codeHashes: {
+      // recorded 2026-09-16; the three clone implementations hash identically to Arc's (no immutables)
+      factory: "0xad2a5c89974e730ab607d7fb734aded658373624816548bf4f7d3b1ff6dab0b6",
+      hook: "0x505ddf6d9505bf40d0291550fb1ddb9a366d5dc1767fb26ca8512b652421ab9f",
+      router: "0x45d5d28e1e7a70114d4dbc7b0a09032776b02fc2090529e6f192205eb2e1e112",
+      escrow: "0x87218669be442aa96ee406a6ba1886c29d8d450a7266628fa6f19b2c788d8316",
+      vault: "0x0c146bf2d9808a225cbefef67e7a68a530398791b15a4b825d500a69b91e7878",
+      locker: "0x5304631acb89c64e75397509c745337b6ddb3e7f529e2297a335114049bcff7d",
+      poolManager: "0xbd3881180b547f5fe817545743cfb4343e96b1bc6640dcd70c106b0066e95626",
+      pofRouter: "0x2e9adcbce828f92581f5582907bba015f91358a90aa6d985121d42c66e7e2811",
+      executor: "0x4e35c2b6d49b5b007a4abd1d1ad8c76e0aee92178b530880dabb21d9b3c6f7df",
+      wallTreasuryImpl: "0x718ad47a561ab9daedadef3db329acbac22a8c54106b76e38ca6312854de63e4",
+      wallStakingImpl: "0x0128ecfb818d294790edc549a882cf0efa8a2ee787e249fca92ca888c3d5c012",
+      pofVaultImpl: "0x95f3971dff5cc41428090a979a462c5784b5204b8833c2b5716fdb4ceffe0674",
+    },
   },
   base: {
     key: "base",

@@ -102,7 +102,7 @@ export default function LaunchPage() {
 
   // When the network resolves after mount, make sure the selected quote asset belongs to it.
   useEffect(() => {
-    setQuote((q) => net.quoteAssets.find((a) => a.key === q.key) ?? net.quoteAssets[0]);
+    setQuote((q) => net.quoteAssets.find((a) => a.key === q.key) ?? net.quoteAssets.find((a) => a.featured) ?? net.quoteAssets[0]);
   }, [net.key]);
 
   // Templates go through the router; The Wall also needs a stock quote asset.
@@ -343,7 +343,7 @@ export default function LaunchPage() {
           <h1 style={{ fontSize: 34 }}>Launch a token</h1>
           <p style={{ color: "var(--fg-dim)", marginTop: 10 }}>
             One transaction. Fixed 1B supply, {quote.stock ? <>priced in <strong>{quote.stock.refSymbol} shares</strong></> : `priced in ${quote.symbol}`}, liquidity locked forever.
-            Launch fee {formatUnits(launchFee, 18)} USDC.
+            Launch fee {formatUnits(launchFee, 18)} {net.nativeSymbol ?? "USDC"}.
           </p>
         </div>
 
@@ -617,14 +617,25 @@ export default function LaunchPage() {
           </span></div>
 
           <button className="btn btn-primary" style={{ width: "100%", marginTop: 20, justifyContent: "center" }} onClick={launch} disabled={busy || (identity.checked && !identity.ok)}>
-            {busy ? <span className="spinner" /> : authenticated ? `Launch for ${formatUnits(launchFee, 18)} USDC` : "Sign in to launch"}
+            {busy ? <span className="spinner" /> : authenticated ? `Launch for ${formatUnits(launchFee, 18)} ${net.nativeSymbol ?? "USDC"}` : "Sign in to launch"}
           </button>
-          <p className="hint" style={{ textAlign: "center" }}>
-            Need testnet USDC?{" "}
-            <a href="https://faucet.circle.com" target="_blank" rel="noreferrer" style={{ color: "var(--radian-2)" }}>
-              Circle faucet →
-            </a>
-          </p>
+          {net.key === "testnet" && (
+            <p className="hint" style={{ textAlign: "center" }}>
+              Need testnet USDC?{" "}
+              <a href="https://faucet.circle.com" target="_blank" rel="noreferrer" style={{ color: "var(--radian-2)" }}>
+                Circle faucet →
+              </a>
+            </p>
+          )}
+          {net.key === "robinhood-testnet" && (
+            <p className="hint" style={{ textAlign: "center" }}>
+              Need testnet ETH?{" "}
+              <a href="https://faucet.quicknode.com/robinhood/testnet" target="_blank" rel="noreferrer" style={{ color: "var(--radian-2)" }}>
+                QuickNode faucet →
+              </a>{" "}
+              USDGx and the stock stand-ins are mintable test tokens.
+            </p>
+          )}
         </div>
       </main>
       {toast && <div className="toast" onClick={() => setToast(null)}>{toast}</div>}

@@ -96,7 +96,16 @@ export default function EarnPage() {
       <Nav />
       <main className="wrap" style={{ padding: "48px 24px 0" }}>
         <SoonBanner />
-        {net.live && (
+        {net.live && net.radian.token === "0x0000000000000000000000000000000000000000" && (
+          <div className="panel reveal" style={{ marginTop: 20, maxWidth: 640 }}>
+            <h1 style={{ fontSize: 28 }}>$RADIAN lives on Arc.</h1>
+            <p style={{ color: "var(--fg-dim)", marginTop: 10 }}>
+              The flywheel pays stakers in Arc&apos;s native USDC. On {net.label} the gas coin is {net.nativeSymbol ?? "USDC"}, so the
+              protocol token is not deployed here yet. Switch to Arc to stake.
+            </p>
+          </div>
+        )}
+        {net.live && net.radian.token !== "0x0000000000000000000000000000000000000000" && (
           <>
             <IdentityBanner identity={identity} />
             <PendingBar hash={pendingHash} onClose={() => setPendingHash(null)} />

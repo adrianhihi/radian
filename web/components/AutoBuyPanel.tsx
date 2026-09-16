@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { formatUnits, parseUnits, type Address } from "viem";
-import { publicClient, arcTestnet, erc20Abi, explorer, RADIAN, NATIVE_QUOTE, type QuoteAsset } from "@/lib/radian";
+import { publicClient, arcTestnet, erc20Abi, explorer, RADIAN, NATIVE_QUOTE, type QuoteAsset, activeNetwork } from "@/lib/radian";
 import { executorAbi, executorDomain, BUY_AUTH_TYPES, EXECUTOR_FEE_BPS, EXECUTOR_GAS_STIPEND } from "@/lib/executor";
 import { fetchAuths, postAuth, hasIndexer, type AuthRecord } from "@/lib/indexer";
 import { fmtAmount, fmtDuration } from "@/lib/templates";
@@ -222,7 +222,7 @@ export function AutoBuyPanel({ token, symbol, quote, identity, onToast, onPendin
 
   const ago = (ts: number) => (ts > 0 && now > 0 ? `${fmtDuration(Math.max(0, now - ts))} ago` : "never");
   const active = (auths ?? []).filter((a) => a.status === "active");
-  const gasSym = "USDC";
+  const gasSym = activeNetwork.nativeSymbol ?? "USDC";
 
   return (
     <div className="panel" style={{ marginTop: 16 }}>

@@ -31,6 +31,7 @@ export const NATIVE_QUOTE = "0x0000000000000000000000000000000000000000" as Addr
 export type QuoteAsset = {
   key: string; symbol: string; address: Address; decimals: number; native: boolean; blurb: string;
   gradGoal: number;
+  featured?: boolean;
   stock?: { refSymbol: string; standIn: boolean };
 };
 export const QUOTE_ASSETS: QuoteAsset[] = NET.quoteAssets;

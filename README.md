@@ -37,6 +37,13 @@ Two generations live in this repo:
 - **`src/` — v0 simplified launchpad** (our first Arc deployment, kept as a working
   baseline; see the v0 section below).
 
+## Also on Robinhood Chain testnet (2026-09-16)
+
+The same stack runs on Robinhood Chain testnet (chain 46630, ETH gas, canonical Uniswap V4) via
+`script/DeployChain.s.sol`, with a 6-decimal `USDGx` dollar stand-in as the featured quote and stock
+stand-ins for NVDA / TSLA / AAPL. Addresses in `HANDOFF.md`; chain facts in `MULTICHAIN.md`. The
+indexer is the same image in `SCAN_MODE=logs` (eth_getLogs ranges) — one Railway service per chain.
+
 ## Launch templates (2026-09-14)
 
 Every launch is one transaction through `RadianLaunchRouter`, which the factory trusts as its
