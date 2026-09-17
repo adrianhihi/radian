@@ -307,11 +307,11 @@ label.filepick { display: flex; align-items: center; gap: 14px; margin-bottom: 0
 .stockref-foot { margin-top: 8px; font-size: 11px; line-height: 1.45; color: var(--fg-dim); }
 .badge-soon { background: rgba(111, 155, 255, 0.12); color: var(--radian-2); border: 1px solid rgba(111, 155, 255, 0.3); }
 
-/* ---- hero word roller (lock-dial roll) ---- */
-.roller { position: relative; display: inline-block; vertical-align: bottom; height: 1.12em; line-height: 1.12em; overflow: hidden; }
-.roller-word { display: block; line-height: 1.12em; white-space: nowrap; }
-.roller-out { position: absolute; inset: 0; animation: roller-out 0.62s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
-.roller-in { animation: roller-in 0.62s cubic-bezier(0.2, 0.8, 0.2, 1); }
-@keyframes roller-in { from { transform: translateY(-100%); opacity: 0.3; } to { transform: none; opacity: 1; } }
-@keyframes roller-out { from { transform: none; opacity: 1; } to { transform: translateY(100%); opacity: 0; } }
+/* ---- hero word crossfade ---- */
+.roller { position: relative; display: inline-block; vertical-align: bottom; }
+.roller-word { display: inline-block; white-space: nowrap; }
+.roller-out { position: absolute; left: 0; top: 0; animation: roller-out 0.7s ease forwards; pointer-events: none; }
+.roller-in { animation: roller-in 0.7s ease; }
+@keyframes roller-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes roller-out { from { opacity: 1; } to { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .roller-in, .roller-out { animation: none; } .roller-out { display: none; } }

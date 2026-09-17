@@ -1,9 +1,9 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 
-// A combination-lock style word roller: every `interval` ms the current word
-// rolls down and out while the next one drops in from above. Static (first
-// word only) when the list has one entry or the viewer prefers reduced motion.
+// Crossfades between words every `interval` ms: the current word fades out in
+// place while the next fades in. Static (first word only) when the list has
+// one entry or the viewer prefers reduced motion.
 export function WordRoller({ words, interval = 3000, className = "" }: { words: string[]; interval?: number; className?: string }) {
   const [idx, setIdx] = useState(0);
   const [prev, setPrev] = useState<number | null>(null);
