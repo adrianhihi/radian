@@ -86,11 +86,15 @@ export const isSunset = (token: string) => token.toLowerCase() in SUNSET;
 
 // RadianLaunchRouter: launch + creator's first buy in one tx. Its transactions
 // have tx.to = router, so the scanner must treat it as a known entry point.
-export const LAUNCH_ROUTER = (process.env.LAUNCH_ROUTER ?? "0xB9F097662302F220989AAeBa6776041d7d625fAE") as Address; // v2 (templates)
+export const LAUNCH_ROUTER = (process.env.LAUNCH_ROUTER ?? "0x166B40423f5F592C4619237463244b6BCA1942E0") as Address; // v3 (templates + Wall ladder)
 export const LAUNCH_ROUTER_V1 = (IS_ARC_TESTNET ? "0x2333449a1d83c5F99f29d5a17554D76245412C0E" : "0x0000000000000000000000000000000000000000") as Address; // Arc only, kept for history
+// Retired routers whose launches/trades still exist (Arc v2 router + its PoFRouter). Other chains: EXTRA_ROUTERS.
+export const LEGACY_ROUTERS: Address[] = IS_ARC_TESTNET
+  ? ["0xB9F097662302F220989AAeBa6776041d7d625fAE" as Address, "0x7a21533EBEdC7222F299dcfd46E0463E744bF6E8" as Address]
+  : [];
 // Template + delegated-execution contracts (2026-09-14). Buys through PoFRouter
 // and RadianExecutor have tx.to = those contracts, so they are entry points too.
-export const POF_ROUTER = (process.env.POF_ROUTER ?? "0x7a21533EBEdC7222F299dcfd46E0463E744bF6E8") as Address;
+export const POF_ROUTER = (process.env.POF_ROUTER ?? "0x972Eb013331aDc75800983605B170C12a7421991") as Address; // v3
 export const EXECUTOR = (process.env.EXECUTOR ?? "0xbf1fbda5991Ff34733AE74eDB84F74527B9588C1") as Address;
 export const KEEPER_PRIVATE_KEY = process.env.KEEPER_PRIVATE_KEY as `0x${string}` | undefined;
 export const KEEPER_INTERVAL_MS = Number(process.env.KEEPER_INTERVAL_MS ?? 60_000);
@@ -196,8 +200,9 @@ export const treasuryEventsAbi = parseAbi([
 const ARC_CODE_HASHES: { name: string; address: Address; hash: `0x${string}` }[] = [
   { name: "PonsV2LaunchFactory", address: FACTORY, hash: "0x4444b7a1dbfc5b7b43f7ea4213be5db1720e8e381628a0a5024a3bba57d71595" },
   { name: "PonsV2MemeHook", address: (process.env.RADIAN_ADDRESS ?? (IS_ARC_TESTNET ? "0x15eB3aeE2f96A199165dc58e6C8dc3Ce2e02e044" : "0x0000000000000000000000000000000000000000")) as Address, hash: "0x4d459c2b449407539e90df566a137db52aa6a34f69e45f1a062bd57e785a4bb2" },
-  { name: "RadianLaunchRouter", address: LAUNCH_ROUTER, hash: "0xd73b94c80452b2e91fe4c38347ce2157d9f45cd7f9c242009f0480501a0b4788" },
-  { name: "PoFRouter", address: POF_ROUTER, hash: "0xf5eb91076302ba59b8f58d3c6d445694e6a17c7acfa3d8e14040035130db0b98" },
+  { name: "RadianLaunchRouter", address: LAUNCH_ROUTER, hash: "0x9170391d6aa22a085723a0c8551cda8e93139b1f50e2205d8cd75dce12a9a764" },
+  { name: "PoFRouter", address: POF_ROUTER, hash: "0xa68bf76b3097ba39a7509ec63816aa15a19393f6de1ab337eab08ee5b534586d" },
+  { name: "WallLadder impl", address: "0x5863207026D5807Bd5Ca3bb8D709B1807aF95940" as Address, hash: "0x77f3111fa70052c293c773746a87a0e812533de796fec786d43ff67909e5250f" },
   { name: "RadianExecutor", address: EXECUTOR, hash: "0x521601531f84dc48bbb390e6514314684da9cf1e45c46dee77f8eacc3e14623c" },
   { name: "RadianStaking", address: RADIAN.staking, hash: "0xf7e675e11f13fbc04cebd15754c1ae0c14994d5e2f3815b9d8eea04992bafb57" },
   { name: "RadianTreasury", address: RADIAN.treasury, hash: "0x232fdd7004bfce03847d90b4d777acfdacdb0d1549b7261f051a6ea475bacd87" },
@@ -217,6 +222,7 @@ export const CODE_HASHES: { name: string; address: Address; hash: `0x${string}` 
 export const routerEventsAbi = parseAbi([
   "event WallLaunched(address indexed deployer, address indexed token, address curve, address treasury, address staking, address pairToken)",
   "event PoFLaunched(address indexed deployer, address indexed token, address curve, address vault, address pairToken)",
+  "event WallLadderCreated(address indexed token, address ladder)",
 ]);
 
 export const wallTreasuryAbi = parseAbi([
@@ -231,6 +237,18 @@ export const wallTreasuryAbi = parseAbi([
   "function config() view returns (uint16 marginBps, uint16 epochBudgetBps, uint16 streamBps, uint16 maxSlippageBps, uint32 minInterval, uint128 keeperBounty)",
   "function claimFees() returns (uint256 claimed, uint256 streamed)",
   "function defend(uint256 maxSpend, uint256 minOut, uint256 deadline) returns (uint256 spent, uint256 burned)",
+  "function fundLadder() returns (uint256 amount)",
+  "function curveGraduated() view returns (bool)",
+  "function ladder() view returns (address)",
+]);
+
+export const wallLadderAbi = parseAbi([
+  "function poke() returns (uint256 harvested, uint256 posted)",
+  "function lastPokeAt() view returns (uint64)",
+  "function config() view returns (uint16 keeperInflowBps, uint128 keeperBounty, uint32 minInterval, uint16 maxSlewBps)",
+  "function currentTick() view returns (int24 tick, bool live)",
+  "function pending() view returns (uint256)",
+  "function quoteHeld() view returns (uint256)",
 ]);
 
 export const pofVaultAbi = parseAbi([

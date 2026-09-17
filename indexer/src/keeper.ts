@@ -16,6 +16,7 @@ import {
   RADIAN,
   treasuryAbi,
   RADIAN_QUOTE_DECIMALS,
+  wallLadderAbi,
 } from "./config.js";
 
 // The platform keeper. Runs the maintenance calls the template contracts
@@ -54,10 +55,13 @@ async function tick() {
   running = true;
   try {
     for (const l of store.launches.values()) {
-      if (l.graduated) continue;
       try {
-        if (l.template?.kind === "wall") await wallTick(l.token, l.curve, l.template.treasury);
-        else if (l.template?.kind === "pof") await pofTick(l.token, l.template.vault);
+        if (l.template?.kind === "wall") {
+          if (l.graduated) await ladderTick(l.token, l.template.treasury, l.template.ladder);
+          else await wallTick(l.token, l.curve, l.template.treasury);
+        } else if (l.template?.kind === "pof" && !l.graduated) {
+          await pofTick(l.token, l.template.vault);
+        }
       } catch (e) {
         console.warn(`[keeper] ${l.symbol ?? l.token}:`, short(e));
       }
@@ -155,6 +159,40 @@ async function wallTick(token: Address, curve: Address, treasury: Address) {
       if (i === 5) console.warn(`[keeper] wall ${token.slice(0, 8)} defend skipped:`, short(e));
     }
   }
+}
+
+// ---- Wall, after graduation: hand the pile to the ladder, then beat it ----
+
+async function ladderTick(token: Address, treasury: Address, ladder?: Address) {
+  // fees keep arriving: claim them (streams to stakers) and pass the kept part on
+  const claimSim = await singleClient.simulateContract({ address: treasury, abi: wallTreasuryAbi, functionName: "claimFees", account: account! });
+  const [claimed] = claimSim.result as readonly [bigint, bigint];
+  if (claimed > 0n) {
+    const h = await send(treasury, wallTreasuryAbi, "claimFees", []);
+    console.log(`[keeper] wall ${token.slice(0, 8)} claimFees ${formatUnits(claimed, 18)} ${h}`);
+  }
+  if (!ladder) return; // launched before the ladder existed
+  const fundSim = await singleClient.simulateContract({ address: treasury, abi: wallTreasuryAbi, functionName: "fundLadder", account: account! });
+  const moved = fundSim.result as bigint;
+  if (moved > 0n) {
+    const h = await send(treasury, wallTreasuryAbi, "fundLadder", []);
+    console.log(`[keeper] wall ${token.slice(0, 8)} fundLadder ${formatUnits(moved, 18)} ${h}`);
+  }
+  const [last, cfg, [, live]] = (await singleClient.multicall({
+    allowFailure: false,
+    contracts: [
+      { address: ladder, abi: wallLadderAbi, functionName: "lastPokeAt" },
+      { address: ladder, abi: wallLadderAbi, functionName: "config" },
+      { address: ladder, abi: wallLadderAbi, functionName: "currentTick" },
+    ],
+  })) as unknown as [bigint, readonly [number, bigint, number, number], readonly [number, boolean]];
+  if (!live) return;
+  if (last !== 0n && now() < last + BigInt(cfg[2])) return;
+  const sim = await singleClient.simulateContract({ address: ladder, abi: wallLadderAbi, functionName: "poke", account: account! });
+  const [harvested, posted] = sim.result as readonly [bigint, bigint];
+  if (harvested === 0n && posted === 0n && last !== 0n) return; // an idle beat: skip the gas
+  const h = await send(ladder, wallLadderAbi, "poke", []);
+  console.log(`[keeper] ladder ${token.slice(0, 8)} poke harvested=${formatUnits(harvested, 18)} posted=${formatUnits(posted, 18)} ${h}`);
 }
 
 // ---- Proof-of-Fee ----

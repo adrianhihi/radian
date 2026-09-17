@@ -26,7 +26,7 @@ export type Launch = {
   createdBlock?: string;
   createdAt?: number; // ms
   // launch template (from the router's WallLaunched / PoFLaunched events)
-  template?: { kind: "wall"; treasury: Address; staking: Address } | { kind: "pof"; vault: Address; pofRouter: Address } | null;
+  template?: { kind: "wall"; treasury: Address; staking: Address; ladder?: Address } | { kind: "pof"; vault: Address; pofRouter: Address } | null;
 };
 
 // A signed, bounded buy authorization for RadianExecutor, submitted through the API.

@@ -24,6 +24,7 @@ import {
   SCAN_MODE,
   LOGS_RANGE,
   HAS_RADIAN,
+  LEGACY_ROUTERS,
 } from "./config.js";
 import { store } from "./store.js";
 
@@ -46,11 +47,11 @@ const SCAN_INTERVAL_MS = Number(process.env.SCAN_INTERVAL_MS ?? 5000);
 
 const FACTORY_LC = FACTORY.toLowerCase();
 const TREASURY_LC = RADIAN.treasury.toLowerCase();
-const ROUTER_LC = LAUNCH_ROUTER.toLowerCase();
+const ROUTER_LCS = new Set([LAUNCH_ROUTER, ...LEGACY_ROUTERS].map((a) => a.toLowerCase()));
 // Contracts that route buys/sells on users' behalf. The treasury's flush()
 // buys RADIAN on its curve; add others via EXTRA_ROUTERS (comma-separated).
 const ROUTERS = new Set(
-  [RADIAN.treasury, LAUNCH_ROUTER, LAUNCH_ROUTER_V1, POF_ROUTER, EXECUTOR, ...(process.env.EXTRA_ROUTERS ?? "").split(",")].map((a) => a.trim().toLowerCase()).filter(Boolean),
+  [RADIAN.treasury, LAUNCH_ROUTER, LAUNCH_ROUTER_V1, ...LEGACY_ROUTERS, POF_ROUTER, EXECUTOR, ...(process.env.EXTRA_ROUTERS ?? "").split(",")].map((a) => a.trim().toLowerCase()).filter(Boolean),
 );
 
 // ---- discovery + state ----
@@ -305,7 +306,7 @@ function applyBlock(b: BlockLogs) {
       if (ev) recordFlywheel(ev, log, n.toString(), b.ts);
       continue;
     }
-    if (addr === ROUTER_LC) {
+    if (ROUTER_LCS.has(addr)) {
       // Emitted after the factory's TokenLaunched in the same tx, so the launch exists.
       const ev = decode(routerEventsAbi, log);
       if (ev?.eventName === "WallLaunched") {
@@ -313,6 +314,10 @@ function applyBlock(b: BlockLogs) {
         if (!store.setTemplate(a.token, { kind: "wall", treasury: a.treasury, staking: a.staking })) {
           console.warn(`[scan] WallLaunched for unknown launch ${a.token}`);
         }
+      } else if (ev?.eventName === "WallLadderCreated") {
+        const a = ev.args as { token: Address; ladder: Address };
+        const l = store.launches.get(a.token.toLowerCase());
+        if (l?.template?.kind === "wall") store.setTemplate(a.token, { ...l.template, ladder: a.ladder });
       } else if (ev?.eventName === "PoFLaunched") {
         const a = ev.args as { token: Address; vault: Address };
         if (!store.setTemplate(a.token, { kind: "pof", vault: a.vault, pofRouter: POF_ROUTER })) {
