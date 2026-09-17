@@ -17,6 +17,11 @@ import {
   treasuryAbi,
   RADIAN_QUOTE_DECIMALS,
   wallLadderAbi,
+  FACTORY,
+  LOCKER,
+  factoryGraduateAbi,
+  curveGradAbi,
+  lockerAbi,
 } from "./config.js";
 
 // The platform keeper. Runs the maintenance calls the template contracts
@@ -55,6 +60,11 @@ async function tick() {
   running = true;
   try {
     for (const l of store.launches.values()) {
+      try {
+        await graduateTick(l.token, l.curve, l.graduated ?? false);
+      } catch (e) {
+        console.warn(`[keeper] graduate ${l.symbol ?? l.token}:`, short(e));
+      }
       try {
         if (l.template?.kind === "wall") {
           if (l.graduated) await ladderTick(l.token, l.template.treasury, l.template.ladder);
@@ -215,6 +225,40 @@ async function pofTick(token: Address, vault: Address) {
   await singleClient.simulateContract({ address: vault, abi: pofVaultAbi, functionName: "claimAndBuy", args: [minOut, deadline], account: account! });
   const h = await send(vault, pofVaultAbi, "claimAndBuy", [minOut, deadline]);
   console.log(`[keeper] pof ${token.slice(0, 8)} claimAndBuy spent=${formatUnits(spent, 18)} out=${formatUnits(out, 18)} ${h}`);
+}
+
+// ---- finish stuck graduations ----
+// A buy that crosses the threshold tries to graduate in-line and swallows a
+// failure so the buy itself cannot be griefed; the two phases stay
+// permissionless. The keeper runs them for any curve that sold out.
+
+const gradChecked = new Map<string, number>();
+
+async function graduateTick(token: Address, curve: Address, graduatedCached: boolean) {
+  const key = curve.toLowerCase();
+  const t = Number(now());
+  if (t - (gradChecked.get(key) ?? 0) < 120) return; // cheap, but not every tick
+  gradChecked.set(key, t);
+  const [graduated, sellable] = (await singleClient.multicall({
+    allowFailure: false,
+    contracts: [
+      { address: curve, abi: curveGradAbi, functionName: "graduated" },
+      { address: curve, abi: curveGradAbi, functionName: "sellableTokens" },
+    ],
+  })) as unknown as [boolean, bigint];
+  if (!graduated) {
+    if (sellable !== 0n) return; // still selling: nothing to do
+    await singleClient.simulateContract({ address: FACTORY, abi: factoryGraduateAbi, functionName: "graduate", args: [token], account: account! });
+    const h = await send(FACTORY, factoryGraduateAbi, "graduate", [token]);
+    console.log(`[keeper] graduate ${token.slice(0, 8)} phase 1 ${h}`);
+  }
+  if (LOCKER === "0x0000000000000000000000000000000000000000") return;
+  const locked = (await singleClient.readContract({ address: LOCKER, abi: lockerAbi, functionName: "isLocked", args: [token] })) as boolean;
+  if (locked) return;
+  await singleClient.simulateContract({ address: FACTORY, abi: factoryGraduateAbi, functionName: "createGraduatedPool", args: [token], account: account! });
+  const h = await send(FACTORY, factoryGraduateAbi, "createGraduatedPool", [token]);
+  console.log(`[keeper] graduate ${token.slice(0, 8)} pool seeded ${h}`);
+  void graduatedCached;
 }
 
 // ---- curve fee sweeps ----

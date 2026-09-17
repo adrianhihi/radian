@@ -76,6 +76,11 @@ export function quoteMeta(pairToken?: string): { symbol: string; decimals: numbe
 // activity, stats) but still resolvable at /token/:addr so a direct link can
 // explain what happened and point to the current version.
 export const SUNSET: Record<string, { successor: Address; reason: string }> = {
+  // Stock Treasury Showcase v1 (router v2, no post-graduation ladder) → v2 (router v3, with the ladder)
+  "0xd2abfd74c4f64b1041a3b33b7e702760aefea943": {
+    successor: "0x13E9ABd3BbdC2d307000c0B52cA663834B7E7B5f" as Address,
+    reason: "Relaunched through router v3 so the treasury has the post-graduation bid ladder.",
+  },
   // The Wall v1: its immutable on-chain description misstated the mechanics.
   "0xf8ab1b64598d7d422baba415b10ec34ca6f0096d": {
     successor: "0x5a8b01D1D7Bfe524F1969494528a64971897C535" as Address,
@@ -306,3 +311,17 @@ export const BUY_AUTH_TYPES = {
 } as const;
 
 export const erc20BalanceAbi = parseAbi(["function balanceOf(address) view returns (uint256)"]);
+
+// Graduation is permissionless but not automatic when the crossing buy's
+// in-line attempt fails; the keeper finishes it.
+export const factoryGraduateAbi = parseAbi([
+  "function graduate(address token)",
+  "function createGraduatedPool(address token) returns (uint256 positionId)",
+  "function getLaunchedToken(address token) view returns ((address token, address curve, address deployer, address creatorFeeRecipient, address pairToken, uint256 graduationThreshold, uint24 poolFee, int24 tickSpacing, uint16 creatorTaxBps, bool buybackEnabled, uint8 phase))",
+]);
+export const curveGradAbi = parseAbi([
+  "function graduated() view returns (bool)",
+  "function sellableTokens() view returns (uint256)",
+]);
+export const lockerAbi = parseAbi(["function isLocked(address token) view returns (bool)"]);
+export const LOCKER = (process.env.LOCKER ?? (IS_ARC_TESTNET ? "0x7efb5B773BBbf69Bd163b52b1BA88C529a0f123c" : "0x0000000000000000000000000000000000000000")) as Address;
