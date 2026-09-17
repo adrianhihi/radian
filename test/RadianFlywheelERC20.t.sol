@@ -55,6 +55,9 @@ contract MockCurveQ {
     MockTokenQ public quoteToken;
     bool public graduated;
     uint256 public quoteReserve = 1_000e6;
+    uint256 public feeBps = 100;
+    uint256 public creatorTaxBps = 0;
+    uint256 public shortOut; // when set, buy returns this many tokens instead of the fair amount (floor tests)
 
     constructor(MockTokenQ r, MockTokenQ q) {
         radian = r;
@@ -74,15 +77,35 @@ contract MockCurveQ {
         quoteReserve = q;
     }
 
+    function setShortOut(uint256 o) external {
+        shortOut = o;
+    }
+
+    /// @dev simulate a trader moving the price: quote in, tokens out of the reserve
+    function pump(uint256 quoteIn) external {
+        uint256 t = radian.balanceOf(address(this));
+        uint256 out = (t * quoteIn) / (quoteReserve + quoteIn);
+        quoteReserve += quoteIn;
+        radian.transfer(msg.sender, out);
+    }
+
+    function sellableTokens() external view returns (uint256) {
+        return graduated ? 0 : radian.balanceOf(address(this));
+    }
+
     function getReserves() external view returns (uint256, uint256) {
         return (quoteReserve, radian.balanceOf(address(this)));
     }
 
+    /// @dev constant product on (quoteReserve, token balance) after a 1% fee, like the real curve
     function buy(uint256 quoteIn, uint256 minTokensOut, address recipient) external payable returns (uint256) {
         require(msg.value == 0, "no value");
         require(quoteToken.transferFrom(msg.sender, address(this), quoteIn), "pull");
-        uint256 out = quoteIn * 1e12; // 1 quote unit (6-dec) -> 1 RADIAN (18-dec)
+        uint256 net = (quoteIn * (10_000 - feeBps - creatorTaxBps)) / 10_000;
+        uint256 t = radian.balanceOf(address(this));
+        uint256 out = shortOut > 0 ? shortOut : (t * net) / (quoteReserve + net);
         require(out >= minTokensOut, "slippage");
+        quoteReserve += net;
         radian.transfer(recipient, out);
         return out;
     }
@@ -138,13 +161,20 @@ contract RadianFlywheelERC20Test is Test {
         staking = new RadianStakingERC20(address(radian), address(usd), owner);
         treasury = new RadianTreasuryERC20(address(radian), address(curve), address(escrow), address(usd), owner);
         vm.startPrank(owner);
+        staking.setRewardsDistributor(address(treasury));
         treasury.setStaking(address(staking));
         treasury.setKeeper(keeper);
-        staking.setRewardsDistributor(address(treasury));
         vm.stopPrank();
         radian.mint(alice, 1_000e18);
         radian.mint(bob, 1_000e18);
         vm.warp(1_700_000_000);
+    }
+
+
+    /// @dev what the mock curve pays for `quoteIn` at reserves (q, t) after its 1% fee
+    function _cpOut(uint256 quoteIn, uint256 q, uint256 t) internal pure returns (uint256) {
+        uint256 net = (quoteIn * 9_900) / 10_000;
+        return (t * net) / (q + net);
     }
 
     function _stake(address who, uint256 amt) internal {
@@ -192,7 +222,7 @@ contract RadianFlywheelERC20Test is Test {
         vm.warp(_now() + 3 days + 12 hours); // half streamed
         staking.notifyReward(700e6); // 350 leftover + 700 over a fresh 7 days
         vm.stopPrank();
-        assertApproxEqAbs(staking.rewardRate(), uint256(1_050e6) / 7 days, 1);
+        assertApproxEqAbs(staking.rewardRate(), (uint256(1_050e6) * 1e18) / 7 days, 1e18);
         vm.warp(_now() + 7 days);
         vm.prank(alice);
         staking.getReward();
@@ -243,9 +273,10 @@ contract RadianFlywheelERC20Test is Test {
         treasury.claimFees();
         assertEq(usd.balanceOf(address(treasury)), 100e6);
         uint256 supply = radian.totalSupply();
+        (uint256 q0, uint256 t0) = curve.getReserves();
         vm.prank(keeper);
         (uint256 burned, uint256 toStakers) = treasury.flush(1, _now() + 60);
-        assertEq(burned, 50e6 * 1e12, "50 USD bought 50 RADIAN and burned them");
+        assertEq(burned, _cpOut(50e6, q0, t0), "50 USD bought at the curve price and burned");
         assertEq(radian.totalSupply(), supply - burned);
         assertEq(toStakers, 50e6);
         assertEq(usd.balanceOf(address(staking)), 50e6);
@@ -311,10 +342,11 @@ contract RadianFlywheelERC20Test is Test {
         _stake(alice, 1e18);
         _fund(100e6);
         treasury.claimFees();
-        curve.setQuoteReserve(100e6); // cap = 5% = 5 USD
+        curve.setQuoteReserve(100e6); // cap = 5% = 5 USD (live reserve below the reference: price fell, allowed)
+        (, uint256 t0) = curve.getReserves();
         vm.prank(keeper);
         (uint256 burned, uint256 toStakers) = treasury.flush(1, _now() + 60);
-        assertEq(burned, 5e6 * 1e12, "buy capped at 5% of the reserve");
+        assertEq(burned, _cpOut(5e6, 100e6, t0), "buy capped at 5% of the reserve");
         assertEq(toStakers, 50e6);
         assertEq(usd.balanceOf(address(treasury)), 45e6, "excess waits for a later flush");
     }
@@ -383,4 +415,122 @@ contract RadianFlywheelERC20Test is Test {
     }
 
     receive() external payable {}
+
+    // ---- review 2026-09-17 regressions ----
+
+    /// Critical: 6-dec rewards over an 18-dec stake at a realistic scale must not truncate away.
+    function test_precisionAtRealisticScaleWithHourlyNotifiesAndPokes() public {
+        radian.mint(alice, 100_000_000e18);
+        _stake(alice, 100_000_000e18); // 10% of supply
+        address poker = makeAddr("poker"); // never stakes, just touches updateReward
+        usd.mint(owner, 10_000e6);
+        vm.prank(owner);
+        usd.approve(address(staking), 10_000e6);
+        uint256 deposited;
+        // one week: a 1 USDG notify every hour (the treasury's hourly flush) and a poke every 10 minutes
+        for (uint256 h = 0; h < 168; h++) {
+            vm.prank(owner);
+            staking.notifyReward(1e6);
+            deposited += 1e6;
+            for (uint256 m = 0; m < 6; m++) {
+                vm.warp(vm.getBlockTimestamp() + 10 minutes);
+                vm.prank(poker);
+                staking.getReward();
+            }
+        }
+        vm.warp(vm.getBlockTimestamp() + 8 days); // let the last period finish
+        uint256 e = staking.earned(alice);
+        assertGe(e, (deposited * 9_990) / 10_000, "at least 99.9% of the stream reaches the staker");
+        assertLe(e, deposited);
+        vm.prank(alice);
+        staking.getReward();
+        assertEq(usd.balanceOf(alice), e);
+    }
+
+    function test_notifyRefusesWithoutStakers() public {
+        usd.mint(owner, 10e6);
+        vm.startPrank(owner);
+        usd.approve(address(staking), 10e6);
+        vm.expectRevert("no stakers");
+        staking.notifyReward(10e6);
+        vm.stopPrank();
+    }
+
+    /// Medium: the staker share is held in the treasury (not streamed into a void) while nobody is staked.
+    function test_flushHoldsStakerShareWithoutStakers() public {
+        _fund(100e6);
+        treasury.claimFees();
+        vm.prank(keeper);
+        (uint256 burned, uint256 toStakers) = treasury.flush(1, _now() + 60);
+        assertGt(burned, 0, "buyback still happens");
+        assertEq(toStakers, 0, "nothing streamed");
+        assertEq(usd.balanceOf(address(staking)), 0);
+        assertEq(usd.balanceOf(address(treasury)), 50e6, "staker share waits in the treasury");
+        // once someone stakes, the next flush streams it
+        _stake(alice, 1e18);
+        vm.warp(_now() + 1 hours);
+        vm.prank(keeper);
+        (, toStakers) = treasury.flush(1, _now() + 60);
+        assertEq(toStakers, 25e6, "half of the held 50 goes to stakers, half to buyback");
+    }
+
+    /// High: a price pushed above the reference right before the flush is not bought into.
+    function test_flushSkipsBuybackWhenPriceAboveReference() public {
+        _stake(alice, 1e18);
+        _fund(100e6);
+        treasury.claimFees();
+        address whale = makeAddr("whale");
+        usd.mint(whale, 300e6);
+        vm.prank(whale);
+        curve.pump(300e6); // price up ~30%: a front-run
+        vm.prank(keeper);
+        (uint256 burned, uint256 toStakers) = treasury.flush(1, _now() + 60);
+        assertEq(burned, 0, "no buyback into a pumped price");
+        assertEq(toStakers, 50e6, "stakers still paid");
+        assertEq(usd.balanceOf(address(treasury)), 50e6, "buyback share held");
+        // the reference follows the market after the flush, so a stable price buys next time
+        (uint256 q, uint256 t) = curve.getReserves();
+        assertEq(treasury.refQuoteReserve(), q);
+        assertEq(treasury.refTokenReserve(), t);
+        vm.warp(_now() + 1 hours);
+        vm.prank(keeper);
+        (burned,) = treasury.flush(1, _now() + 60);
+        assertGt(burned, 0);
+    }
+
+    /// High: whatever the keeper quotes, tokens received below the reference-price floor revert.
+    function test_flushRevertsWhenCurvePaysBelowFloor() public {
+        _stake(alice, 1e18);
+        _fund(100e6);
+        treasury.claimFees();
+        curve.setShortOut(1); // the curve (or a sandwich) hands back almost nothing
+        vm.prank(keeper);
+        vm.expectRevert("buyback below floor");
+        treasury.flush(1, _now() + 60);
+    }
+
+    /// High: the reserve cap uses the smaller of the live and reference reserves, so a front-run cannot enlarge it.
+    function test_capCannotBeEnlargedByLiveReserve() public {
+        _stake(alice, 1e18);
+        _fund(2_000e6);
+        treasury.claimFees();
+        // same price, both reserves doubled: live cap would be 100 USD, the reference cap is 50 USD
+        curve.setQuoteReserve(2_000e6);
+        radian.mint(address(curve), 1_000_000_000e18);
+        vm.prank(keeper);
+        treasury.flush(1, _now() + 60);
+        // 2,000 in: 1,000 to stakers, buyback capped at 50 (5% of the 1,000 reference), 950 waits
+        assertEq(usd.balanceOf(address(treasury)), 950e6, "buyback capped by the reference reserve");
+    }
+
+    function test_setMaxSlippageBounds() public {
+        vm.startPrank(owner);
+        vm.expectRevert("range");
+        treasury.setMaxSlippage(0);
+        vm.expectRevert("range");
+        treasury.setMaxSlippage(2_001);
+        treasury.setMaxSlippage(300);
+        vm.stopPrank();
+        assertEq(treasury.maxSlippageBps(), 300);
+    }
 }

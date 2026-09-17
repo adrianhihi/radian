@@ -71,6 +71,9 @@ export type NetworkConfig = {
     rewardDecimals?: number;
   };
   quoteAssets: QuoteAssetDef[];
+  // Per-network product switches. Absent = on. Used to keep modules that are
+  // deployed but not yet cleared for real money out of the UI on that network.
+  features?: { templates?: boolean; delegatedBuys?: boolean };
   // keccak256 of each deployed contract's runtime code, recorded at deploy
   // (`cast keccak $(cast code <addr>)`). The site re-hashes the live code and
   // refuses to launch or trade on a mismatch (lib/identity.ts). Fill on deploy.
@@ -328,6 +331,9 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
       wallLadderImpl: "0xe82Ab46b9639396b21eF226edc8a480E8F7a6885",
     },
     // $RADIAN on Robinhood mainnet: priced in USDG; ERC-20-reward flywheel (DeployRadianERC20.s.sol, 2026-09-17, block 65107010)
+    // Wall / Proof-of-Fee templates and delegated buys stay off here until the fixes from the
+    // 2026-09-17 review are deployed (MAINNET_RUNBOOK.md 5f). Standard launches only.
+    features: { templates: false, delegatedBuys: false },
     radian: {
       token: "0xA7eb3296f97b06989FcBf5627a1aC6848bd86Bc6",
       curve: "0x9397f3F4F77f72E72b4F3d3B0E2Af94f072F25A9",

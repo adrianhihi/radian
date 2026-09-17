@@ -49,8 +49,10 @@ export const quoteByAddress = (a?: string): QuoteAsset | undefined => {
 // receipt wait look 4-8x slower than the chain actually is.
 export const publicClient = createPublicClient({ chain: arcTestnet, transport: http(), pollingInterval: 500 });
 export const hasLaunchRouter = RADIAN.router !== "0x0000000000000000000000000000000000000000";
-export const hasPofRouter = RADIAN.pofRouter !== "0x0000000000000000000000000000000000000000";
-export const hasExecutor = RADIAN.executor !== "0x0000000000000000000000000000000000000000";
+// Templates and delegated buys: deployed AND switched on for this network (networks.ts `features`).
+export const hasTemplates = hasLaunchRouter && (NET.features?.templates ?? true);
+export const hasPofRouter = RADIAN.pofRouter !== "0x0000000000000000000000000000000000000000" && hasTemplates;
+export const hasExecutor = RADIAN.executor !== "0x0000000000000000000000000000000000000000" && (NET.features?.delegatedBuys ?? true);
 
 // ---- ABIs (only what the UI needs) ----
 export const factoryAbi = parseAbi([

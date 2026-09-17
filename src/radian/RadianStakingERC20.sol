@@ -4,6 +4,7 @@ pragma solidity ^0.8.26;
 import {Ownable, Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 /// @title RadianStakingERC20
 /// @notice Stake $RADIAN, earn an ERC-20 dollar (USDG, USDC…) — the flywheel for
@@ -13,9 +14,12 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 ///         exit / stakedOf / earned. Rewards can never exceed what the treasury
 ///         actually deposits: real revenue, not emission.
 /// @dev Two-step ownership, cannot be renounced (an ownerless pool could never
-///      re-point its distributor). Rewards streamed while nobody is staked are
-///      not recoverable (Synthetix semantics): fund the first period only once
-///      someone has staked.
+///      re-point its distributor). `rewardRate` and `rewardPerToken` carry an
+///      extra 1e18 of precision (RATE_SCALE): with a 6-decimal reward and an
+///      18-decimal stake the plain Synthetix formula truncates every update to
+///      whole reward units per staked token and silently loses most of the
+///      stream (review 2026-09-17). `notifyReward` refuses to stream while
+///      nobody is staked, since such rewards would be unrecoverable.
 contract RadianStakingERC20 is Ownable2Step {
     using SafeERC20 for IERC20;
 
@@ -24,8 +28,10 @@ contract RadianStakingERC20 is Ownable2Step {
     address public rewardsDistributor; // RadianTreasuryERC20
 
     uint256 public constant DURATION = 7 days;
+    /// @dev extra precision on `rewardRate` / `rewardPerToken` (see contract note)
+    uint256 public constant RATE_SCALE = 1e18;
     uint256 public periodFinish;
-    uint256 public rewardRate; // reward units per second
+    uint256 public rewardRate; // reward-wei per second, times RATE_SCALE
     uint256 public lastUpdateTime;
     uint256 public rewardPerTokenStored;
 
@@ -83,19 +89,25 @@ contract RadianStakingERC20 is Ownable2Step {
         return block.timestamp < periodFinish ? block.timestamp : periodFinish;
     }
 
+    /// @dev reward-wei per staked wei, scaled by 1e18 * RATE_SCALE
     function rewardPerToken() public view returns (uint256) {
         if (totalStaked == 0) return rewardPerTokenStored;
-        return rewardPerTokenStored + ((lastTimeRewardApplicable() - lastUpdateTime) * rewardRate * 1e18) / totalStaked;
+        return rewardPerTokenStored + Math.mulDiv((lastTimeRewardApplicable() - lastUpdateTime) * rewardRate, 1e18, totalStaked);
     }
 
     function earned(address account) public view returns (uint256) {
-        return (stakedOf[account] * (rewardPerToken() - userRewardPerTokenPaid[account])) / 1e18 + rewards[account];
+        return Math.mulDiv(stakedOf[account], rewardPerToken() - userRewardPerTokenPaid[account], 1e18 * RATE_SCALE) + rewards[account];
     }
 
     /// @notice Annualized reward per staked token (1e18 scaled, in reward units).
     function rewardRatePerYear() external view returns (uint256) {
         if (totalStaked == 0) return 0;
-        return (rewardRate * 365 days * 1e18) / totalStaked;
+        return (rewardRate * 365 days) / totalStaked;
+    }
+
+    /// @notice Reward-wei streamed per second (unscaled), for displays.
+    function rewardPerSecond() external view returns (uint256) {
+        return block.timestamp < periodFinish ? rewardRate / RATE_SCALE : 0;
     }
 
     // ---- actions ----
@@ -136,14 +148,15 @@ contract RadianStakingERC20 is Ownable2Step {
     function notifyReward(uint256 amount) external nonReentrant updateReward(address(0)) {
         require(msg.sender == rewardsDistributor || msg.sender == owner(), "not distributor");
         require(amount > 0, "zero reward");
+        require(totalStaked > 0, "no stakers");
         uint256 before = rewardToken.balanceOf(address(this));
         rewardToken.safeTransferFrom(msg.sender, address(this), amount);
         uint256 reward = rewardToken.balanceOf(address(this)) - before; // fee-on-transfer safe
         if (block.timestamp >= periodFinish) {
-            rewardRate = reward / DURATION;
+            rewardRate = (reward * RATE_SCALE) / DURATION;
         } else {
             uint256 leftover = (periodFinish - block.timestamp) * rewardRate;
-            rewardRate = (reward + leftover) / DURATION;
+            rewardRate = (reward * RATE_SCALE + leftover) / DURATION;
         }
         require(rewardRate > 0, "reward too small");
         lastUpdateTime = block.timestamp;

@@ -4,12 +4,16 @@ pragma solidity ^0.8.26;
 import {Ownable, Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 interface ICurveBuyQ {
     function buy(uint256 quoteIn, uint256 minTokensOut, address recipient) external payable returns (uint256);
     function graduated() external view returns (bool);
+    function sellableTokens() external view returns (uint256);
     function getReserves() external view returns (uint256 quoteReserve, uint256 tokenReserve);
     function pairToken() external view returns (address);
+    function feeBps() external view returns (uint256);
+    function creatorTaxBps() external view returns (uint256);
 }
 
 interface IBurnableQ {
@@ -21,6 +25,8 @@ interface IStakingNotifyQ {
     function notifyReward(uint256 amount) external;
     function stakingToken() external view returns (address);
     function rewardToken() external view returns (address);
+    function rewardsDistributor() external view returns (address);
+    function totalStaked() external view returns (uint256);
 }
 
 interface IFeeEscrowQ {
@@ -43,6 +49,15 @@ interface IFeeEscrowQ {
 /// @dev Same bounds as the Arc treasury: a flush buys at most
 ///      `maxBuybackReserveBps` of the curve's quote reserve, flushes are
 ///      rate-limited, and a buyback needs an off-chain quote (`minRadianOut`).
+///      The keeper's quote is a floor it can only raise: the treasury keeps the
+///      curve reserves seen at the end of the previous flush and (1) skips the
+///      buyback when the live price is more than `maxSlippageBps` above that
+///      reference (a front-run cannot be sold into), (2) caps the buy by the
+///      smaller of the live and reference quote reserves (a front-run cannot
+///      enlarge the cap), and (3) requires the tokens actually received to be
+///      within `maxSlippageBps` of the constant-product amount at the reference
+///      reserves, whatever `minRadianOut` said. The staker share is held back
+///      while nobody is staked (it would be unrecoverable in the pool).
 ///      On an ERC-20 quote the curve graduates at the pair token's threshold
 ///      (it cannot be made "never graduating" like a native launch config), so
 ///      after graduation everything streams to stakers until a pool-side
@@ -61,6 +76,11 @@ contract RadianTreasuryERC20 is Ownable2Step {
     uint16 public maxBuybackReserveBps = 500;
     uint32 public minFlushInterval = 1 hours;
     uint64 public lastFlushAt;
+    /// @notice tolerated deviation (bps) between the live curve and the reference reserves
+    uint16 public maxSlippageBps = 300;
+    /// @notice curve reserves recorded at the end of the last flush (or at deploy)
+    uint256 public refQuoteReserve;
+    uint256 public refTokenReserve;
 
     uint256 public totalBurned;
     uint256 public totalToStakers;
@@ -75,6 +95,8 @@ contract RadianTreasuryERC20 is Ownable2Step {
     event StakingSet(address staking);
     event KeeperSet(address keeper);
     event Rescued(address indexed token, address indexed to, uint256 amount);
+    event MaxSlippageSet(uint16 bps);
+    event BuybackSkipped(uint256 liveQuoteReserve, uint256 liveTokenReserve);
 
     constructor(address radian_, address radianCurve_, address feeEscrow_, address quote_, address owner_) Ownable(owner_) {
         require(radian_ != address(0) && radianCurve_ != address(0) && feeEscrow_ != address(0) && quote_ != address(0), "zero");
@@ -83,6 +105,7 @@ contract RadianTreasuryERC20 is Ownable2Step {
         radianCurve = radianCurve_;
         feeEscrow = IFeeEscrowQ(feeEscrow_);
         quote = IERC20(quote_);
+        (refQuoteReserve, refTokenReserve) = ICurveBuyQ(radianCurve_).getReserves();
     }
 
     receive() external payable {}
@@ -129,36 +152,60 @@ contract RadianTreasuryERC20 is Ownable2Step {
 
         uint256 buyback = (bal * buybackBps) / 10_000;
         toStakers = bal - buyback;
+        uint256 spent;
 
-        if (buyback > 0 && !ICurveBuyQ(radianCurve).graduated()) {
+        ICurveBuyQ curve = ICurveBuyQ(radianCurve);
+        bool onCurve = !curve.graduated() && curve.sellableTokens() > 0;
+        if (buyback > 0 && onCurve) {
             require(minRadianOut > 0, "quote required");
-            (uint256 quoteReserve,) = ICurveBuyQ(radianCurve).getReserves();
-            uint256 cap = (quoteReserve * maxBuybackReserveBps) / 10_000;
-            if (buyback > cap) buyback = cap; // the excess waits for a later flush
+            (uint256 q, uint256 t) = curve.getReserves();
+            // (1) live price above the reference by more than the tolerance: someone
+            //     pushed it up right before us; hold the buyback share for a later flush.
+            if (q * refTokenReserve > Math.mulDiv(refQuoteReserve * t, 10_000 + maxSlippageBps, 10_000)) {
+                emit BuybackSkipped(q, t);
+                buyback = 0;
+            } else {
+                // (2) the cap cannot be enlarged by a front-run
+                uint256 capBase = q < refQuoteReserve ? q : refQuoteReserve;
+                uint256 cap = (capBase * maxBuybackReserveBps) / 10_000;
+                if (buyback > cap) buyback = cap; // the excess waits for a later flush
+            }
             if (buyback > 0) {
+                uint256 before = quote.balanceOf(address(this));
                 quote.forceApprove(radianCurve, buyback);
-                ICurveBuyQ(radianCurve).buy(buyback, minRadianOut, address(this));
+                uint256 out = curve.buy(buyback, minRadianOut, address(this));
                 quote.forceApprove(radianCurve, 0);
+                spent = before - quote.balanceOf(address(this)); // a clamped fill refunds part
+                // (3) floor on what we actually got, at the reference reserves, whatever the keeper quoted
+                uint256 net = (spent * (10_000 - curve.feeBps() - curve.creatorTaxBps())) / 10_000;
+                uint256 expected = Math.mulDiv(refTokenReserve, net, refQuoteReserve + net);
+                require(out >= Math.mulDiv(expected, 10_000 - maxSlippageBps, 10_000), "buyback below floor");
                 burned = IBurnableQ(radian).balanceOf(address(this));
                 if (burned > 0) {
                     IBurnableQ(radian).burn(burned);
                     totalBurned += burned;
                 }
             }
-        } else {
+        } else if (!onCurve) {
             buyback = 0;
             toStakers = bal;
+        } else {
+            buyback = 0;
         }
 
-        if (toStakers > 0) {
+        // the staker share is held back (not lost) while nobody is staked
+        if (toStakers > 0 && staking.totalStaked() > 0) {
             quote.forceApprove(address(staking), toStakers);
             staking.notifyReward(toStakers);
             quote.forceApprove(address(staking), 0);
             totalToStakers += toStakers;
+        } else {
+            toStakers = 0;
         }
+        (refQuoteReserve, refTokenReserve) = curve.getReserves();
         lastFlushAt = uint64(block.timestamp);
-        totalFlushed += buyback + toStakers;
-        emit Flushed(buyback + toStakers, burned, toStakers);
+        totalFlushed += spent + toStakers;
+        emit Flushed(spent + toStakers, burned, toStakers);
     }
 
     // ---- admin ----
@@ -167,6 +214,7 @@ contract RadianTreasuryERC20 is Ownable2Step {
         require(s != address(0), "zero");
         require(IStakingNotifyQ(s).stakingToken() == radian, "wrong staking token");
         require(IStakingNotifyQ(s).rewardToken() == address(quote), "wrong reward token");
+        require(IStakingNotifyQ(s).rewardsDistributor() == address(this), "pool not pointed at this treasury");
         staking = IStakingNotifyQ(s);
         emit StakingSet(s);
     }
@@ -182,6 +230,12 @@ contract RadianTreasuryERC20 is Ownable2Step {
         maxBuybackReserveBps = maxBuybackReserveBps_;
         minFlushInterval = minFlushInterval_;
         emit FlushLimitsSet(maxBuybackReserveBps_, minFlushInterval_);
+    }
+
+    function setMaxSlippage(uint16 bps) external onlyOwner {
+        require(bps > 0 && bps <= 2_000, "range");
+        maxSlippageBps = bps;
+        emit MaxSlippageSet(bps);
     }
 
     function setKeeper(address k) external onlyOwner {

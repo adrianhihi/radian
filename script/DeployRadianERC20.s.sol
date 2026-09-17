@@ -57,9 +57,9 @@ contract DeployRadianERC20 is Script {
         );
         RadianStakingERC20 staking = new RadianStakingERC20(token, quote, me);
         RadianTreasuryERC20 treasury = new RadianTreasuryERC20(token, curve, address(hook.feeEscrow()), quote, me);
-        treasury.setStaking(address(staking));
-        treasury.setKeeper(keeper);
         staking.setRewardsDistributor(address(treasury));
+        treasury.setStaking(address(staking)); // checks the pool points back at this treasury
+        treasury.setKeeper(keeper);
         hook.setProtocolFeeRecipient(address(treasury));
         if (openingBuy > 0) {
             IERC20(quote).approve(curve, openingBuy);

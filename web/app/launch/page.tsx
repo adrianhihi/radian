@@ -132,10 +132,11 @@ export default function LaunchPage() {
   // Templates go through the router; The Wall also needs a stock quote asset.
   // Rendered from the SSR-safe network hook so server and first client render agree.
   const routerLive = net.contracts.router !== ZERO_ADDR;
+  const templatesLive = routerLive && (net.features?.templates ?? true);
   useEffect(() => {
     if (template === "wall" && !quote.stock) setTemplate("standard");
-    if (template !== "standard" && !routerLive) setTemplate("standard");
-  }, [quote.stock, routerLive, template]);
+    if (template !== "standard" && !templatesLive) setTemplate("standard");
+  }, [quote.stock, templatesLive, template]);
 
   const FEE_MODES = [
     { id: "buyback", icon: "🔥", title: "Buyback & Lock", desc: "Route the fee's buyback share into buying the token back and locking it in the 5-year vault.", live: true },
@@ -491,7 +492,7 @@ export default function LaunchPage() {
               {TEMPLATES.map((t) => {
                 const on = template === t.id;
                 const needsStock = t.id === "wall" && !quote.stock;
-                const off = t.id !== "standard" && (!routerLive || needsStock);
+                const off = t.id !== "standard" && (!templatesLive || needsStock);
                 return (
                   <button
                     key={t.id}
@@ -503,7 +504,7 @@ export default function LaunchPage() {
                     <span style={{ fontSize: 18 }}>{t.icon}</span>
                     <span className="fm-title">
                       {t.title}
-                      {off && <span className="fm-soon">{!routerLive ? "Not on this network" : "Pick a stock above"}</span>}
+                      {off && <span className="fm-soon">{!templatesLive ? "Not on this network yet" : "Pick a stock above"}</span>}
                     </span>
                     <span className="fm-desc">{t.desc}</span>
                   </button>
