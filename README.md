@@ -61,8 +61,11 @@ Every launch is one transaction through `RadianLaunchRouter`, which the factory 
   standing bid under book value (`reserve ÷ circulating`, balances only, no oracle) on the curve:
   `defend()` buys and burns when spot < book × (1 + margin), bounded by a daily budget, a
   minimum interval and a slippage floor, and pays a fixed keeper bounty last. After graduation
-  the maker-side ladder is a separate module (see radian-wall/docs/TREASURY.md); `defend`
-  reverts once graduated.
+  the pile moves to a per-launch `WallLadder` (`src/radian/wall/WallLadder.sol`): seven
+  single-sided quote bids in the V4 pool at −5…−50% below an anchor that only ratchets up
+  (≤ ×1.25 per beat, never follows a dump) and never puts the deepest rung above book value;
+  sellers fill it, what it buys is burned on the next beat, unfilled quote is re-posted; a fall
+  through the whole ladder starts a new generation at the spot. It never swaps.
 - **Proof-of-Fee** — `src/radian/pof/`. The creator-fee share buys the token back on its own
   curve (`PoFVault.claimAndBuy`, keeper-run with a quote and a reserve cap) and the bought-back
   tokens are paid out per round to the traders whose fees funded them, in proportion to the

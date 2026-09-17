@@ -59,8 +59,10 @@ snipe tax · creator fee share · stand-in *(testnet stocks)* · standing bid.
   need one approval first.
 - Stock Treasury launches: the creator-fee share goes to a per-launch treasury that never
   sells; 30% (configurable, ≤ 50%) of each claim streams to stakers in the quote asset; the
-  rest keeps a standing bid under book value on the curve, at most 10% of the pile per day.
-  Book value is `reserve ÷ circulating`, on-chain balances only. It is a bid, not a promise.
+  rest keeps a standing bid under book value: on the curve (at most 10% of the pile per day)
+  and, after graduation, as seven bids in the Uniswap V4 pool 5–50% below a ratcheting anchor.
+  Book value is `reserve ÷ circulating`, on-chain balances only. Bids can be filled, moved
+  and re-posted; none of it is a price promise. Say "standing bids", never "floor".
 - Proof-of-Fee launches: fees buy the token back; buybacks are paid per round to traders by
   share of quote spent through the official router. Nothing is minted; a round with no Work
   pays nothing and its pool carries forward.

@@ -35,13 +35,15 @@ auth, indexer, live analytics), the **$RADIAN** real-yield flywheel, and a flags
 | Contract | Address |
 | --- | --- |
 | `PonsV2LaunchFactory` (entry point) | `0x90022cC2107De9c070F889E3A67009FcA270E4E2` |
-| `RadianLaunchRouter` v2 (factory's `launchForwarder`; standard / Wall / Proof-of-Fee launches) | `0xB9F097662302F220989AAeBa6776041d7d625fAE` |
+| `RadianLaunchRouter` v3 (factory's `launchForwarder`; standard / Wall + ladder / Proof-of-Fee) | `0x166B40423f5F592C4619237463244b6BCA1942E0` |
+| `RadianLaunchRouter` v2 (retired 2026-09-16; launched STSHOW / PFSHOW) | `0xB9F097662302F220989AAeBa6776041d7d625fAE` |
 | `RadianLaunchRouter` v1 (retired 2026-09-14; one smoke launch) | `0x2333449a1d83c5F99f29d5a17554D76245412C0E` |
-| `PoFRouter` (Proof-of-Fee buys that earn Work) | `0x7a21533EBEdC7222F299dcfd46E0463E744bF6E8` |
+| `PoFRouter` v3 (Proof-of-Fee buys that earn Work) / v2 (PFSHOW still registered there) | `0x972Eb013331aDc75800983605B170C12a7421991` / `0x7a21533EBEdC7222F299dcfd46E0463E744bF6E8` |
 | `RadianExecutor` (delegated buys) | `0xbf1fbda5991Ff34733AE74eDB84F74527B9588C1` |
-| Template implementations `WallTreasury` / `WallStaking` / `PoFVault` | `0x88f6f47AAFf65B948712f8C87b6eF51C7B6197c4` / `0x7F15D040Ae2A758D891A75e9399ab6b9487e70C1` / `0xeAF10129B449F3108923E666Fb7E7f00eC176bC5` |
+| Template impls v3 `WallTreasury` / `WallStaking` / `WallLadder` / `PoFVault` | `0xbc7E100eEB8dD7D206156BD984373ce95997C239` / `0xA9105c7762d724a140Dc12A666f4A5A8167717eA` / `0x5863207026D5807Bd5Ca3bb8D709B1807aF95940` / `0x0B5c820c151e766320ff43DB4C843d70376AfFB2` |
 | Platform keeper EOA (set on the router + executor; key in `.env` `KEEPER_PRIVATE_KEY` and on Railway) | `0xBb5b9503562CB4a2C86776c55C57EfFF1889779c` |
-| Showcase: Stock Treasury `STSHOW` token / treasury / staking | `0xD2aBFD74c4F64B1041A3b33b7e702760aEFEA943` / `0xEB608F66a7B80794989E3fe26FF2d03471D41f13` / `0x671D80d757a86E2E54c8b0E0A49BA3ef964730fC` |
+| Showcase: Stock Treasury `STSHOW2` (graduated; ladder live) token / curve / treasury / staking / ladder | `0x13E9ABd3BbdC2d307000c0B52cA663834B7E7B5f` / `0xfFCfd810c4e02B9269E106c80D997d17c83C3C7D` / `0x868Fa1545D7cB27D6f22e1355AdFFa60B19086fA` / `0x36D7f99dE231eaf3E4220DEB89d54b377Ecbe058` / `0xeee5C045cf35bc57a29F386cB8516BbeC9c1bAa0` |
+| Showcase v1 `STSHOW` (sunset → STSHOW2; no ladder) | `0xD2aBFD74c4F64B1041A3b33b7e702760aEFEA943` |
 | Showcase: Proof-of-Fee `PFSHOW` token / vault | `0xEA5b921D9Af0125b5971466CC52af923Cf9Fe8A4` / `0x6E08dc1E6e676b2719c95332622d3a4ebdCe5523` |
 | `PonsV2MemeHook` (Uniswap V4 hook) | `0x15eB3aeE2f96A199165dc58e6C8dc3Ce2e02e044` |
 | `PonsV2BuybackVault` (5-yr linear vest) | `0xe84D81C3d4f3E12123C9F934AB3Cb8238772b39e` |
@@ -146,9 +148,9 @@ Facts and per-chain notes: `MULTICHAIN.md` → "Robinhood Chain".
 | `PonsV2MemeHook` | `0x15d5B10A1fCe67c01196EF118E5632B0D18Ca044` |
 | `PonsV2FeeEscrow` / `PonsV2BuybackVault` / `PonsV2LaunchLocker` | `0x112923deC686B647D140Ee58C17b0e4B6F804149` / `0xD7aD9E5c0216E09238105363DdaA6Ce3B81eCca1` / `0x61171A1a50AA2493918f6EAf3d9cf112e569FAea` |
 | `PonsV2GraduationExecutor` / `PonsV2LaunchDeployer` | `0x24219d0F3611fE4E438850bB7DB165439957dc9f` / `0x76099b39E6678018FB5B65c4e977C93e27fa9aF1` |
-| `RadianLaunchRouter` (forwarder) / `PoFRouter` | `0x5AC74F2666d284D55e5AEACF122C75fF9268a3Da` / `0xa6B14Ab7490123De19a82521137cA1F59BFA4fC5` |
+| `RadianLaunchRouter` v3 (forwarder) / `PoFRouter` v3 | `0xD7ed78E15590c8B0d962133Af74aec1589Dc8a54` / `0xF101f27A5156771c66E343FB3BF04e6208677660` (v2: `0x5AC74F26…a3Da` / `0xa6B14Ab7…4fC5`, retired) |
 | `RadianExecutor` | `0xefb3FBDCf95662177d66E264B8394E7BD4Ece11c` |
-| Template impls `WallTreasury` / `WallStaking` / `PoFVault` | `0xa8D3DFEE672ee92663298300030a1DFB078Cb552` / `0x8F523C5240714033c408760fb8C7f7bF4F3BaD99` / `0xd08304E63ADf9EFc7a0700d9b2aB613A0cA37C37` |
+| Template impls v3 `WallTreasury` / `WallStaking` / `WallLadder` / `PoFVault` | `0x55379F8fbA5b47290E535999682Ccd0E1773009E` / `0x1da4Ebf52892Fb209701a8E6cFF06058e89c21Cc` / `0xbFf760f35F421cAE2E9650aF1571FDd618e206a7` / `0xb097101C0DF29a5ffb03bcd3552cbFf81C14A1eC` |
 | Uniswap V4 PoolManager / PositionManager (canonical) | `0x8366a39CC670B4001A1121B8F6A443A643e40951` / `0x58daec3116aae6d93017baaea7749052e8a04fa7` |
 | Stand-ins: `USDGx` (6-dec) · `NVDAx` · `TSLAx` · `AAPLx` | `0xf6f8fF47fEa2f2cE3195ad197B8A9BF520c13ed0` · `0x4B2E6503e10708d5be2245DE0DED7D0ccF5AeF19` · `0xE8a0d16201bfbA7c42712Fa000B86E0b3BfD0745` · `0x176892e311fB4e517Ed2419626d6F9691bD7DcC6` |
 | Launch config 0 | fee 0.0001 ETH · phantom 0.0168 ETH · graduation 0.042 ETH; USDGx phantom 4,000 / grad 10,000; stocks 20 / 50 shares |
@@ -166,5 +168,7 @@ Owner is still the deployer EOA; the testnet is not handed to a multisig.
 
 **Keeper roles (both chains, 2026-09-16):** the bot `0xBb5b…779c` is the hook's `feeSweepOperator`
 (sweeps every curve's pending fees hourly), the treasury `keeper` (claims + flushes), the template
-keeper (Wall `defend` / PoF `claimAndBuy`) and the executor keeper. All of it runs in
-`indexer/src/keeper.ts`; every send is simulated first.
+keeper (Wall `defend` on the curve, `fundLadder` + ladder `poke` after graduation, PoF
+`claimAndBuy`), the executor keeper, and it finishes stuck graduations (`graduate` +
+`createGraduatedPool` for sold-out curves). All of it runs in `indexer/src/keeper.ts`; every send is
+simulated first.
