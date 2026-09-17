@@ -1,0 +1,1875 @@
+{
+  "version": "1.0",
+  "chainId": "4663",
+  "createdAt": 1789624037723,
+  "meta": {
+    "name": "Radian: approve stock quote assets 1",
+    "description": "CRM, P, CIEN, ON, APLD, AEHR, TEAM, QBTS, FIX, MTSI, SMCI, DELL, MXL, RUN, WDAY, SPCX, GLXY, CRWD, AVGO, SPY, CCL, GLD, SNOW, FICO, PR, QQQ, WYFI, NNE, GE, SNAP. Economics = 4000 / 10000 USD in shares at generation-time prices. Safe 0x6db9a7fF776c7091C0A3c9847bD8a43eBA6892D8.",
+    "txBuilderVersion": "1.17.0",
+    "createdFromSafeAddress": "0x6db9a7fF776c7091C0A3c9847bD8a43eBA6892D8",
+    "createdFromOwnerAddress": "",
+    "checksum": ""
+  },
+  "transactions": [
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "phantomQuote",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "graduationThreshold",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "decimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ],
+        "name": "setPairTokenEconomics",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0xd95B44124e475743a7589e68F3D74008A5536D44",
+        "phantomQuote": "15965514000000000000",
+        "graduationThreshold": "39913786000000000000",
+        "decimals": "18"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approved",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setPairTokenApproved",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0xd95B44124e475743a7589e68F3D74008A5536D44",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "phantomQuote",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "graduationThreshold",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "decimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ],
+        "name": "setPairTokenEconomics",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0x1Cdad396DB64BDa184d5182A97Dd9B3C62100b7D",
+        "phantomQuote": "40979408000000000000",
+        "graduationThreshold": "102448520000000000000",
+        "decimals": "18"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approved",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setPairTokenApproved",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0x1Cdad396DB64BDa184d5182A97Dd9B3C62100b7D",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "phantomQuote",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "graduationThreshold",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "decimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ],
+        "name": "setPairTokenEconomics",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0x44f6D488021f8233B9416294d1FE9b1fEe28382d",
+        "phantomQuote": "11747430000000000000",
+        "graduationThreshold": "29368576000000000000",
+        "decimals": "18"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approved",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setPairTokenApproved",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0x44f6D488021f8233B9416294d1FE9b1fEe28382d",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "phantomQuote",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "graduationThreshold",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "decimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ],
+        "name": "setPairTokenEconomics",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0xbBD09F72b025360FeE5C928053Dca6248d35be54",
+        "phantomQuote": "60060060000000000000",
+        "graduationThreshold": "150150150000000000000",
+        "decimals": "18"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approved",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setPairTokenApproved",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0xbBD09F72b025360FeE5C928053Dca6248d35be54",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "phantomQuote",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "graduationThreshold",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "decimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ],
+        "name": "setPairTokenEconomics",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0xb8DBf92F9741c9ac1c32115E78581f23509916FD",
+        "phantomQuote": "164001640000000000000",
+        "graduationThreshold": "410004100000000000000",
+        "decimals": "18"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approved",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setPairTokenApproved",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0xb8DBf92F9741c9ac1c32115E78581f23509916FD",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "phantomQuote",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "graduationThreshold",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "decimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ],
+        "name": "setPairTokenEconomics",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0x5F604fBA1162193A4388A5DFa56F556f3E133cC2",
+        "phantomQuote": "47477745000000000000",
+        "graduationThreshold": "118694362000000000000",
+        "decimals": "18"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approved",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setPairTokenApproved",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0x5F604fBA1162193A4388A5DFa56F556f3E133cC2",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "phantomQuote",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "graduationThreshold",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "decimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ],
+        "name": "setPairTokenEconomics",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0x5B97476b922F3305131B8f0B9D333172E87f4aaE",
+        "phantomQuote": "21021652000000000000",
+        "graduationThreshold": "52554131000000000000",
+        "decimals": "18"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approved",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setPairTokenApproved",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0x5B97476b922F3305131B8f0B9D333172E87f4aaE",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "phantomQuote",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "graduationThreshold",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "decimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ],
+        "name": "setPairTokenEconomics",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0xC583c60aeF9Dc401Da72cEC1B404743a93cea1Cc",
+        "phantomQuote": "245851260000000000000",
+        "graduationThreshold": "614628150000000000000",
+        "decimals": "18"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approved",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setPairTokenApproved",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0xC583c60aeF9Dc401Da72cEC1B404743a93cea1Cc",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "phantomQuote",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "graduationThreshold",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "decimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ],
+        "name": "setPairTokenEconomics",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0x93Dbb1d2Dc5D63F4abACFF30485273f538Df68Ac",
+        "phantomQuote": "2519923000000000000",
+        "graduationThreshold": "6299808000000000000",
+        "decimals": "18"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approved",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setPairTokenApproved",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0x93Dbb1d2Dc5D63F4abACFF30485273f538Df68Ac",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "phantomQuote",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "graduationThreshold",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "decimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ],
+        "name": "setPairTokenEconomics",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0xC93f4d80e268AB922e871bd169156C3CC41894e6",
+        "phantomQuote": "15888779000000000000",
+        "graduationThreshold": "39721946000000000000",
+        "decimals": "18"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approved",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setPairTokenApproved",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0xC93f4d80e268AB922e871bd169156C3CC41894e6",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "phantomQuote",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "graduationThreshold",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "decimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ],
+        "name": "setPairTokenEconomics",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0xc01aA1fECeC0605b13bc84874ff7256C0f5F562a",
+        "phantomQuote": "108548168000000000000",
+        "graduationThreshold": "271370421000000000000",
+        "decimals": "18"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approved",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setPairTokenApproved",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0xc01aA1fECeC0605b13bc84874ff7256C0f5F562a",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "phantomQuote",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "graduationThreshold",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "decimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ],
+        "name": "setPairTokenEconomics",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0x941AE714EC6D8130c7B75d67160Ca08f1e7d11Dd",
+        "phantomQuote": "7100686000000000000",
+        "graduationThreshold": "17751714000000000000",
+        "decimals": "18"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approved",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setPairTokenApproved",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0x941AE714EC6D8130c7B75d67160Ca08f1e7d11Dd",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "phantomQuote",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "graduationThreshold",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "decimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ],
+        "name": "setPairTokenEconomics",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0x48961813349333209994750ffA89b3c5C22eC969",
+        "phantomQuote": "57545677000000000000",
+        "graduationThreshold": "143864192000000000000",
+        "decimals": "18"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approved",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setPairTokenApproved",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0x48961813349333209994750ffA89b3c5C22eC969",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "phantomQuote",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "graduationThreshold",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "decimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ],
+        "name": "setPairTokenEconomics",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0x756Bc80af765C82da966a788858d65aDF14f3793",
+        "phantomQuote": "483675937000000000000",
+        "graduationThreshold": "1209189843000000000000",
+        "decimals": "18"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approved",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setPairTokenApproved",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0x756Bc80af765C82da966a788858d65aDF14f3793",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "phantomQuote",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "graduationThreshold",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "decimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ],
+        "name": "setPairTokenEconomics",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0x82DA4646242e1D962e96e932269Dc644c94a9CaA",
+        "phantomQuote": "21303792000000000000",
+        "graduationThreshold": "53259480000000000000",
+        "decimals": "18"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approved",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setPairTokenApproved",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0x82DA4646242e1D962e96e932269Dc644c94a9CaA",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "phantomQuote",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "graduationThreshold",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "decimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ],
+        "name": "setPairTokenEconomics",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0x4a0E65A3EcceC6dBe60AE065F2e7bb85Fae35eEa",
+        "phantomQuote": "26511135000000000000",
+        "graduationThreshold": "66277837000000000000",
+        "decimals": "18"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approved",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setPairTokenApproved",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0x4a0E65A3EcceC6dBe60AE065F2e7bb85Fae35eEa",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "phantomQuote",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "graduationThreshold",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "decimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ],
+        "name": "setPairTokenEconomics",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0x2D427692E928fa156ec22acfaBaFA0447C5805B7",
+        "phantomQuote": "179613830000000000000",
+        "graduationThreshold": "449034576000000000000",
+        "decimals": "18"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approved",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setPairTokenApproved",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0x2D427692E928fa156ec22acfaBaFA0447C5805B7",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "phantomQuote",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "graduationThreshold",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "decimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ],
+        "name": "setPairTokenEconomics",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0xea72Ecca2d0f6bFA1394DBBCff85b52CD4233931",
+        "phantomQuote": "4143189000000000000",
+        "graduationThreshold": "10357971000000000000",
+        "decimals": "18"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approved",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setPairTokenApproved",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0xea72Ecca2d0f6bFA1394DBBCff85b52CD4233931",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "phantomQuote",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "graduationThreshold",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "decimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ],
+        "name": "setPairTokenEconomics",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0x156E175DD063a8cE274C50654eF40e0032b3fbcF",
+        "phantomQuote": "11781685000000000000",
+        "graduationThreshold": "29454213000000000000",
+        "decimals": "18"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approved",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setPairTokenApproved",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0x156E175DD063a8cE274C50654eF40e0032b3fbcF",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "phantomQuote",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "graduationThreshold",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "decimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ],
+        "name": "setPairTokenEconomics",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0x117cc2133c37B721F49dE2A7a74833232B3B4C0C",
+        "phantomQuote": "5304688000000000000",
+        "graduationThreshold": "13261720000000000000",
+        "decimals": "18"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approved",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setPairTokenApproved",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0x117cc2133c37B721F49dE2A7a74833232B3B4C0C",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "phantomQuote",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "graduationThreshold",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "decimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ],
+        "name": "setPairTokenEconomics",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0x9651342CeA770aE9a2969Ba2A52611523146aef9",
+        "phantomQuote": "175206356000000000000",
+        "graduationThreshold": "438015889000000000000",
+        "decimals": "18"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approved",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setPairTokenApproved",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0x9651342CeA770aE9a2969Ba2A52611523146aef9",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "phantomQuote",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "graduationThreshold",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "decimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ],
+        "name": "setPairTokenEconomics",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0xC9a981FEE1F9DEc688bb123ccDeCc63D0deBFC4e",
+        "phantomQuote": "10210854000000000000",
+        "graduationThreshold": "25527135000000000000",
+        "decimals": "18"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approved",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setPairTokenApproved",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0xC9a981FEE1F9DEc688bb123ccDeCc63D0deBFC4e",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "phantomQuote",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "graduationThreshold",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "decimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ],
+        "name": "setPairTokenEconomics",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0xBa0CAB75495255d0cB58E22B648bFED4ECD1F47E",
+        "phantomQuote": "12083862000000000000",
+        "graduationThreshold": "30209655000000000000",
+        "decimals": "18"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approved",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setPairTokenApproved",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0xBa0CAB75495255d0cB58E22B648bFED4ECD1F47E",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "phantomQuote",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "graduationThreshold",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "decimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ],
+        "name": "setPairTokenEconomics",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0xa48F22A46C0F1C46CA7D111CB6c137c271987180",
+        "phantomQuote": "4034902000000000000",
+        "graduationThreshold": "10087255000000000000",
+        "decimals": "18"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approved",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setPairTokenApproved",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0xa48F22A46C0F1C46CA7D111CB6c137c271987180",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "phantomQuote",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "graduationThreshold",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "decimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ],
+        "name": "setPairTokenEconomics",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0x4189F0c66EBBB0bfeF1C31f763131361EF32f77C",
+        "phantomQuote": "173514949000000000000",
+        "graduationThreshold": "433787373000000000000",
+        "decimals": "18"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approved",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setPairTokenApproved",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0x4189F0c66EBBB0bfeF1C31f763131361EF32f77C",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "phantomQuote",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "graduationThreshold",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "decimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ],
+        "name": "setPairTokenEconomics",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0xD5f3879160bc7c32ebb4dC785F8a4F505888de68",
+        "phantomQuote": "5676013000000000000",
+        "graduationThreshold": "14190033000000000000",
+        "decimals": "18"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approved",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setPairTokenApproved",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0xD5f3879160bc7c32ebb4dC785F8a4F505888de68",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "phantomQuote",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "graduationThreshold",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "decimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ],
+        "name": "setPairTokenEconomics",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0x9e7ABD3C9139D14E4c86DcE0e455AAB7A0C2FB3E",
+        "phantomQuote": "231749710000000000000",
+        "graduationThreshold": "579374276000000000000",
+        "decimals": "18"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approved",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setPairTokenApproved",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0x9e7ABD3C9139D14E4c86DcE0e455AAB7A0C2FB3E",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "phantomQuote",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "graduationThreshold",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "decimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ],
+        "name": "setPairTokenEconomics",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0xBEF75684C43c4ea7BD18Dd532a2244674Ee8b926",
+        "phantomQuote": "255754476000000000000",
+        "graduationThreshold": "639386189000000000000",
+        "decimals": "18"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approved",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setPairTokenApproved",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0xBEF75684C43c4ea7BD18Dd532a2244674Ee8b926",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "phantomQuote",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "graduationThreshold",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "decimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ],
+        "name": "setPairTokenEconomics",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0x63b814DDBd6BF339f25Fed8c36158a008D5B373e",
+        "phantomQuote": "12783637000000000000",
+        "graduationThreshold": "31959092000000000000",
+        "decimals": "18"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approved",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setPairTokenApproved",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0x63b814DDBd6BF339f25Fed8c36158a008D5B373e",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "phantomQuote",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "graduationThreshold",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "decimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ],
+        "name": "setPairTokenEconomics",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0xF6589F11Bc40b669e584073F428B05562F568733",
+        "phantomQuote": "699300699000000000000",
+        "graduationThreshold": "1748251748000000000000",
+        "decimals": "18"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approved",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setPairTokenApproved",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0xF6589F11Bc40b669e584073F428B05562F568733",
+        "approved": "true"
+      }
+    }
+  ]
+}
