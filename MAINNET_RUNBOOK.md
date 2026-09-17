@@ -212,9 +212,11 @@ forge script script/TransferOwnership.s.sol --rpc-url $RPC --fork-block-number $
 Update, later the same day (permissions widened): steps 1–4 above are all broadcast. $RADIAN token
 `0xA7eb…6Bc6`, curve `0x9397…25A9`, staking `0x2Fd9…029e`, treasury `0x8058…ce73`; keeper is the hook's
 fee sweep operator and the treasury keeper; smoke launch RHMAIN done; all six contracts have the Safe as
-pending owner. Remaining: the Safe accepts (upload `safe/robinhood-mainnet-accept-ownership.json` in
-Transaction Builder, one transaction), then `VerifyOwnership.s.sol`; the user pastes `KEEPER_PRIVATE_KEY`
-into the Railway service `radian-indexer-robinhood-mainnet`. Lesson: never run two broadcasts from the
+pending owner. The Safe accepted (batch `safe/robinhood-mainnet-accept-ownership.json`) and
+`VerifyOwnership.s.sol` reports all six contracts owned by the Safe with the flywheel wired; the keeper key is
+set on the Railway service `radian-indexer-robinhood-mainnet` (keeper live, identity 15/15). **Stage A complete
+2026-09-17.** Open before stage B: audit of `src/radian/`, legal opinion on stock quote assets, Safe to 2/3,
+a paid RPC for the indexer, a USDG-quoted smoke launch, real-money copy and terms. Lesson: never run two broadcasts from the
 same key at once (the smoke launch collided with a `cast send` and wasted two no-op nonces).
 
 ## 5e. Keeper roles (before the handover)

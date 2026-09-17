@@ -144,12 +144,12 @@ only approved ERC-20 quote (4,000 / 10,000 USDG); ETH config 0 is 1 / 2.5 ETH; l
 is the deployer until the two-step handover to the Safe `0x6db9a7fF776c7091C0A3c9847bD8a43eBA6892D8`
 (Safe 1.4.1, 1-of-1 today, raise to 2/3 before stage B). Keeper bot `0xA86480B3658d220f43c274E244A0c1b3d35d79FA`
 (router keeper, executor keeper, hook feeSweepOperator, treasury keeper). Ownership of factory, hook, vault,
-locker, staking and treasury was transferred to the Safe on 2026-09-17 (two-step; the Safe accepts with
-`safe/robinhood-mainnet-accept-ownership.json`). Smoke launch RHMAIN (ETH-quoted, launch + buy + sell through
+locker, staking and treasury is held by the Safe since 2026-09-17 (two-step transfer, accepted from the Safe with
+`safe/robinhood-mainnet-accept-ownership.json`, confirmed by `VerifyOwnership.s.sol`). Smoke launch RHMAIN (ETH-quoted, launch + buy + sell through
 the router): token `0xcD39558f2759b409f6F50E26Da60A488415d9138`, curve `0x37a1B28b4e1c00b22a27C5f08de18655Ad288ED1`.
 Indexer: Railway service `radian-indexer-robinhood-mainnet` (logs mode, own /data volume, public RPC for now),
-`https://radian-indexer-robinhood-mainnet-production.up.railway.app`; its `KEEPER_PRIVATE_KEY` is pasted by the
-user in the Railway UI (key generated locally, never in chat). Web config `robinhood` stays hidden; explorer
+`https://radian-indexer-robinhood-mainnet-production.up.railway.app`; keeper enabled (`KEEPER_PRIVATE_KEY` pasted by the
+user in the Railway UI; key generated locally, never in chat); identity check 15/15, both launches indexed. Web config `robinhood` stays hidden; explorer
 `https://robinhoodchain.blockscout.com`. Runbook: MAINNET_RUNBOOK.md §5f.
 
 | Contract | Address |
