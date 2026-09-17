@@ -160,7 +160,8 @@ is the deployer until the two-step handover to the Safe `0x6db9a7fF776c7091C0A3c
 | WallTreasury / WallStaking / WallLadder impl | `0x7248AAFBf5D4E0cadd2B03cE358a0E0e5f8B1F60` / `0x9a02091e763668fab0F25042d2Ff6274dD7E1e2b` / `0xe82Ab46b9639396b21eF226edc8a480E8F7a6885` |
 | PoFVault impl | `0xBC2c79ca69075d17d5A208CBB764B9EF7832cdDc` |
 | Uniswap V4 PoolManager / PositionManager (canonical) | `0x8366a39CC670B4001A1121B8F6A443A643e40951` / `0x58daec3116aae6d93017baaea7749052e8a04fa7` |
-| $RADIAN token / curve / staking / treasury (ERC-20 flywheel) | pending: `DeployRadianERC20.s.sol` (simulated OK, broadcast by the user) |
+| $RADIAN token / curve (USDG-quoted) | `0xA7eb3296f97b06989FcBf5627a1aC6848bd86Bc6` / `0x9397f3F4F77f72E72b4F3d3B0E2Af94f072F25A9` |
+| RadianStakingERC20 / RadianTreasuryERC20 (USDG rewards; hook protocol-fee recipient = treasury) | `0x2Fd94e5Aa812144cFEE976ea3dCCfbC666c1029e` / `0x8058FbA12F7CF9e141Fe3020ab28DF41dE52ce73` |
 
 ## Robinhood Chain testnet (46630) — live, 2026-09-16
 

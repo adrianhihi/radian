@@ -1,0 +1,81 @@
+{
+  "version": "1.0",
+  "chainId": "4663",
+  "createdAt": 1789622028782,
+  "meta": {
+    "name": "Radian: accept ownership of the six contracts",
+    "description": "Run AFTER TransferOwnership.s.sol. Each call is acceptOwnership() (Ownable2Step). Safe 0x6db9a7fF776c7091C0A3c9847bD8a43eBA6892D8 on Robinhood Chain.",
+    "txBuilderVersion": "1.17.0",
+    "createdFromSafeAddress": "0x6db9a7fF776c7091C0A3c9847bD8a43eBA6892D8",
+    "createdFromOwnerAddress": "",
+    "checksum": ""
+  },
+  "transactions": [
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [],
+        "name": "acceptOwnership",
+        "payable": false
+      },
+      "contractInputsValues": null
+    },
+    {
+      "to": "0x892aB29D86219391CFF9A127eeE428853c71a044",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [],
+        "name": "acceptOwnership",
+        "payable": false
+      },
+      "contractInputsValues": null
+    },
+    {
+      "to": "0x7E59C701b355b41f87605aA38935f4031A87Ce96",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [],
+        "name": "acceptOwnership",
+        "payable": false
+      },
+      "contractInputsValues": null
+    },
+    {
+      "to": "0xe148601dC40427E634639536EdC00302b738C5bC",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [],
+        "name": "acceptOwnership",
+        "payable": false
+      },
+      "contractInputsValues": null
+    },
+    {
+      "to": "0x2Fd94e5Aa812144cFEE976ea3dCCfbC666c1029e",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [],
+        "name": "acceptOwnership",
+        "payable": false
+      },
+      "contractInputsValues": null
+    },
+    {
+      "to": "0x8058FbA12F7CF9e141Fe3020ab28DF41dE52ce73",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [],
+        "name": "acceptOwnership",
+        "payable": false
+      },
+      "contractInputsValues": null
+    }
+  ]
+}

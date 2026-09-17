@@ -325,7 +325,15 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
       pofVaultImpl: "0xBC2c79ca69075d17d5A208CBB764B9EF7832cdDc",
       wallLadderImpl: "0xe82Ab46b9639396b21eF226edc8a480E8F7a6885",
     },
-    radian: { token: ZERO, curve: ZERO, staking: ZERO, treasury: ZERO, rewardSymbol: "USDG", rewardDecimals: 6 },
+    // $RADIAN on Robinhood mainnet: priced in USDG; ERC-20-reward flywheel (DeployRadianERC20.s.sol, 2026-09-17, block 65107010)
+    radian: {
+      token: "0xA7eb3296f97b06989FcBf5627a1aC6848bd86Bc6",
+      curve: "0x9397f3F4F77f72E72b4F3d3B0E2Af94f072F25A9",
+      staking: "0x2Fd94e5Aa812144cFEE976ea3dCCfbC666c1029e",
+      treasury: "0x8058FbA12F7CF9e141Fe3020ab28DF41dE52ce73",
+      rewardSymbol: "USDG",
+      rewardDecimals: 6,
+    },
     codeHashes: {
       // Robinhood Chain mainnet, recorded 2026-09-17 right after DeployChain (cast keccak of cast code)
       factory: "0x30321f7890c173da00785f7e5c732da9823dcced5aa42304cd57893aaf584ba1",
@@ -335,6 +343,8 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
       vault: "0xf5dd53418e18be0283cbc25d178cfbcdec58d010c708f705254f506832d81f8a",
       locker: "0x5304631acb89c64e75397509c745337b6ddb3e7f529e2297a335114049bcff7d",
       poolManager: "0xbd3881180b547f5fe817545743cfb4343e96b1bc6640dcd70c106b0066e95626",
+      staking: "0x5b563a76c4d4db7e3586bb35fa2d7f8b40fbeb20c4896d57e23c9ddb79d703da",
+      treasury: "0x637fb8fe35d16aa809390e8e79c1b94322e73b05cc71d1427387c7f12057c24d",
       pofRouter: "0xf774c7b4802a0ff4b46ae267319888103f490541b356dfcd59935f7614723aa2",
       executor: "0xf489aa31e0be0a6e6e785c1872d06e9570d02a61f003e53de93695e15c08fba0",
       wallTreasuryImpl: "0x71fed5a3a76f5a3a67ca91e5313acad88147fe6196709d7c4d7e922b987c433b",
