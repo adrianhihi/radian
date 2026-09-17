@@ -312,7 +312,10 @@ function applyBlock(b: BlockLogs) {
       const ev = decode(routerEventsAbi, log);
       if (ev?.eventName === "WallLaunched") {
         const a = ev.args as { token: Address; treasury: Address; staking: Address };
-        const ladder = pendingLadders.get(a.token.toLowerCase());
+        // a re-scan sees WallLadderCreated first and attaches the ladder to the existing
+        // template; WallLaunched must not wipe it
+        const existing = store.launches.get(a.token.toLowerCase())?.template;
+        const ladder = pendingLadders.get(a.token.toLowerCase()) ?? (existing?.kind === "wall" ? existing.ladder : undefined);
         pendingLadders.delete(a.token.toLowerCase());
         if (!store.setTemplate(a.token, { kind: "wall", treasury: a.treasury, staking: a.staking, ...(ladder ? { ladder } : {}) })) {
           console.warn(`[scan] WallLaunched for unknown launch ${a.token}`);
