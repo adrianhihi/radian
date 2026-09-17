@@ -42,7 +42,7 @@ type ApiTemplate =
 
 function parseTemplate(t: ApiTemplate | null | undefined): LaunchTemplate | null {
   if (!t || typeof t !== "object") return null;
-  if (t.kind === "wall" && t.treasury && t.staking) return { kind: "wall", treasury: t.treasury, staking: t.staking };
+  if (t.kind === "wall" && t.treasury && t.staking) return { kind: "wall", treasury: t.treasury, staking: t.staking, ...(t.ladder ? { ladder: t.ladder } : {}) };
   if (t.kind === "pof" && t.vault && t.pofRouter) return { kind: "pof", vault: t.vault, pofRouter: t.pofRouter };
   return null;
 }
