@@ -1,0 +1,56 @@
+{
+  "version": "1.0",
+  "chainId": "4663",
+  "createdAt": 1789625001374,
+  "meta": {
+    "name": "Radian: switch to flywheel v2 (staking + treasury)",
+    "description": "1) hook.setProtocolFeeRecipient(new treasury) 2) staking.acceptOwnership 3) treasury.acceptOwnership. Replaces the 2026-09-17 morning deployment after the review fixes. Safe 0x6db9a7fF776c7091C0A3c9847bD8a43eBA6892D8",
+    "txBuilderVersion": "1.17.0",
+    "createdFromSafeAddress": "0x6db9a7fF776c7091C0A3c9847bD8a43eBA6892D8",
+    "createdFromOwnerAddress": "",
+    "checksum": ""
+  },
+  "transactions": [
+    {
+      "to": "0x892aB29D86219391CFF9A127eeE428853c71a044",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "recipient",
+            "type": "address",
+            "internalType": "address"
+          }
+        ],
+        "name": "setProtocolFeeRecipient",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "recipient": "0x6F5375684EB6C3C48cDa4F4a0e92471c2397d717"
+      }
+    },
+    {
+      "to": "0xBC10A308CFD19cD2541e19609e6F730eC5a10683",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [],
+        "name": "acceptOwnership",
+        "payable": false
+      },
+      "contractInputsValues": null
+    },
+    {
+      "to": "0x6F5375684EB6C3C48cDa4F4a0e92471c2397d717",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [],
+        "name": "acceptOwnership",
+        "payable": false
+      },
+      "contractInputsValues": null
+    }
+  ]
+}

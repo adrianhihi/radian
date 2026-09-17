@@ -167,7 +167,8 @@ user in the Railway UI; key generated locally, never in chat); identity check 15
 | PoFVault impl | `0xBC2c79ca69075d17d5A208CBB764B9EF7832cdDc` |
 | Uniswap V4 PoolManager / PositionManager (canonical) | `0x8366a39CC670B4001A1121B8F6A443A643e40951` / `0x58daec3116aae6d93017baaea7749052e8a04fa7` |
 | $RADIAN token / curve (USDG-quoted) | `0xA7eb3296f97b06989FcBf5627a1aC6848bd86Bc6` / `0x9397f3F4F77f72E72b4F3d3B0E2Af94f072F25A9` |
-| RadianStakingERC20 / RadianTreasuryERC20 (USDG rewards; hook protocol-fee recipient = treasury) | `0x2Fd94e5Aa812144cFEE976ea3dCCfbC666c1029e` / `0x8058FbA12F7CF9e141Fe3020ab28DF41dE52ce73` |
+| RadianStakingERC20 / RadianTreasuryERC20 v2 (review fixes 2026-09-17; hook protocol-fee recipient = treasury once the Safe runs `safe/robinhood-mainnet-flywheel-v2.json`) | `0xBC10A308CFD19cD2541e19609e6F730eC5a10683` / `0x6F5375684EB6C3C48cDa4F4a0e92471c2397d717` |
+| RadianStakingERC20 / RadianTreasuryERC20 v1 (retired the same day; Safe-owned, holds dust) | `0x2Fd94e5Aa812144cFEE976ea3dCCfbC666c1029e` / `0x8058FbA12F7CF9e141Fe3020ab28DF41dE52ce73` |
 
 ## Robinhood Chain testnet (46630) — live, 2026-09-16
 

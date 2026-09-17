@@ -232,12 +232,15 @@ export function startServer() {
           { address: RADIAN.treasury, abi: treasuryAbi, functionName: "buybackBps" },
           { address: RADIAN.token, abi: radianTokenAbi, functionName: "totalSupply" },
           { address: RADIAN.curve, abi: curveReadAbi, functionName: "getReserves" },
+          // RadianStakingERC20 v2 keeps rewardRate scaled by RATE_SCALE (1e18); v1 pools have no such getter
+          { address: RADIAN.staking, abi: stakingAbi, functionName: "RATE_SCALE" },
         ],
       });
       const QD = RADIAN_QUOTE_DECIMALS;
       const num = (i: number, d = 18) => Number(formatUnits((r[i].result as bigint | undefined) ?? 0n, d));
       const totalStaked = num(0);
-      const rewardRate = num(1, QD); // quote units per second
+      const rateScale = r[9].status === "success" ? (r[9].result as bigint) : 1n;
+      const rewardRate = Number(formatUnits(((r[1].result as bigint | undefined) ?? 0n) / rateScale, QD)); // quote units per second
       const reserves = r[8].result as [bigint, bigint] | undefined;
       const quoteReserve = reserves ? Number(formatUnits(reserves[0], QD)) : 0;
       const tokenReserve = reserves ? Number(formatUnits(reserves[1], 18)) : 1;

@@ -170,6 +170,7 @@ export const RADIAN = {
 export const stakingAbi = parseAbi([
   "function totalStaked() view returns (uint256)",
   "function rewardRate() view returns (uint256)",
+  "function RATE_SCALE() view returns (uint256)",
   "function periodFinish() view returns (uint256)",
   "function totalDistributed() view returns (uint256)",
 ]);

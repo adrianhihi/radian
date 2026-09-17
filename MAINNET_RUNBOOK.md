@@ -218,6 +218,14 @@ set on the Railway service `radian-indexer-robinhood-mainnet` (keeper live, iden
 2026-09-17.** Open before stage B: audit of `src/radian/`, legal opinion on stock quote assets, Safe to 2/3,
 a paid RPC for the indexer, a USDG-quoted smoke launch, real-money copy and terms.
 
+Internal review 2026-09-17 (four parallel reviewers, findings verified with PoCs): flywheel Critical/High
+fixed and redeployed (staking `0xBC10…0683`, treasury `0x6F53…d717`, Safe batch
+`safe/robinhood-mainnet-flywheel-v2.json`); Wall (H-1 dust-defend bounty, H-2 6-decimal price
+truncation, M-1..M-3), Proof-of-Fee (F-1 round capture by poke, F-2 stranded fees after graduation,
+F-3 keeper self-sandwich, F-4 snipe tax as Work) and Executor (no price bound on BuyAuth) are NOT fixed
+yet: those modules are switched off on Robinhood mainnet in the web (`features`) and must not be
+enabled there until fixed, re-reviewed and redeployed (router v4). Standard launches only.
+
 Go-live (minimal, decided 2026-09-17: open with USDG + ETH only, few users expected, audit later):
 1. Fix every Critical/High from the internal review of `src/radian/` (test-backed), redeploy only if a
    contract changes (then re-pin hashes).
