@@ -1,10 +1,11 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 
-// Crossfades between words every `interval` ms: the current word fades out in
-// place while the next fades in. Static (first word only) when the list has
-// one entry or the viewer prefers reduced motion.
-export function WordRoller({ words, interval = 3000, className = "" }: { words: string[]; interval?: number; className?: string }) {
+// Crossfades between words every `interval` ms. Both words sit in the same
+// grid cell, so the gradient text style applies to each word itself (a
+// background-clipped container with animated children renders invisible on
+// WebKit). Static when the list has one entry or motion is reduced.
+export function WordRoller({ words, interval = 3000, wordClassName = "" }: { words: string[]; interval?: number; wordClassName?: string }) {
   const [idx, setIdx] = useState(0);
   const [prev, setPrev] = useState<number | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -19,7 +20,7 @@ export function WordRoller({ words, interval = 3000, className = "" }: { words: 
       setIdx((i) => {
         setPrev(i);
         if (timer.current) clearTimeout(timer.current);
-        timer.current = setTimeout(() => setPrev(null), 700);
+        timer.current = setTimeout(() => setPrev(null), 900);
         return (i + 1) % words.length;
       });
     }, interval);
@@ -31,11 +32,11 @@ export function WordRoller({ words, interval = 3000, className = "" }: { words: 
   }, [key, interval]);
 
   return (
-    <span className={`roller ${className}`} aria-label={words[idx]}>
+    <span className="roller" aria-label={words[idx]}>
       {prev !== null && (
-        <span className="roller-word roller-out" aria-hidden="true">{words[prev]}</span>
+        <span className={`roller-word roller-out ${wordClassName}`} aria-hidden="true">{words[prev]}</span>
       )}
-      <span key={idx} className={`roller-word ${prev !== null ? "roller-in" : ""}`}>{words[idx]}</span>
+      <span key={idx} className={`roller-word ${prev !== null ? "roller-in" : ""} ${wordClassName}`}>{words[idx]}</span>
     </span>
   );
 }

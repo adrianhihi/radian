@@ -55,14 +55,13 @@ export default function Home() {
       <header className="hero wrap">
         <span className="eyebrow reveal">◆ Live on {isArc ? "Circle Arc testnet" : net.label}</span>
         <h1 className="reveal" data-reveal-delay={80}>
-          Launch a token on <WordRoller className="grad" words={isArc ? ["Arc", "Robinhood"] : ["Robinhood", "Arc"]} />,
+          Launch a token on <WordRoller wordClassName="grad" words={isArc ? ["Arc,", "Robinhood,"] : ["Robinhood,", "Arc,"]} />
           <br /> priced in real money.
         </h1>
         <p className="sub reveal" data-reveal-delay={160}>
-          Radian is the launchpad for {isArc ? <>Circle&apos;s Arc chain</> : net.chainName}. Every token is born on a fair
-          bonding curve quoted in the asset you choose — <strong>{isArc ? "native USDC" : "a dollar stablecoin"}</strong> by default,
-          {isArc ? " EURC," : ""} or a stock — with no seed capital, liquidity locked forever, and graduation into
-          Uniswap V4.
+          Radian is a fair-launch platform on {isArc ? <>Circle&apos;s Arc chain</> : "Robinhood Chain"}. Every token starts on a
+          bonding curve priced in {isArc ? "USDC, EURC," : "a dollar stablecoin"} or a stock. No presale. Liquidity is locked.
+          Tokens graduate to Uniswap V4.
         </p>
         <div className="hero-cta reveal" data-reveal-delay={240}>
           <Link href="/launch" className="btn btn-primary">
@@ -202,33 +201,14 @@ export default function Home() {
         </section>
 
         <footer className="footer wrap">
-          <div className="cols">
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--fg)", fontWeight: 700, fontFamily: "var(--font-display)" }}>
-                Radian
-              </div>
-              <div style={{ marginTop: 8, maxWidth: 340 }}>
-                The launchpad for Circle&apos;s Arc chain. Testnet preview — no real money. Not
-                investment advice. Stock quote assets are testnet stand-ins, not securities. Not
-                affiliated with Circle, Robinhood, or Pons-Labs.
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: 40 }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <Link href="/launch">Launch</Link>
-                <Link href="/#explore">Explore</Link>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <a href={`${net.explorer}/address/${net.contracts.factory}`} target="_blank" rel="noreferrer">
-                  Factory
-                </a>
-                {net.key === "testnet" && (
-                  <a href="https://faucet.circle.com" target="_blank" rel="noreferrer">
-                    Get testnet USDC
-                  </a>
-                )}
-              </div>
-            </div>
+          <div className="line">
+            <span style={{ color: "var(--fg)", fontWeight: 700, fontFamily: "var(--font-display)" }}>Radian</span>
+            <span>Testnet preview, no real money. Not investment advice. Stock quote assets are testnet stand-ins. Not affiliated with Circle, Robinhood, or Pons-Labs.</span>
+            <Link href="/launch">Launch</Link>
+            <Link href="/#explore">Explore</Link>
+            <Link href="/verify">Verify</Link>
+            <a href={`${net.explorer}/address/${net.contracts.factory}`} target="_blank" rel="noreferrer">Factory</a>
+            {net.key === "testnet" && <a href="https://faucet.circle.com" target="_blank" rel="noreferrer">Testnet USDC</a>}
           </div>
         </footer>
       </main>
