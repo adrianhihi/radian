@@ -308,7 +308,9 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
     rpc: process.env.NEXT_PUBLIC_ROBINHOOD_RPC ?? "https://rpc.mainnet.chain.robinhood.com",
     explorer: "https://robinhoodchain.blockscout.com",
     deployBlock: 65098432n,
-    indexerUrl: process.env.NEXT_PUBLIC_ROBINHOOD_INDEXER_URL?.replace(/\/$/, "") ?? "",
+    indexerUrl:
+      process.env.NEXT_PUBLIC_ROBINHOOD_INDEXER_URL?.replace(/\/$/, "") ??
+      "https://radian-indexer-robinhood-mainnet-production.up.railway.app",
     contracts: {
       factory: "0xe7e9a4c041a1356747b4369C55A9991784412f24",
       locker: "0xe148601dC40427E634639536EdC00302b738C5bC",
