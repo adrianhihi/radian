@@ -1,42 +1,111 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
-// Crossfades between words every `interval` ms. Both words sit in the same
-// grid cell, so the gradient text style applies to each word itself (a
-// background-clipped container with animated children renders invisible on
-// WebKit). Static when the list has one entry or motion is reduced.
-export function WordRoller({ words, interval = 3000, wordClassName = "" }: { words: string[]; interval?: number; wordClassName?: string }) {
+export type RollerItem = { key: string; label: string; node?: ReactNode };
+
+// Rotates through `items` every `interval` ms in three strictly sequential
+// steps: the current item fades out completely, the box glides to the next
+// item's width while nothing is visible, then the next item fades in. Each
+// step is a CSS transition on the SAME element (opacity on the word, width on
+// the box), started by a timer once the previous step has finished, so the
+// two words are never on screen together and nothing is replaced mid-fade.
+// Widths come from hidden copies of every item (a ResizeObserver keeps them
+// honest through font and image loads), so the surrounding text never jumps
+// and the shorter item leaves no gap. Static with one item or reduced motion.
+export const ROLLER_OUT_MS = 450;
+export const ROLLER_SWAP_MS = 250;
+export const ROLLER_IN_MS = 450;
+const SLACK_MS = 40; // let a transition finish before the next step starts
+
+export function WordRoller({ items, interval = 3000 }: { items: RollerItem[]; interval?: number }) {
   const [idx, setIdx] = useState(0);
-  const [prev, setPrev] = useState<number | null>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const key = words.join("|");
+  const box = useRef<HTMLSpanElement>(null);
+  const word = useRef<HTMLSpanElement>(null);
+  const probes = useRef<(HTMLSpanElement | null)[]>([]);
+  const widths = useRef<number[]>([]);
+  const busy = useRef(false);
+  const idxRef = useRef(0);
+  const key = items.map((i) => i.key).join("|");
+
+  // Measure every item; outside a beat, the box takes the current item's width at once.
+  useLayoutEffect(() => {
+    const measure = () => {
+      widths.current = probes.current.map((el) => (el ? Math.ceil(el.getBoundingClientRect().width) : 0));
+      const w = widths.current[idxRef.current];
+      if (!busy.current && box.current && w) box.current.style.width = `${w}px`;
+    };
+    measure();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
+    probes.current.forEach((el) => el && ro?.observe(el));
+    window.addEventListener("resize", measure);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [key]);
 
   useEffect(() => {
+    idxRef.current = 0;
     setIdx(0);
-    setPrev(null);
-    if (words.length < 2) return;
-    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
-    const t = setInterval(() => {
-      setIdx((i) => {
-        setPrev(i);
-        if (timer.current) clearTimeout(timer.current);
-        timer.current = setTimeout(() => setPrev(null), 900);
-        return (i + 1) % words.length;
+    busy.current = false;
+    if (word.current) word.current.style.opacity = "";
+    if (items.length < 2) return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+
+    const timers = new Set<ReturnType<typeof setTimeout>>();
+    const after = (ms: number, fn: () => void) => {
+      const t = setTimeout(() => {
+        timers.delete(t);
+        fn();
+      }, ms);
+      timers.add(t);
+    };
+    const beat = () => {
+      const w = word.current;
+      const b = box.current;
+      if (!w || !b || busy.current) return;
+      busy.current = true;
+      // 1. fade the current word out
+      w.style.opacity = "0";
+      after(ROLLER_OUT_MS + SLACK_MS, () => {
+        // 2. swap the (invisible) word and glide the box to its width
+        const to = (idxRef.current + 1) % items.length;
+        idxRef.current = to;
+        setIdx(to);
+        const target = widths.current[to];
+        if (target) b.style.width = `${target}px`;
+        after(ROLLER_SWAP_MS + SLACK_MS, () => {
+          // 3. fade the new word in
+          w.style.opacity = "1";
+          after(ROLLER_IN_MS + SLACK_MS, () => {
+            w.style.opacity = "";
+            busy.current = false;
+          });
+        });
       });
-    }, interval);
+    };
+    const t = setInterval(beat, interval);
     return () => {
       clearInterval(t);
-      if (timer.current) clearTimeout(timer.current);
+      timers.forEach(clearTimeout);
+      busy.current = false;
+      if (word.current) word.current.style.opacity = "";
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, interval]);
 
+  const cur = items[idx] ?? items[0];
+
   return (
-    <span className="roller" aria-label={words[idx]}>
-      {prev !== null && (
-        <span className={`roller-word roller-out ${wordClassName}`} aria-hidden="true">{words[prev]}</span>
-      )}
-      <span key={idx} className={`roller-word ${prev !== null ? "roller-in" : ""} ${wordClassName}`}>{words[idx]}</span>
+    <span ref={box} className="roller" aria-label={cur?.label}>
+      <span ref={word} className="roller-word">{cur?.node ?? cur?.label}</span>
+      <span className="roller-probe" aria-hidden="true">
+        {items.map((it, i) => (
+          <span key={it.key} className="roller-word" ref={(el) => { probes.current[i] = el; }}>
+            {it.node ?? it.label}
+          </span>
+        ))}
+      </span>
     </span>
   );
 }

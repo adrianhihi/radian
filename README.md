@@ -179,6 +179,20 @@ plain contracts; this repo compiles with **`cancun`** because Uniswap v4-core ne
 transient storage (TSTORE was probed live on Arc testnet and works). `PREVRANDAO` returns
 0; blob txs rejected.
 
+## Web: Factory page and chain marks (2026-09-17)
+
+- `/factory` is the factory directory for the active network: live launch rules (fee, trade fee
+  split, snipe tax, price-impact cap), every launch config, the approved quote assets with their
+  on-chain economics and launch counts, template counts and implementation addresses, the newest
+  launches, who holds which role (owners, forwarder, keeper), the pinned-contract identity check,
+  and the other networks with their factories. Everything is read from the chain and the indexer.
+- The hero rolls between the chain names (current chain first) with a strict fade-out, width
+  glide, fade-in sequence (`web/components/WordRoller.tsx`). Each name can carry the chain's mark:
+  `LOGO_DEV_TOKEN=pk_... npm run logos` (in `web/`) downloads `public/chains/{arc,robinhood}.png`
+  from Logo.dev once; commit the PNGs. Without the files the hero shows the names alone. The token
+  is a Logo.dev publishable key and never ships in the bundle; keep the "Logos by Logo.dev" credit
+  in the footer unless the plan waives attribution.
+
 ## Develop
 
 ```bash

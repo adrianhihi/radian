@@ -310,12 +310,11 @@ label.filepick { display: flex; align-items: center; gap: 14px; margin-bottom: 0
 /* ---- hero word crossfade ---- */
 /* the current word sits in flow (so the line is as wide as that word); the
    outgoing word overlays it from the left while it fades */
-.roller { position: relative; display: inline-block; vertical-align: baseline; }
-.roller-word { white-space: nowrap; }
-.roller-out { position: absolute; left: 0; top: 0; animation: roller-out 0.8s ease forwards; pointer-events: none; }
-.roller-in { animation: roller-in 0.8s ease; }
-@keyframes roller-in { from { opacity: 0; } to { opacity: 1; } }
-@keyframes roller-out { from { opacity: 1; } to { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .roller-in, .roller-out { animation: none; } .roller-out { display: none; } }
+.roller { position: relative; display: inline-block; vertical-align: baseline; white-space: nowrap; text-align: left; transition: width 0.25s ease; }
+.roller-word { white-space: nowrap; display: inline-block; transition: opacity 0.45s ease; }
+.roller-probe { position: absolute; left: 0; top: 0; visibility: hidden; pointer-events: none; user-select: none; white-space: nowrap; }
+.roller-probe .roller-word { position: absolute; left: 0; top: 0; }
+@media (prefers-reduced-motion: reduce) { .roller, .roller-word { transition: none; } }
+.chain-logo { height: 0.86em; width: auto; vertical-align: -0.1em; margin-right: 0.2em; border-radius: 22%; }
 .footer .line { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; justify-content: center; text-align: center; line-height: 1.6; }
 .footer .line a { color: var(--fg-dim); }

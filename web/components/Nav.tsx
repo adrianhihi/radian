@@ -12,6 +12,7 @@ const LINKS = [
   { href: "/earn", label: "Earn" },
   { href: "/portfolio", label: "Portfolio" },
   { href: "/docs", label: "Docs" },
+  { href: "/factory", label: "Factory" },
   { href: "/verify", label: "Verify" },
 ];
 

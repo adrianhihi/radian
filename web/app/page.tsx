@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import { formatUnits } from "viem";
 import { Nav } from "@/components/Nav";
 import { WordRoller } from "@/components/WordRoller";
+import { ChainWord } from "@/components/ChainWord";
+import { CHAIN_BRANDS, type ChainBrandKey } from "@/lib/chainBrands";
 import { TokenCard } from "@/components/TokenCard";
 import { useReveal } from "@/lib/useReveal";
 import { useLaunches } from "@/lib/useLaunches";
@@ -16,6 +18,12 @@ export default function Home() {
   const { rows, loading, error } = useLaunches();
   const net = useNetwork();
   const isArc = net.key === "testnet" || net.key === "mainnet";
+  // The hero names the current chain first, then the other one.
+  const chainItems = ((isArc ? ["arc", "robinhood"] : ["robinhood", "arc"]) as ChainBrandKey[]).map((k) => ({
+    key: k,
+    label: CHAIN_BRANDS[k].name,
+    node: <ChainWord key={k} name={CHAIN_BRANDS[k].name} logo={CHAIN_BRANDS[k].logo} />,
+  }));
   const [sort, setSort] = useState<Sort>("new");
   const [filter, setFilter] = useState<Filter>("all");
   const [q, setQ] = useState("");
@@ -55,13 +63,12 @@ export default function Home() {
       <header className="hero wrap">
         <span className="eyebrow reveal">◆ Live on {isArc ? "Circle Arc testnet" : net.label}</span>
         <h1 className="reveal" data-reveal-delay={80}>
-          Launch a token on <WordRoller wordClassName="grad" words={isArc ? ["Arc,", "Robinhood,"] : ["Robinhood,", "Arc,"]} />
+          Launch a token on <WordRoller items={chainItems} />
           <br /> priced in real money.
         </h1>
         <p className="sub reveal" data-reveal-delay={160}>
-          Radian is a fair-launch platform on {isArc ? <>Circle&apos;s Arc chain</> : "Robinhood Chain"}. Every token starts on a
-          bonding curve priced in {isArc ? "USDC, EURC," : "a dollar stablecoin"} or a stock. No presale. Liquidity is locked.
-          Tokens graduate to Uniswap V4.
+          Radian is a fair-launch platform on Circle&apos;s Arc chain and Robinhood Chain. Every token starts on a bonding
+          curve priced in a stablecoin or a stock. No presale. Liquidity is locked. Tokens graduate to Uniswap V4.
         </p>
         <div className="hero-cta reveal" data-reveal-delay={240}>
           <Link href="/launch" className="btn btn-primary">
@@ -180,7 +187,7 @@ export default function Home() {
             {[
               {
                 t: "Create",
-                d: `Name it, add a logo, hit launch. A fixed 1B-supply token and its bonding curve deploy in a single transaction, quoted in the asset you choose — ${isArc ? "native USDC, EURC," : "a dollar stablecoin"} or a stock.`,
+                d: `Name it, add a logo, hit launch. A fixed 1B-supply token and its bonding curve deploy in a single transaction, quoted in the asset you choose: ${isArc ? "USDC, EURC," : "a dollar stablecoin"} or a stock.`,
               },
               {
                 t: "Trade",
@@ -207,8 +214,9 @@ export default function Home() {
             <Link href="/launch">Launch</Link>
             <Link href="/#explore">Explore</Link>
             <Link href="/verify">Verify</Link>
-            <a href={`${net.explorer}/address/${net.contracts.factory}`} target="_blank" rel="noreferrer">Factory</a>
+            <Link href="/factory">Factory</Link>
             {net.key === "testnet" && <a href="https://faucet.circle.com" target="_blank" rel="noreferrer">Testnet USDC</a>}
+            <a href="https://logo.dev" target="_blank" rel="noreferrer">Logos by Logo.dev</a>
           </div>
         </footer>
       </main>
