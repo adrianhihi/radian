@@ -189,6 +189,30 @@ which wallet gets whitelisted. A little USDG for the smoke launch.
    key, and a paid RPC rather than the public one.
 9. Web: fill addresses and code hashes, keep `hidden: true` and `live: false` until stage B.
 
+### 5f status, 2026-09-17
+
+Done from this machine: DeployChain broadcast (addresses in HANDOFF.md → "Robinhood Chain MAINNET"),
+on-chain state verified (launches closed, USDG approved 4,000 / 10,000, forwarder = router, keeper on
+router + executor), both launchers whitelisted, code hashes recorded in `web/lib/networks.ts`
+(`robinhood`, still hidden). The tool's auto mode refuses further mainnet broadcasts, so the
+remaining steps are run by the user from the repo root, in this order (each simulated OK here):
+
+```bash
+set -a; source .env.robinhood-mainnet; set +a; HEAD=$(cast block-number --rpc-url $RPC)
+# 1. $RADIAN + ERC-20 flywheel (≈0.0009 ETH); prints staking + treasury → fill STAKING= / TREASURY= in the env file
+forge script script/DeployRadianERC20.s.sol --rpc-url $RPC --fork-block-number $((HEAD-200)) --broadcast
+# 2. keeper sweeps fees off the curves
+cast send $HOOK "setFeeSweepOperator(address)" $KEEPER --rpc-url $RPC --private-key $PRIVATE_KEY
+# 3. ETH-quoted smoke launch through the router (launch + buy + sell, ≈0.0006 ETH)
+forge script script/SmokeLaunchEth.s.sol --rpc-url $RPC --fork-block-number $((HEAD-200)) --broadcast
+# 4. after STAKING/TREASURY are filled: two-step handover of the six owned contracts to the Safe
+forge script script/TransferOwnership.s.sol --rpc-url $RPC --fork-block-number $((HEAD-200)) --broadcast
+```
+
+Then the Safe accepts ownership on each of the six contracts (`acceptOwnership()`, no arguments) through
+its Transaction Builder; a ready-made batch JSON is generated once the flywheel addresses exist. After
+that: `VerifyOwnership.s.sol`, the third indexer service (step 8) and the web config (step 9).
+
 ## 5e. Keeper roles (before the handover)
 
 The bot key that runs `indexer/src/keeper.ts` must be: `hook.setFeeSweepOperator(keeper)` (fees sit

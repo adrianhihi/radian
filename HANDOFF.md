@@ -135,6 +135,33 @@ cd web && npm install && npm run build && npm run start   # http://localhost:304
   product repo). Ships after mainnet, an audit, and a real tokenized stock.
 - **Multi-chain** — Arc-first, one real-stock spoke (BSC). Verified facts in `MULTICHAIN.md`.
 
+## Robinhood Chain MAINNET (4663) — stage A, deployed 2026-09-17 (launches closed)
+
+`script/DeployChain.s.sol` from deployer `0x6CCdd2F85BbcD1043f63bd8266378c5632a55F95` (fresh key, blocks
+65098432–65098434, 26 txs, ≈0.0015 ETH). Launches are **disabled**; whitelisted launchers: the deployer and
+`0x4392bADe0C015cc2dD13924f099EE6d57c270Adb`. USDG (`0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168`, 6-dec) is the
+only approved ERC-20 quote (4,000 / 10,000 USDG); ETH config 0 is 1 / 2.5 ETH; launch fee 0.0001 ETH. Owner
+is the deployer until the two-step handover to the Safe `0x6db9a7fF776c7091C0A3c9847bD8a43eBA6892D8`
+(Safe 1.4.1, 1-of-1 today, raise to 2/3 before stage B). Keeper bot `0xA86480B3658d220f43c274E244A0c1b3d35d79FA`
+(router keeper, executor keeper, hook feeSweepOperator). Web config `robinhood` stays hidden; explorer
+`https://robinhoodchain.blockscout.com`. Runbook: MAINNET_RUNBOOK.md §5f.
+
+| Contract | Address |
+| --- | --- |
+| PonsV2LaunchFactory | `0xe7e9a4c041a1356747b4369C55A9991784412f24` |
+| PonsV2MemeHook | `0x892aB29D86219391CFF9A127eeE428853c71a044` |
+| PonsV2FeeEscrow | `0xac448d20491688B32be3E573AaE91f5e74B432E4` |
+| PonsV2BuybackVault | `0x7E59C701b355b41f87605aA38935f4031A87Ce96` |
+| PonsV2LaunchLocker | `0xe148601dC40427E634639536EdC00302b738C5bC` |
+| GraduationExecutor / LaunchDeployer | `0xa582492706c75499EbCdAD37D07DA958079FDbab` / `0x75D10c9Ff52BFEA4A87306C728c08D45537d621C` |
+| RadianLaunchRouter (v3, launch forwarder) | `0xBC96c94a5C380Bd8B986341c1b7e61109c503959` |
+| PoFRouter | `0x5A2c5Dd3D0eD4644FE99265d7986eB249Df69aDD` |
+| RadianExecutor | `0xf6cb8d88a9Eccd3F3E0114a387D0B308849b4C72` |
+| WallTreasury / WallStaking / WallLadder impl | `0x7248AAFBf5D4E0cadd2B03cE358a0E0e5f8B1F60` / `0x9a02091e763668fab0F25042d2Ff6274dD7E1e2b` / `0xe82Ab46b9639396b21eF226edc8a480E8F7a6885` |
+| PoFVault impl | `0xBC2c79ca69075d17d5A208CBB764B9EF7832cdDc` |
+| Uniswap V4 PoolManager / PositionManager (canonical) | `0x8366a39CC670B4001A1121B8F6A443A643e40951` / `0x58daec3116aae6d93017baaea7749052e8a04fa7` |
+| $RADIAN token / curve / staking / treasury (ERC-20 flywheel) | pending: `DeployRadianERC20.s.sol` (simulated OK, broadcast by the user) |
+
 ## Robinhood Chain testnet (46630) — live, 2026-09-16
 
 Deployed with `script/DeployChain.s.sol` (Arbitrum Orbit, ETH gas, canonical Uniswap V4). Web:
