@@ -28,6 +28,31 @@ export const wallTreasuryAbi = parseAbi([
   "function claimFees() returns (uint256 claimed, uint256 streamed)",
 ]);
 
+export const wallLadderAbi = parseAbi([
+  "function quoteHeld() view returns (uint256)",
+  "function pending() view returns (uint256)",
+  "function keeperEscrow() view returns (uint256)",
+  "function anchored() view returns (bool)",
+  "function anchorPrice() view returns (uint256)",
+  "function generation() view returns (uint32)",
+  "function totalIn() view returns (uint256)",
+  "function totalConverted() view returns (uint256)",
+  "function totalBurned() view returns (uint256)",
+  "function keeperPaid() view returns (uint256)",
+  "function lastPokeAt() view returns (uint64)",
+  "function ledgerGap() view returns (int256)",
+  "function quoteIsCurrency0() view returns (bool)",
+  "function currentTick() view returns (int24 tick, bool live)",
+  "function rungs(uint256 i) view returns (uint256 tokenId, int24 tickLower, int24 tickUpper, uint256 quoteIn)",
+  "function config() view returns (uint16 keeperInflowBps, uint128 keeperBounty, uint32 minInterval, uint16 maxSlewBps)",
+]);
+
+// quote units per 1e18 tokens implied by a pool tick, given which currency the quote is
+export function tickToQuotePer1e18(tick: number, quoteIsCurrency0: boolean): number {
+  const p = Math.pow(1.0001, tick); // currency1 per currency0 (raw)
+  return quoteIsCurrency0 ? 1e18 / p : p * 1e18;
+}
+
 export const wallStakingAbi = parseAbi([
   "function stake(uint256 amount)",
   "function withdraw(uint256 amount)",

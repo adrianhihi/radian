@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { formatUnits, parseEther, type Address } from "viem";
 import { publicClient, arcTestnet, erc20Abi, tokenAbi, explorer, type QuoteAsset } from "@/lib/radian";
-import { wallTreasuryAbi, wallStakingAbi, fmtAmount, fmtPrice, fmtDuration } from "@/lib/templates";
+import { wallTreasuryAbi, wallStakingAbi, wallLadderAbi, tickToQuotePer1e18, fmtAmount, fmtPrice, fmtDuration } from "@/lib/templates";
 import { useRadianWallet } from "@/lib/useRadianWallet";
 import type { IdentityResult } from "@/lib/identity";
 import { waitReceipt, ReceiptTimeout } from "@/lib/pendingTx";
@@ -301,6 +301,99 @@ export function WallStakePanel({ staking, token, symbol, quote, identity, onToas
           Claim {quote.symbol}
         </button>
       </div>
+    </div>
+  );
+}
+
+// ---- post-graduation: the bid ladder in the V4 pool ----
+
+const LADDER_LABELS = ["-5%", "-10%", "-15%", "-20%", "-30%", "-40%", "-50%"];
+
+export function WallLadderPanel({ ladder, symbol, quote, refreshKey }: { ladder: Address; symbol: string; quote: QuoteAsset; refreshKey: number }) {
+  const [d, setD] = useState<{
+    quoteHeld: bigint; pending: bigint; anchored: boolean; anchorPrice: bigint; generation: number; totalIn: bigint;
+    totalConverted: bigint; totalBurned: bigint; keeperPaid: bigint; lastPokeAt: number; gap: bigint; q0: boolean; tick: number; live: boolean;
+    rungs: { tokenId: bigint; lo: number; hi: number; quoteIn: bigint }[];
+  } | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const base = { address: ladder, abi: wallLadderAbi } as const;
+        const r = await publicClient.multicall({
+          allowFailure: true,
+          contracts: [
+            { ...base, functionName: "quoteHeld" }, { ...base, functionName: "pending" }, { ...base, functionName: "anchored" },
+            { ...base, functionName: "anchorPrice" }, { ...base, functionName: "generation" }, { ...base, functionName: "totalIn" },
+            { ...base, functionName: "totalConverted" }, { ...base, functionName: "totalBurned" }, { ...base, functionName: "keeperPaid" },
+            { ...base, functionName: "lastPokeAt" }, { ...base, functionName: "ledgerGap" }, { ...base, functionName: "quoteIsCurrency0" },
+            { ...base, functionName: "currentTick" },
+            ...Array.from({ length: 7 }, (_, i) => ({ ...base, functionName: "rungs" as const, args: [BigInt(i)] as const })),
+          ] as any, // mixed call shapes: results are read positionally below
+        });
+        if (!alive) return;
+        const g = <T,>(i: number) => r[i].result as T | undefined;
+        const ct = g<readonly [number, boolean]>(12);
+        setD({
+          quoteHeld: g<bigint>(0) ?? 0n, pending: g<bigint>(1) ?? 0n, anchored: g<boolean>(2) ?? false, anchorPrice: g<bigint>(3) ?? 0n,
+          generation: Number(g<number>(4) ?? 0), totalIn: g<bigint>(5) ?? 0n, totalConverted: g<bigint>(6) ?? 0n, totalBurned: g<bigint>(7) ?? 0n,
+          keeperPaid: g<bigint>(8) ?? 0n, lastPokeAt: Number(g<bigint>(9) ?? 0n), gap: g<bigint>(10) ?? 0n, q0: g<boolean>(11) ?? true,
+          tick: ct ? Number(ct[0]) : 0, live: ct ? ct[1] : false,
+          rungs: Array.from({ length: 7 }, (_, i) => {
+            const x = g<readonly [bigint, number, number, bigint]>(13 + i);
+            return { tokenId: x?.[0] ?? 0n, lo: Number(x?.[1] ?? 0), hi: Number(x?.[2] ?? 0), quoteIn: x?.[3] ?? 0n };
+          }),
+        });
+        setErr(null);
+      } catch (e: any) {
+        if (alive) setErr(e?.shortMessage ?? e?.message ?? "read failed");
+      }
+    })();
+    return () => { alive = false; };
+  }, [ladder, refreshKey]);
+
+  const qd = quote.decimals;
+  const fq = (v: bigint, d = 4) => Number(formatUnits(v, qd)).toLocaleString(undefined, { maximumFractionDigits: d });
+  const fp = (v: bigint) => (v === 0n ? "—" : (Number(formatUnits(v, qd)) / 1e18).toExponential(3));
+  const bandPrice = (lo: number, hi: number, q0: boolean) => {
+    // the rung buys between these two prices (quote per token)
+    const a = tickToQuotePer1e18(lo, q0) / 10 ** qd / 1e18;
+    const b = tickToQuotePer1e18(hi, q0) / 10 ** qd / 1e18;
+    return `${Math.min(a, b).toExponential(2)} – ${Math.max(a, b).toExponential(2)}`;
+  };
+  return (
+    <div className="panel reveal" style={{ marginTop: 16 }}>
+      <h3 style={{ fontSize: 18, marginBottom: 6 }}>The wall (after graduation)</h3>
+      <p className="hint" style={{ marginTop: 0, marginBottom: 10 }}>
+        Seven single-sided {quote.symbol} bids in the Uniswap V4 pool, 5% to 50% below an anchor that only follows the price up. What
+        sellers fill it with is burned on the next beat. A standing bid funded by fees, not a guarantee.
+      </p>
+      {err && <p className="hint" style={{ color: "var(--down)" }}>{err}</p>}
+      {!d ? <p className="hint">Loading…</p> : (
+        <>
+          <div className="kv"><span>{quote.symbol} in the ladder</span><span className="v">{fq(d.quoteHeld)} ({fq(d.pending)} waiting to be posted)</span></div>
+          <div className="kv"><span>Anchor price</span><span className="v">{d.anchored ? `${fp(d.anchorPrice)} ${quote.symbol}` : "not anchored yet"}</span></div>
+          <div className="kv"><span>Generation · last beat</span><span className="v">#{d.generation} · {d.lastPokeAt ? new Date(d.lastPokeAt * 1000).toLocaleString() : "—"}</span></div>
+          <div className="kv"><span>Spent buying / {symbol} burned</span><span className="v">{fq(d.totalConverted)} {quote.symbol} / {Number(formatUnits(d.totalBurned, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
+          <div className="kv" style={{ border: "none" }}><span>Keeper paid · ledger gap</span><span className="v">{fq(d.keeperPaid)} · {d.gap.toString()}</span></div>
+          <div style={{ overflowX: "auto", marginTop: 8 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
+              <thead><tr style={{ textAlign: "left", color: "var(--fg-dim)" }}><th style={{ padding: "4px 6px" }}>Rung</th><th style={{ padding: "4px 6px" }}>Bid band ({quote.symbol} / {symbol})</th><th style={{ padding: "4px 6px" }}>Posted</th></tr></thead>
+              <tbody>
+                {d.rungs.map((r, i) => (
+                  <tr key={i} style={{ borderTop: "1px solid var(--border-soft)" }}>
+                    <td style={{ padding: "4px 6px" }}>{LADDER_LABELS[i]}</td>
+                    <td style={{ padding: "4px 6px", fontFamily: "var(--mono, monospace)" }}>{r.tokenId === 0n ? "—" : bandPrice(r.lo, r.hi, d.q0)}</td>
+                    <td style={{ padding: "4px 6px" }}>{r.tokenId === 0n ? "empty" : `${fq(r.quoteIn)} ${quote.symbol}`}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
     </div>
   );
 }

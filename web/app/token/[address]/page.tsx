@@ -14,7 +14,7 @@ import { useIdentity } from "@/lib/identity";
 import { waitReceipt, ReceiptTimeout, usePendingResume } from "@/lib/pendingTx";
 import { IdentityBanner, PendingBar } from "@/components/TrustBanners";
 import { pofRouterAbi } from "@/lib/templates";
-import { WallTreasuryPanel, WallStakePanel } from "@/components/WallPanels";
+import { WallTreasuryPanel, WallStakePanel, WallLadderPanel } from "@/components/WallPanels";
 import { PoFPanel } from "@/components/PoFPanel";
 import { AutoBuyPanel } from "@/components/AutoBuyPanel";
 import { parseUnits } from "viem";
@@ -542,6 +542,9 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
                   staking={template.staking} token={token} symbol={st.symbol} quote={st.quoteAsset} myTokens={myTokens}
                   identity={identity} onToast={setToast} onPending={setPendingHash} refreshKey={refreshKey}
                 />
+                {template.kind === "wall" && template.ladder && st.graduated && (
+                  <WallLadderPanel ladder={template.ladder} symbol={st.symbol} quote={st.quoteAsset} refreshKey={refreshKey} />
+                )}
               </>
             )}
             {template?.kind === "pof" && (
