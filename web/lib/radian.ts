@@ -23,6 +23,7 @@ export const RADIAN = {
   wallTreasuryImpl: NET.contracts.wallTreasuryImpl,
   wallStakingImpl: NET.contracts.wallStakingImpl,
   pofVaultImpl: NET.contracts.pofVaultImpl,
+  wallLadderImpl: NET.contracts.wallLadderImpl,
   deployBlock: NET.deployBlock,
 } as const;
 
@@ -150,7 +151,7 @@ export type LaunchRow = {
 
 // Which launch template a token used, and where its per-launch contracts live.
 export type LaunchTemplate =
-  | { kind: "wall"; treasury: Address; staking: Address }
+  | { kind: "wall"; treasury: Address; staking: Address; ladder?: Address }
   | { kind: "pof"; vault: Address; pofRouter: Address };
 
 const explorerTx = (h: string) => `${arcTestnet.blockExplorers!.default.url}/tx/${h}`;

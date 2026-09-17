@@ -7,6 +7,7 @@ import {PonsV2BondingCurve} from "../src/v2/PonsV2BondingCurve.sol";
 import {RadianLaunchRouter} from "../src/radian/RadianLaunchRouter.sol";
 import {WallTreasury} from "../src/radian/wall/WallTreasury.sol";
 import {WallStaking} from "../src/radian/wall/WallStaking.sol";
+import {WallLadder} from "../src/radian/wall/WallLadder.sol";
 import {PoFVault} from "../src/radian/pof/PoFVault.sol";
 import {MockStock} from "../src/mock/MockStock.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -20,7 +21,7 @@ contract WallTemplateTest is PonsV2IntegrationTest {
 
     function setUp() public override {
         super.setUp();
-        router = new RadianLaunchRouter(factory, address(new WallTreasury()), address(new WallStaking()), address(new PoFVault()));
+        router = new RadianLaunchRouter(factory, address(new WallTreasury()), address(new WallStaking()), address(new WallLadder()), address(new PoFVault()));
         vm.startPrank(owner);
         factory.setLaunchForwarder(address(router));
         router.setKeeper(kp);

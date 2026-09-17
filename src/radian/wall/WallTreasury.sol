@@ -40,6 +40,11 @@ interface IWallLauncher {
     function platformOwner() external view returns (address);
 }
 
+interface IWallLadderDeposit {
+    function deposit(uint256 amount) external payable;
+    function quoteHeld() external view returns (uint256);
+}
+
 /// @title WallTreasury
 /// @notice One per "stock treasury" launch. Receives the launch's creator-fee
 ///         share in the quote asset (a tokenized stock or stablecoin), streams a
@@ -75,6 +80,7 @@ contract WallTreasury {
     address public feeEscrow;
     address public vault; // PonsV2BuybackVault (locked tokens are not circulating)
     address public staking;
+    address public ladder; // WallLadder: the post-graduation bid ladder in the V4 pool (0 = none)
     Config public config;
     bool public initialized;
 
@@ -84,6 +90,7 @@ contract WallTreasury {
     uint256 public totalSpent; // quote spent defending, lifetime
     uint256 public totalBurned; // tokens burned, lifetime
     uint256 public totalBounty; // quote paid to keepers, lifetime
+    uint256 public totalToLadder; // quote handed to the ladder after graduation, lifetime
     uint64 public lastDefendAt;
     uint64 public windowStart;
     uint256 public spentInWindow;
@@ -94,6 +101,7 @@ contract WallTreasury {
     event FeesClaimed(uint256 claimed, uint256 streamed, uint256 kept);
     event Defended(address indexed keeper, uint256 spent, uint256 burned, uint256 bounty, uint256 spotBefore, uint256 bookValue);
     event KeeperBountySet(uint128 bounty);
+    event LadderFunded(uint256 amount);
 
     error NotKeeper();
     error Graduated();
@@ -118,6 +126,7 @@ contract WallTreasury {
         address feeEscrow_,
         address vault_,
         address staking_,
+        address ladder_,
         Config calldata cfg
     ) external {
         require(!initialized, "initialized");
@@ -132,6 +141,7 @@ contract WallTreasury {
         feeEscrow = feeEscrow_;
         vault = vault_;
         staking = staking_;
+        ladder = ladder_;
         config = cfg;
         emit Initialized(token_, curve_, pairToken_, staking_, cfg);
     }
@@ -162,10 +172,18 @@ contract WallTreasury {
         return supply > held ? supply - held : 0;
     }
 
-    /// @notice Quote units per 1e18 tokens, from balances only.
+    /// @notice Quote units per 1e18 tokens, from balances only (the treasury's
+    ///         pile plus whatever the ladder holds after graduation).
     function bookValue() public view returns (uint256) {
         uint256 c = circulating();
-        return c == 0 ? 0 : (reserve() * 1e18) / c;
+        if (c == 0) return 0;
+        uint256 q = reserve();
+        if (ladder != address(0)) q += IWallLadderDeposit(ladder).quoteHeld();
+        return (q * 1e18) / c;
+    }
+
+    function curveGraduated() public view returns (bool) {
+        return IWallCurve(curve).graduated();
     }
 
     /// @notice Curve spot in the same units as `bookValue`.
@@ -290,6 +308,28 @@ contract WallTreasury {
             _pay(msg.sender, bounty);
         }
         emit Defended(msg.sender, spent, burned, bounty, s, f);
+    }
+
+    /// @notice After graduation the bid lives in the V4 pool: hand the pile to
+    ///         the ladder. Keeper or platform owner; nothing to decide, so no
+    ///         parameters. Streams to stakers keep coming from `claimFees`.
+    function fundLadder() external nonReentrant returns (uint256 amount) {
+        if (msg.sender != IWallLauncher(launcher).keeper() && msg.sender != IWallLauncher(launcher).platformOwner()) {
+            revert NotKeeper();
+        }
+        require(ladder != address(0), "no ladder");
+        require(IWallCurve(curve).graduated(), "not graduated");
+        amount = reserve();
+        if (amount == 0) return 0;
+        if (isNative()) {
+            IWallLadderDeposit(ladder).deposit{value: amount}(amount);
+        } else {
+            IERC20(pairToken).forceApprove(ladder, amount);
+            IWallLadderDeposit(ladder).deposit(amount);
+            IERC20(pairToken).forceApprove(ladder, 0);
+        }
+        totalToLadder += amount;
+        emit LadderFunded(amount);
     }
 
     /// @notice Platform owner may re-size the keeper bounty (gas drifts); every

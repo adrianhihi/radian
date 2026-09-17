@@ -59,6 +59,7 @@ export type NetworkConfig = {
     wallTreasuryImpl: Address;
     wallStakingImpl: Address;
     pofVaultImpl: Address;
+    wallLadderImpl: Address; // post-graduation bid ladder (clone impl)
   };
   radian: {
     token: Address;
@@ -76,7 +77,7 @@ export type NetworkConfig = {
   codeHashes: Partial<
     Record<
       | "factory" | "hook" | "router" | "escrow" | "vault" | "locker" | "poolManager" | "staking" | "treasury"
-      | "pofRouter" | "executor" | "wallTreasuryImpl" | "wallStakingImpl" | "pofVaultImpl",
+      | "pofRouter" | "executor" | "wallTreasuryImpl" | "wallStakingImpl" | "pofVaultImpl" | "wallLadderImpl",
       `0x${string}`
     >
   >;
@@ -105,12 +106,13 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
       hook: "0x15eB3aeE2f96A199165dc58e6C8dc3Ce2e02e044",
       poolManager: "0x24219d0F3611fE4E438850bB7DB165439957dc9f",
       // v2 (2026-09-14): launchAndBuy + launchWall + launchPoF
-      router: "0xB9F097662302F220989AAeBa6776041d7d625fAE",
-      pofRouter: "0x7a21533EBEdC7222F299dcfd46E0463E744bF6E8",
+      router: "0x166B40423f5F592C4619237463244b6BCA1942E0", // v3 (2026-09-16): + Wall ladder
+      pofRouter: "0x972Eb013331aDc75800983605B170C12a7421991",
       executor: "0xbf1fbda5991Ff34733AE74eDB84F74527B9588C1",
-      wallTreasuryImpl: "0x88f6f47AAFf65B948712f8C87b6eF51C7B6197c4",
-      wallStakingImpl: "0x7F15D040Ae2A758D891A75e9399ab6b9487e70C1",
-      pofVaultImpl: "0xeAF10129B449F3108923E666Fb7E7f00eC176bC5",
+      wallTreasuryImpl: "0xbc7E100eEB8dD7D206156BD984373ce95997C239",
+      wallStakingImpl: "0xA9105c7762d724a140Dc12A666f4A5A8167717eA",
+      pofVaultImpl: "0x0B5c820c151e766320ff43DB4C843d70376AfFB2",
+      wallLadderImpl: "0x5863207026D5807Bd5Ca3bb8D709B1807aF95940",
     },
     radian: {
       token: "0x0B764B1e50E4D17A897Cdd9494CaC3355579fDcD",
@@ -123,7 +125,7 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
       // Arc testnet, recorded 2026-09-13
       factory: "0x4444b7a1dbfc5b7b43f7ea4213be5db1720e8e381628a0a5024a3bba57d71595",
       hook: "0x4d459c2b449407539e90df566a137db52aa6a34f69e45f1a062bd57e785a4bb2",
-      router: "0xd73b94c80452b2e91fe4c38347ce2157d9f45cd7f9c242009f0480501a0b4788",
+      router: "0x9170391d6aa22a085723a0c8551cda8e93139b1f50e2205d8cd75dce12a9a764",
       escrow: "0xdbc3d137ff3b35ee6fa87e0bb86ddbf9a6006fb3204b16006b5b0717acaff686",
       vault: "0xa3f5985eb0b204f7659581846c6335006148665a5572b7e47567e8a5362e3edb",
       locker: "0x38748c627ad799e26df81475147c567afe965b35467741aceaf10f49c7b8939e",
@@ -131,11 +133,12 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
       staking: "0xf7e675e11f13fbc04cebd15754c1ae0c14994d5e2f3815b9d8eea04992bafb57",
       treasury: "0x232fdd7004bfce03847d90b4d777acfdacdb0d1549b7261f051a6ea475bacd87",
       // templates + executor, recorded 2026-09-14
-      pofRouter: "0xf5eb91076302ba59b8f58d3c6d445694e6a17c7acfa3d8e14040035130db0b98",
+      pofRouter: "0xa68bf76b3097ba39a7509ec63816aa15a19393f6de1ab337eab08ee5b534586d",
       executor: "0x521601531f84dc48bbb390e6514314684da9cf1e45c46dee77f8eacc3e14623c",
-      wallTreasuryImpl: "0x718ad47a561ab9daedadef3db329acbac22a8c54106b76e38ca6312854de63e4",
+      wallTreasuryImpl: "0x71fed5a3a76f5a3a67ca91e5313acad88147fe6196709d7c4d7e922b987c433b",
       wallStakingImpl: "0x0128ecfb818d294790edc549a882cf0efa8a2ee787e249fca92ca888c3d5c012",
       pofVaultImpl: "0x95f3971dff5cc41428090a979a462c5784b5204b8833c2b5716fdb4ceffe0674",
+      wallLadderImpl: "0x77f3111fa70052c293c773746a87a0e812533de796fec786d43ff67909e5250f",
     },
     quoteAssets: [
       { key: "usdc", symbol: "USDC", address: ZERO, decimals: 18, native: true, gradGoal: 20, blurb: "Native dollar — the Arc gas coin" },
@@ -174,6 +177,7 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
       wallTreasuryImpl: ZERO,
       wallStakingImpl: ZERO,
       pofVaultImpl: ZERO,
+      wallLadderImpl: ZERO,
     },
     radian: { token: ZERO, curve: ZERO, staking: ZERO, treasury: ZERO },
     codeHashes: {},
@@ -211,12 +215,13 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
       escrow: "0x112923deC686B647D140Ee58C17b0e4B6F804149",
       hook: "0x15d5B10A1fCe67c01196EF118E5632B0D18Ca044",
       poolManager: "0x8366a39CC670B4001A1121B8F6A443A643e40951",
-      router: "0x5AC74F2666d284D55e5AEACF122C75fF9268a3Da",
-      pofRouter: "0xa6B14Ab7490123De19a82521137cA1F59BFA4fC5",
+      router: "0xD7ed78E15590c8B0d962133Af74aec1589Dc8a54", // v3 (2026-09-16): + Wall ladder
+      pofRouter: "0xF101f27A5156771c66E343FB3BF04e6208677660",
       executor: "0xefb3FBDCf95662177d66E264B8394E7BD4Ece11c",
-      wallTreasuryImpl: "0xa8D3DFEE672ee92663298300030a1DFB078Cb552",
-      wallStakingImpl: "0x8F523C5240714033c408760fb8C7f7bF4F3BaD99",
-      pofVaultImpl: "0xd08304E63ADf9EFc7a0700d9b2aB613A0cA37C37",
+      wallTreasuryImpl: "0x55379F8fbA5b47290E535999682Ccd0E1773009E",
+      wallStakingImpl: "0x1da4Ebf52892Fb209701a8E6cFF06058e89c21Cc",
+      pofVaultImpl: "0xb097101C0DF29a5ffb03bcd3552cbFf81C14A1eC",
+      wallLadderImpl: "0xbFf760f35F421cAE2E9650aF1571FDd618e206a7",
     },
     // $RADIAN on Robinhood testnet: priced in USDGx; ERC-20-reward flywheel (RadianStakingERC20 / RadianTreasuryERC20), 2026-09-16
     radian: {
@@ -239,16 +244,17 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
       // recorded 2026-09-16; the three clone implementations hash identically to Arc's (no immutables)
       factory: "0xad2a5c89974e730ab607d7fb734aded658373624816548bf4f7d3b1ff6dab0b6",
       hook: "0x505ddf6d9505bf40d0291550fb1ddb9a366d5dc1767fb26ca8512b652421ab9f",
-      router: "0x45d5d28e1e7a70114d4dbc7b0a09032776b02fc2090529e6f192205eb2e1e112",
+      router: "0xf806a4631888e239d4510d8c516003895fb9ec82b2f6da188e652daa607f85f0",
       escrow: "0x87218669be442aa96ee406a6ba1886c29d8d450a7266628fa6f19b2c788d8316",
       vault: "0x0c146bf2d9808a225cbefef67e7a68a530398791b15a4b825d500a69b91e7878",
       locker: "0x5304631acb89c64e75397509c745337b6ddb3e7f529e2297a335114049bcff7d",
       poolManager: "0xbd3881180b547f5fe817545743cfb4343e96b1bc6640dcd70c106b0066e95626",
-      pofRouter: "0x2e9adcbce828f92581f5582907bba015f91358a90aa6d985121d42c66e7e2811",
+      pofRouter: "0x6cfe16ceb8c7db8585a4fe70c966e1418aabda29c77810c22deba705859a0db6",
       executor: "0x4e35c2b6d49b5b007a4abd1d1ad8c76e0aee92178b530880dabb21d9b3c6f7df",
-      wallTreasuryImpl: "0x718ad47a561ab9daedadef3db329acbac22a8c54106b76e38ca6312854de63e4",
+      wallTreasuryImpl: "0x71fed5a3a76f5a3a67ca91e5313acad88147fe6196709d7c4d7e922b987c433b",
       wallStakingImpl: "0x0128ecfb818d294790edc549a882cf0efa8a2ee787e249fca92ca888c3d5c012",
       pofVaultImpl: "0x95f3971dff5cc41428090a979a462c5784b5204b8833c2b5716fdb4ceffe0674",
+      wallLadderImpl: "0x77f3111fa70052c293c773746a87a0e812533de796fec786d43ff67909e5250f",
       staking: "0x103939eed07bdf25cd272d4381e28c641e30a0e9cf8a29169f357091d624ec33",
       treasury: "0xf1d4036f5918904232ed9475fcea2cba84eef24914e6bdddcd858a0ff02b008b",
     },
@@ -278,6 +284,7 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
       wallTreasuryImpl: ZERO,
       wallStakingImpl: ZERO,
       pofVaultImpl: ZERO,
+      wallLadderImpl: ZERO,
     },
     radian: { token: ZERO, curve: ZERO, staking: ZERO, treasury: ZERO },
     codeHashes: {},

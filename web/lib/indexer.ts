@@ -37,7 +37,7 @@ type ApiLaunch = {
 
 // Wire shape of a launch's template. Anything unexpected → null (Standard).
 type ApiTemplate =
-  | { kind: "wall"; treasury: Address; staking: Address }
+  | { kind: "wall"; treasury: Address; staking: Address; ladder?: Address }
   | { kind: "pof"; vault: Address; pofRouter: Address };
 
 function parseTemplate(t: ApiTemplate | null | undefined): LaunchTemplate | null {

@@ -46,6 +46,7 @@ export function pinnedContracts(): IdentityEntry[] {
   pin("WallTreasury (implementation)", c.wallTreasuryImpl, "wallTreasuryImpl");
   pin("WallStaking (implementation)", c.wallStakingImpl, "wallStakingImpl");
   pin("PoFVault (implementation)", c.pofVaultImpl, "pofVaultImpl");
+  pin("WallLadder (implementation)", c.wallLadderImpl, "wallLadderImpl");
   return out;
 }
 

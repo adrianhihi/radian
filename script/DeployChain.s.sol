@@ -18,6 +18,7 @@ import {RadianLaunchRouter} from "../src/radian/RadianLaunchRouter.sol";
 import {RadianExecutor} from "../src/radian/RadianExecutor.sol";
 import {WallTreasury} from "../src/radian/wall/WallTreasury.sol";
 import {WallStaking} from "../src/radian/wall/WallStaking.sol";
+import {WallLadder} from "../src/radian/wall/WallLadder.sol";
 import {PoFVault} from "../src/radian/pof/PoFVault.sol";
 import {MockStock} from "../src/mock/MockStock.sol";
 import {MockUSD} from "../src/mock/MockUSD.sol";
@@ -92,8 +93,9 @@ contract DeployChain is Script {
         // ---- templates + delegated buys ----
         address wallTreasuryImpl = address(new WallTreasury());
         address wallStakingImpl = address(new WallStaking());
+        address wallLadderImpl = address(new WallLadder());
         address pofVaultImpl = address(new PoFVault());
-        RadianLaunchRouter router = new RadianLaunchRouter(factory, wallTreasuryImpl, wallStakingImpl, pofVaultImpl);
+        RadianLaunchRouter router = new RadianLaunchRouter(factory, wallTreasuryImpl, wallStakingImpl, wallLadderImpl, pofVaultImpl);
         factory.setLaunchForwarder(address(router));
         router.setKeeper(keeper);
         RadianExecutor ex = new RadianExecutor(factory);
@@ -140,6 +142,7 @@ contract DeployChain is Script {
         console.log("PoFRouter:          ", address(router.pofRouter()));
         console.log("WallTreasury impl:  ", wallTreasuryImpl);
         console.log("WallStaking impl:   ", wallStakingImpl);
+        console.log("WallLadder impl:    ", wallLadderImpl);
         console.log("PoFVault impl:      ", pofVaultImpl);
         console.log("RadianExecutor:     ", address(ex));
         console.log("keeper:             ", keeper);

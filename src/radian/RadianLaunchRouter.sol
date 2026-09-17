@@ -7,6 +7,7 @@ import {PonsV2LaunchFactory} from "../v2/PonsV2LaunchFactory.sol";
 import {Clones1167} from "./lib/Clones1167.sol";
 import {WallTreasury} from "./wall/WallTreasury.sol";
 import {WallStaking} from "./wall/WallStaking.sol";
+import {WallLadder} from "./wall/WallLadder.sol";
 import {PoFVault} from "./pof/PoFVault.sol";
 import {PoFRouter} from "./pof/PoFRouter.sol";
 
@@ -32,6 +33,7 @@ contract RadianLaunchRouter {
     PonsV2LaunchFactory public immutable factory;
     address public immutable wallTreasuryImpl;
     address public immutable wallStakingImpl;
+    address public immutable wallLadderImpl;
     address public immutable pofVaultImpl;
     PoFRouter public immutable pofRouter;
     address public keeper; // platform keeper for template treasuries (defend / claimAndBuy)
@@ -42,6 +44,7 @@ contract RadianLaunchRouter {
         address indexed deployer, address indexed token, address indexed curve, address pairToken, uint256 quoteIn, uint256 tokensOut
     );
     event WallLaunched(address indexed deployer, address indexed token, address curve, address treasury, address staking, address pairToken);
+    event WallLadderCreated(address indexed token, address ladder);
     event PoFLaunched(address indexed deployer, address indexed token, address curve, address vault, address pairToken);
     event KeeperSet(address keeper);
 
@@ -56,11 +59,12 @@ contract RadianLaunchRouter {
         _lock = 1;
     }
 
-    constructor(PonsV2LaunchFactory factory_, address wallTreasuryImpl_, address wallStakingImpl_, address pofVaultImpl_) {
+    constructor(PonsV2LaunchFactory factory_, address wallTreasuryImpl_, address wallStakingImpl_, address wallLadderImpl_, address pofVaultImpl_) {
         require(address(factory_) != address(0), "zero");
         factory = factory_;
         wallTreasuryImpl = wallTreasuryImpl_;
         wallStakingImpl = wallStakingImpl_;
+        wallLadderImpl = wallLadderImpl_;
         pofVaultImpl = pofVaultImpl_;
         pofRouter = new PoFRouter(address(this));
     }
@@ -100,6 +104,11 @@ contract RadianLaunchRouter {
         staking = Clones1167.predict(wallStakingImpl, keccak256(abi.encode(s, "staking")), address(this));
     }
 
+    function predictWallLadder(address creator, bytes32 salt) public view returns (address) {
+        bytes32 s = keccak256(abi.encode(creator, salt, "wall"));
+        return Clones1167.predict(wallLadderImpl, keccak256(abi.encode(s, "ladder")), address(this));
+    }
+
     function launchWall(
         PonsV2LaunchFactory.TokenParams calldata params,
         uint256 launchConfigId,
@@ -113,6 +122,7 @@ contract RadianLaunchRouter {
         bytes32 s = keccak256(abi.encode(msg.sender, params.salt, "wall"));
         treasury = Clones1167.clone(wallTreasuryImpl, s);
         staking = Clones1167.clone(wallStakingImpl, keccak256(abi.encode(s, "staking")));
+        address ladder = Clones1167.clone(wallLadderImpl, keccak256(abi.encode(s, "ladder")));
 
         PonsV2LaunchFactory.TokenParams memory p = params;
         p.creatorFeeRecipient = treasury;
@@ -121,8 +131,10 @@ contract RadianLaunchRouter {
 
         WallStaking(payable(staking)).initialize(token, pairToken, treasury);
         WallTreasury(payable(treasury)).initialize(
-            address(this), token, curve, pairToken, address(factory.feeEscrow()), address(factory.buybackVault()), staking, cfg
+            address(this), token, curve, pairToken, address(factory.feeEscrow()), address(factory.buybackVault()), staking, ladder, cfg
         );
+        _initLadder(ladder, treasury, token, pairToken, launchConfigId, cfg);
+        emit WallLadderCreated(token, ladder);
         _openingBuy(curve, pairToken, buyAmount, minTokensOut);
         _sweep();
         emit WallLaunched(msg.sender, token, curve, treasury, staking, pairToken);
@@ -170,6 +182,27 @@ contract RadianLaunchRouter {
         }
         _sweep();
         emit PoFLaunched(msg.sender, token, curve, vault, pairToken);
+    }
+
+    /// @dev The ladder's knobs derive from the treasury's: same bounty, at least an
+    ///      hourly beat, 2% of inflow to the keeper escrow, anchor slew ≤ ×1.25 per beat.
+    function _initLadder(address ladder, address treasury, address token, address pairToken, uint256 launchConfigId, WallTreasury.Config calldata cfg)
+        private
+    {
+        PonsV2LaunchFactory.LaunchConfig memory lc = factory.getLaunchConfig(launchConfigId);
+        WallLadder(payable(ladder)).initialize(
+            address(this),
+            treasury,
+            token,
+            pairToken,
+            address(factory.poolManager()),
+            address(factory.positionManager()),
+            address(factory.permit2()),
+            address(factory.memeHook()),
+            lc.poolFee,
+            lc.tickSpacing,
+            WallLadder.Config({keeperInflowBps: 200, keeperBounty: cfg.keeperBounty, minInterval: cfg.minInterval < 3600 ? 3600 : cfg.minInterval, maxSlewBps: 2500})
+        );
     }
 
     // ---- internals ----

@@ -8,6 +8,7 @@ import {PonsV2LauncherToken} from "../src/v2/PonsV2LauncherToken.sol";
 import {RadianLaunchRouter} from "../src/radian/RadianLaunchRouter.sol";
 import {WallTreasury} from "../src/radian/wall/WallTreasury.sol";
 import {WallStaking} from "../src/radian/wall/WallStaking.sol";
+import {WallLadder} from "../src/radian/wall/WallLadder.sol";
 import {PoFVault} from "../src/radian/pof/PoFVault.sol";
 import {MockStock} from "../src/mock/MockStock.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -38,7 +39,7 @@ contract RadianLaunchRouterTest is PonsV2IntegrationTest {
     }
 
     function _newRouter() internal returns (RadianLaunchRouter) {
-        return new RadianLaunchRouter(factory, address(new WallTreasury()), address(new WallStaking()), address(new PoFVault()));
+        return new RadianLaunchRouter(factory, address(new WallTreasury()), address(new WallStaking()), address(new WallLadder()), address(new PoFVault()));
     }
 
     function _p(bytes32 salt) internal view returns (PonsV2LaunchFactory.TokenParams memory p) {
