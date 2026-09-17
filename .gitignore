@@ -7,3 +7,8 @@ broadcast/
 # tooling / build artifacts
 .claude/
 web/tsconfig.tsbuildinfo
+
+# every env file except the template (mainnet keys live in .env.<chain>-mainnet)
+.env.*
+!.env.example
+!.env.*.example

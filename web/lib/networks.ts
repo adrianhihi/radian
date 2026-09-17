@@ -8,7 +8,7 @@ import { defineChain, type Address } from "viem";
 // config re-derives from the chosen network. Mainnet is a placeholder until
 // Arc mainnet is live (2026-09-16) and we fill its addresses + flip `live`.
 
-export type NetworkKey = "testnet" | "mainnet" | "base" | "robinhood-testnet";
+export type NetworkKey = "testnet" | "mainnet" | "base" | "robinhood-testnet" | "robinhood";
 
 export type QuoteAssetDef = {
   key: string;
@@ -291,6 +291,47 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
     quoteAssets: [
       // Base USDC (native Circle USDC on Base, 6-dec) — the featured quote.
       { key: "usdc", symbol: "USDC", address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", decimals: 6, native: false, gradGoal: 20, blurb: "Circle USDC on Base" },
+    ],
+  },
+  // Robinhood Chain MAINNET (4663): stage A scaffold (2026-09-17). Hidden until the contracts
+  // are deployed and recorded here; `live: false` keeps every read hook idle. Explorer is the
+  // Blockscout instance Safe uses for this chain. USDG is the only dollar quote; real stock
+  // tokens wait for the legal opinion (MAINNET_RUNBOOK.md 5f).
+  robinhood: {
+    key: "robinhood",
+    label: "Robinhood",
+    live: false,
+    hidden: true,
+    chainId: 4663,
+    chainName: "Robinhood Chain",
+    nativeSymbol: "ETH",
+    rpc: process.env.NEXT_PUBLIC_ROBINHOOD_RPC ?? "https://rpc.mainnet.chain.robinhood.com",
+    explorer: "https://robinhoodchain.blockscout.com",
+    deployBlock: 0n,
+    indexerUrl: process.env.NEXT_PUBLIC_ROBINHOOD_INDEXER_URL?.replace(/\/$/, "") ?? "",
+    contracts: {
+      factory: ZERO,
+      locker: ZERO,
+      vault: ZERO,
+      escrow: ZERO,
+      hook: ZERO,
+      // canonical Uniswap V4 PoolManager (same address as the testnet; code verified 2026-09-16)
+      poolManager: "0x8366a39CC670B4001A1121B8F6A443A643e40951",
+      router: ZERO,
+      pofRouter: ZERO,
+      executor: ZERO,
+      wallTreasuryImpl: ZERO,
+      wallStakingImpl: ZERO,
+      pofVaultImpl: ZERO,
+      wallLadderImpl: ZERO,
+    },
+    radian: { token: ZERO, curve: ZERO, staking: ZERO, treasury: ZERO, rewardSymbol: "USDG", rewardDecimals: 6 },
+    codeHashes: {},
+    quoteAssets: [
+      // index 0 must be the native coin (quoteByAddress resolves the zero address to it)
+      { key: "eth", symbol: "ETH", address: ZERO, decimals: 18, native: true, gradGoal: 2.5, blurb: "The gas coin" },
+      // Global Dollar (Paxos USDG), 6 decimals, the featured quote
+      { key: "usdg", symbol: "USDG", address: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168", decimals: 6, native: false, gradGoal: 10000, featured: true, blurb: "Global Dollar, the dollar stablecoin on Robinhood Chain" },
     ],
   },
 };

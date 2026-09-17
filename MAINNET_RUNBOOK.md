@@ -149,6 +149,46 @@ records the verified per-chain facts. The indexer is the same image with `CHAIN_
 `EXECUTOR`, `KEEPER_PRIVATE_KEY`, `QUOTE_ASSETS_JSON`, `CODE_HASHES_JSON` and `SCAN_MODE=logs`
 (standard RPCs) — one Railway service per chain.
 
+## 5f. Robinhood Chain mainnet, stage A: closed launch (approved 2026-09-17)
+
+Goal: the whole stack on chain 4663 with **launches disabled** (whitelist only), **USDG as the only
+ERC-20 quote**, owned by a Safe, and the web config kept `hidden`. No public users, no stock quotes,
+no "audited" claims. Stage B (public launches, stock quotes) needs the external audit of
+`src/radian/` and a legal opinion on tokenized stocks as quote assets (MULTICHAIN.md).
+
+Facts checked 2026-09-17: USDG `0x5fc5360D…1d168` is 6-dec; NVDA `0xd0601CE1…9EEC` is live, not
+paused, `uiMultiplier` ≈ 1.0008; Safe 1.4.1 singleton + proxy factory are deployed and
+app.safe.global lists "Robinhood Chain" (its UI disables Ledger/Trezor/WalletConnect there, so
+signers use MetaMask/Rabby); Multicall3 exists; canonical V4 addresses equal the testnet's.
+Official bridge: `portal.arbitrum.io/bridge` with destination Robinhood Chain (~10 min deposits,
+7-day withdrawals); Across/Relay/Stargate are faster. Mainnet explorer: `robinhoodchain.blockscout.com`.
+
+Inputs from the user (never through chat): `.env.robinhood-mainnet` from
+`.env.robinhood-mainnet.example` with a **fresh** deployer key funded ~0.01 ETH, a fresh keeper
+key (address in the env, private key only on Railway) funded ~0.005 ETH, the Safe address, and
+which wallet gets whitelisted. A little USDG for the smoke launch.
+
+1. Load the env in one shell only: `set -a; source .env.robinhood-mainnet; set +a`.
+2. Simulate against a slightly old head (the public RPC rejects "latest" in forge):
+   `HEAD=$(cast block-number --rpc-url $RPC); forge script script/DeployChain.s.sol --rpc-url $RPC --fork-block-number $((HEAD-200))`
+3. Broadcast the same command with `--broadcast` (≈38M gas, under 0.001 ETH at 0.06 gwei). Record
+   every address the script prints in HANDOFF.md and `web/lib/networks.ts` → `robinhood`.
+4. `$RADIAN` flywheel: `script/DeployRadianERC20.s.sol` with `QUOTE=$QUOTE_TOKEN` (as on the
+   testnet), then point the hook's protocol recipient at the new treasury and set keeper roles (5e).
+5. Whitelist the smoke wallet while launches stay closed:
+   `cast send $FACTORY "setWhitelistedLauncher(address,bool)" $WHITELIST_LAUNCHER true --rpc-url $RPC --private-key $PRIVATE_KEY`
+   (`launchTokenFor` checks `canLaunch(originalDeployer)`, so the router and the site work for it).
+6. Smoke launch with a few USDG (site with the hidden network forced, or `LaunchTemplates.s.sol`);
+   buy, sell, sweep once. Graduation is not required.
+7. Hand over: `MULTISIG=<safe> forge script script/TransferOwnership.s.sol …` (factory, hook,
+   vault, locker, staking, treasury; two-step, the Safe accepts each), then `VerifyOwnership`.
+   The router has no owner of its own (it reads the factory owner); check the executor's keeper
+   setter is reachable by the Safe before handing over.
+8. Indexer: a third Railway service (`radian-indexer-robinhood-mainnet`) from the same image,
+   `CHAIN_ID=4663 SCAN_MODE=logs NATIVE_SYMBOL=ETH`, its own `/data` volume, the mainnet keeper
+   key, and a paid RPC rather than the public one.
+9. Web: fill addresses and code hashes, keep `hidden: true` and `live: false` until stage B.
+
 ## 5e. Keeper roles (before the handover)
 
 The bot key that runs `indexer/src/keeper.ts` must be: `hook.setFeeSweepOperator(keeper)` (fees sit
