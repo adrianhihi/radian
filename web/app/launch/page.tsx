@@ -6,6 +6,7 @@ import { Nav } from "@/components/Nav";
 import { StockTag, StockRef } from "@/components/StockRef";
 import { useReveal } from "@/lib/useReveal";
 import { useNetwork } from "@/lib/networks";
+import { factoryStateAbi } from "@/lib/factory";
 import { publicClient, RADIAN, factoryAbi, routerAbi, hasLaunchRouter, curveAbi, erc20Abi, arcTestnet, activeNetwork, QUOTE_ASSETS, type QuoteAsset } from "@/lib/radian";
 import { useRadianWallet } from "@/lib/useRadianWallet";
 import { addLocalLaunch } from "@/lib/registry";
@@ -53,7 +54,30 @@ export default function LaunchPage() {
   // SSR-safe: testnet on the server and the first client render, the real choice after mount —
   // so the quote-asset list never differs between server HTML and hydration.
   const net = useNetwork();
-  const { authenticated, login, getWalletClient } = useRadianWallet();
+  const { authenticated, login, getWalletClient, address } = useRadianWallet();
+  // Launches can be closed on a network (factory.launchEnabled = false) while a few
+  // wallets stay whitelisted; the button then says so instead of reverting.
+  const [gate, setGate] = useState<{ enabled: boolean | null; can: boolean | null }>({ enabled: null, can: null });
+  useEffect(() => {
+    let alive = true;
+    if (!activeNetwork.live) return;
+    (async () => {
+      try {
+        const enabled = await publicClient.readContract({ address: RADIAN.factory, abi: factoryStateAbi, functionName: "launchEnabled" });
+        let can: boolean | null = enabled;
+        if (!enabled && address) {
+          can = await publicClient.readContract({ address: RADIAN.factory, abi: factoryStateAbi, functionName: "canLaunch", args: [address as `0x${string}`] });
+        }
+        if (alive) setGate({ enabled, can });
+      } catch {
+        /* unreadable: leave the gate open, the transaction itself decides */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [address]);
+  const launchesClosed = gate.enabled === false && gate.can !== true;
   const [name, setName] = useState("");
   const [symbol, setSymbol] = useState("");
   const [logo, setLogo] = useState("");
@@ -149,7 +173,11 @@ export default function LaunchPage() {
 
   async function launch() {
     if (!activeNetwork.live) {
-      setToast("Radian mainnet launches September 16. Switch to Testnet to launch now.");
+      setToast("This network is not live yet. Switch network to launch.");
+      return;
+    }
+    if (launchesClosed) {
+      setToast(`Launches on ${activeNetwork.label} are not open yet.`);
       return;
     }
     if (!authenticated) {
@@ -616,7 +644,12 @@ export default function LaunchPage() {
               : feeMode === "buyback" ? "1% (35% to you · 35% buyback · 30% protocol)" : "1% (70% to you · 30% protocol)"}
           </span></div>
 
-          <button className="btn btn-primary" style={{ width: "100%", marginTop: 20, justifyContent: "center" }} onClick={launch} disabled={busy || (identity.checked && !identity.ok)}>
+          {launchesClosed && (
+            <p className="hint" style={{ marginTop: 16, color: "var(--fg-dim)" }}>
+              Launches on {net.label} are not open yet. Trading existing tokens works; new launches open when the protocol multisig enables them.
+            </p>
+          )}
+          <button className="btn btn-primary" style={{ width: "100%", marginTop: 20, justifyContent: "center" }} onClick={launch} disabled={busy || launchesClosed || (identity.checked && !identity.ok)}>
             {busy ? <span className="spinner" /> : authenticated ? `Launch for ${formatUnits(launchFee, 18)} ${net.nativeSymbol ?? "USDC"}` : "Sign in to launch"}
           </button>
           {net.key === "testnet" && (

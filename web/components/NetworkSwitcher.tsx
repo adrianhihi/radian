@@ -1,9 +1,9 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { NETWORKS, getActiveNetworkKey, setActiveNetwork, type NetworkKey } from "@/lib/networks";
+import { NETWORKS, DEFAULT_NETWORK, getActiveNetworkKey, setActiveNetwork, type NetworkKey } from "@/lib/networks";
 
 export function NetworkSwitcher() {
-  const [active, setActive] = useState<NetworkKey>("testnet");
+  const [active, setActive] = useState<NetworkKey>(DEFAULT_NETWORK);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -43,7 +43,7 @@ export function NetworkSwitcher() {
                 <span className={`netsw-dot ${n.live ? "on" : "off"}`} />
                 <span style={{ flex: 1, textAlign: "left" }}>
                   {n.chainName}
-                  <span className="netsw-sub">{n.live ? `chain ${n.chainId}` : "Sept 16"}</span>
+                  <span className="netsw-sub">{n.live ? `chain ${n.chainId}` : "soon"}</span>
                 </span>
                 {k === active && <span style={{ color: "var(--radian-2)" }}>✓</span>}
               </button>

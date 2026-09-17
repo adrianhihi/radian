@@ -5,3 +5,7 @@
 `script/TransferOwnership.s.sol` has been broadcast. It calls `acceptOwnership()` on the factory,
 hook, buyback vault, locker, $RADIAN staking and $RADIAN treasury (Ownable2Step), completing the
 handover in one Safe transaction. Verify afterwards with `script/VerifyOwnership.s.sol`.
+
+`robinhood-mainnet-open-launches.json`: one call, `setLaunchEnabled(true)` on the mainnet factory. Upload it the
+same way when the go-live checklist in MAINNET_RUNBOOK.md 5f is done; the web default network flips to
+Robinhood Chain in the same release.

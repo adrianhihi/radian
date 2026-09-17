@@ -88,7 +88,7 @@ const ZERO = "0x0000000000000000000000000000000000000000" as Address;
 export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
   testnet: {
     key: "testnet",
-    label: "Testnet",
+    label: "Arc Testnet",
     live: true,
     chainId: 5042002,
     chainName: "Arc Testnet",
@@ -155,7 +155,7 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
   },
   mainnet: {
     key: "mainnet",
-    label: "Mainnet",
+    label: "Arc Mainnet",
     live: false, // flip to true once deployed (see MAINNET_RUNBOOK.md)
     chainId: 5042,
     chainName: "Arc",
@@ -299,9 +299,9 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
   // tokens wait for the legal opinion (MAINNET_RUNBOOK.md 5f).
   robinhood: {
     key: "robinhood",
-    label: "Robinhood",
-    live: false,
-    hidden: true,
+    label: "Robinhood Chain",
+    live: true,
+    hidden: false,
     chainId: 4663,
     chainName: "Robinhood Chain",
     nativeSymbol: "ETH",
@@ -364,15 +364,18 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
 };
 
 const LS_KEY = "radian.network";
+// Where a first-time visitor lands. Flip to "robinhood" when launches open there (MAINNET_RUNBOOK.md 5f).
+export const DEFAULT_NETWORK: NetworkKey = "testnet";
+export const isTestnet = (n: NetworkConfig) => n.key.includes("testnet");
 
 export function getActiveNetworkKey(): NetworkKey {
-  if (typeof window === "undefined") return "testnet";
+  if (typeof window === "undefined") return DEFAULT_NETWORK;
   try {
     const k = window.localStorage.getItem(LS_KEY);
     // any configured, non-hidden network is a valid choice (hidden ones are scaffolds)
     if (k && k in NETWORKS && !NETWORKS[k as NetworkKey].hidden) return k as NetworkKey;
   } catch {}
-  return "testnet";
+  return DEFAULT_NETWORK;
 }
 
 export function getActiveNetwork(): NetworkConfig {
@@ -384,7 +387,7 @@ export function getActiveNetwork(): NetworkConfig {
 // Use this for anything that GATES rendering; module-level config (addresses,
 // clients) still reflects the real choice for data/effects (client-only).
 export function useNetwork(): NetworkConfig {
-  const [n, setN] = useState<NetworkConfig>(NETWORKS.testnet);
+  const [n, setN] = useState<NetworkConfig>(NETWORKS[DEFAULT_NETWORK]);
   useEffect(() => setN(getActiveNetwork()), []);
   return n;
 }

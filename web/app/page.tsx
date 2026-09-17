@@ -9,7 +9,7 @@ import { CHAIN_BRANDS, type ChainBrandKey } from "@/lib/chainBrands";
 import { TokenCard } from "@/components/TokenCard";
 import { useReveal } from "@/lib/useReveal";
 import { useLaunches } from "@/lib/useLaunches";
-import { useNetwork } from "@/lib/networks";
+import { useNetwork, isTestnet } from "@/lib/networks";
 
 type Sort = "new" | "top" | "graduating";
 type Filter = "all" | "live" | "graduated";
@@ -18,6 +18,13 @@ export default function Home() {
   const { rows, loading, error } = useLaunches();
   const net = useNetwork();
   const isArc = net.key === "testnet" || net.key === "mainnet";
+  // "USDC, EURC, or a stock" on Arc; "USDG or ETH" where no stock quote is approved.
+  const quoteBlurb = (() => {
+    const nonStock = net.quoteAssets.filter((q) => !q.stock).map((q) => q.symbol);
+    const hasStock = net.quoteAssets.some((q) => q.stock);
+    if (hasStock) return `${nonStock.join(", ")}, or a stock`;
+    return nonStock.length > 1 ? `${nonStock.slice(0, -1).join(", ")} or ${nonStock[nonStock.length - 1]}` : nonStock[0] ?? "the gas coin";
+  })();
   // The hero names the current chain first, then the other one.
   const chainItems = ((isArc ? ["arc", "robinhood"] : ["robinhood", "arc"]) as ChainBrandKey[]).map((k) => ({
     key: k,
@@ -187,7 +194,7 @@ export default function Home() {
             {[
               {
                 t: "Create",
-                d: `Name it, add a logo, hit launch. A fixed 1B-supply token and its bonding curve deploy in a single transaction, quoted in the asset you choose: ${isArc ? "USDC, EURC," : "a dollar stablecoin"} or a stock.`,
+                d: `Name it, add a logo, hit launch. A fixed 1B-supply token and its bonding curve deploy in a single transaction, quoted in the asset you choose: ${quoteBlurb}.`,
               },
               {
                 t: "Trade",
@@ -210,7 +217,12 @@ export default function Home() {
         <footer className="footer wrap">
           <div className="line">
             <span style={{ color: "var(--fg)", fontWeight: 700, fontFamily: "var(--font-display)" }}>Radian</span>
-            <span>Testnet preview, no real money. Not investment advice. Stock quote assets are testnet stand-ins. Not affiliated with Circle, Robinhood, or Pons-Labs.</span>
+            {isTestnet(net) ? (
+              <span>Testnet preview, no real money. Not investment advice. Stock quote assets are testnet stand-ins. Not affiliated with Circle, Robinhood, or Pons-Labs.</span>
+            ) : (
+              <span>Early software, not externally audited. Tokens can lose all their value. Not investment advice. Not affiliated with Circle, Robinhood, or Pons-Labs.</span>
+            )}
+            <Link href="/terms">Terms &amp; risks</Link>
             <Link href="/launch">Launch</Link>
             <Link href="/#explore">Explore</Link>
             <Link href="/verify">Verify</Link>

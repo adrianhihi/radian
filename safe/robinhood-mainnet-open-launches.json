@@ -1,0 +1,34 @@
+{
+  "version": "1.0",
+  "chainId": "4663",
+  "createdAt": 1789623703312,
+  "meta": {
+    "name": "Radian: open launches on Robinhood Chain",
+    "description": "factory.setLaunchEnabled(true). After this, anyone can launch (whitelist no longer needed). Safe 0x6db9a7fF776c7091C0A3c9847bD8a43eBA6892D8.",
+    "txBuilderVersion": "1.17.0",
+    "createdFromSafeAddress": "0x6db9a7fF776c7091C0A3c9847bD8a43eBA6892D8",
+    "createdFromOwnerAddress": "",
+    "checksum": ""
+  },
+  "transactions": [
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "enabled",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setLaunchEnabled",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "enabled": "true"
+      }
+    }
+  ]
+}

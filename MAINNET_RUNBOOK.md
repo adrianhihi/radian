@@ -216,7 +216,16 @@ pending owner. The Safe accepted (batch `safe/robinhood-mainnet-accept-ownership
 `VerifyOwnership.s.sol` reports all six contracts owned by the Safe with the flywheel wired; the keeper key is
 set on the Railway service `radian-indexer-robinhood-mainnet` (keeper live, identity 15/15). **Stage A complete
 2026-09-17.** Open before stage B: audit of `src/radian/`, legal opinion on stock quote assets, Safe to 2/3,
-a paid RPC for the indexer, a USDG-quoted smoke launch, real-money copy and terms. Lesson: never run two broadcasts from the
+a paid RPC for the indexer, a USDG-quoted smoke launch, real-money copy and terms.
+
+Go-live (minimal, decided 2026-09-17: open with USDG + ETH only, few users expected, audit later):
+1. Fix every Critical/High from the internal review of `src/radian/` (test-backed), redeploy only if a
+   contract changes (then re-pin hashes).
+2. Web (done 2026-09-17): Robinhood Chain visible and live in the switcher, mainnet footer notice,
+   `/terms`, launch page gated on `factory.launchEnabled` / `canLaunch`, docs per network.
+3. The Safe uploads `safe/robinhood-mainnet-open-launches.json` (setLaunchEnabled(true)).
+4. Same release: `DEFAULT_NETWORK = "robinhood"` in `web/lib/networks.ts`, push (Vercel deploys).
+5. Watch the mainnet indexer logs for the first hour; keeper sweeps hourly. Lesson: never run two broadcasts from the
 same key at once (the smoke launch collided with a `cast send` and wasted two no-op nonces).
 
 ## 5e. Keeper roles (before the handover)

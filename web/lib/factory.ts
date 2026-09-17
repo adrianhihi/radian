@@ -9,6 +9,7 @@ import { publicClient, RADIAN, activeNetwork, NATIVE_QUOTE, QUOTE_ASSETS } from 
 export const factoryStateAbi = parseAbi([
   "function launchFee() view returns (uint256)",
   "function launchEnabled() view returns (bool)",
+  "function canLaunch(address launcher) view returns (bool)",
   "function maxCreatorTaxBps() view returns (uint256)",
   "function snipeTaxStartBps() view returns (uint256)",
   "function snipeTaxSeconds() view returns (uint256)",

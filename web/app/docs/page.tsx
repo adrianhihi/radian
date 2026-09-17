@@ -2,8 +2,9 @@
 import { useEffect, useState } from "react";
 import { Nav } from "@/components/Nav";
 import { RADIAN } from "@/lib/radian";
+import { useNetwork } from "@/lib/networks";
 
-const addr = (a: string) => `https://testnet.arcscan.app/address/${a}`;
+
 
 const SECTIONS = [
   { id: "overview", label: "Overview" },
@@ -35,6 +36,8 @@ function Table({ rows, head }: { rows: [string, string][]; head: [string, string
 }
 
 export default function DocsPage() {
+  const net = useNetwork();
+  const addr = (a: string) => `${net.explorer}/address/${a}`;
   const [active, setActive] = useState("overview");
   useEffect(() => {
     const obs = new IntersectionObserver(
@@ -211,8 +214,9 @@ export default function DocsPage() {
           <section id="contracts">
             <h2>Contracts</h2>
             <p style={{ color: "var(--fg-dim)", marginTop: 6, marginBottom: 12 }}>
-              Deployed on Arc testnet (chain 5042002). The factory is verified on Arcscan; verification
-              of the other contracts is pending. Verification proves source = bytecode — it is not an audit.
+              Addresses below are for {net.chainName} (chain {net.chainId}); switch network to see another chain.
+              Runtime code hashes are pinned and re-checked on every visit (see Verify). Verification proves
+              source = bytecode; it is not an audit.
             </p>
             <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
               {[
