@@ -107,3 +107,20 @@ baskvia 核实并记录的事实（`spectrum-bnb-research-2026-09-14.md:9-23`、
 - HOLD：`hold-mono` 五路扫描报告（parser、market、trade、fund/user/social/bff、web），文件路径见各条。
 - baskvia：README、docs/（含 spectrum-gap-analysis-2026-09-23、bsc-asset-verification-2026-09-23、fee-config-spec、launchpad-reference-btcnvda）、local-preview/dist/*.mjs、contracts/。
 - 路由方：Relay `/chains` API、deBridge `supported-chains-info`、Across 博客与 Robinhood 桥接文档。
+
+## 5. 附：HOLD 总汇总的补充要点
+
+- HOLD 没有任何自有智能合约；仓库里全部 `.sol` 只是 Flap 税币的三个第三方接口，用于解析测试。它对 The Pound 的价值是执行引擎、解析器、返佣账本和前端，而不是链上部分。
+- 无 gas 的供应商选择：HOLD 原型在 Privy 控制台把智能钱包设为 Safe，bundler 和 paymaster 用 Pimlico（`prototype/README.md:46-61`）；正式服务只允许 `SmartWalletChains: [bnb]`。The Pound 要先确认 Pimlico 或其他 paymaster 是否支持 Robinhood Chain。
+- Relay 的"用户先签、平台后补签"顺序与 Relay 官方建议相反，HOLD 自己的设计评审要求单独审查（`docs/modules/trade-buy-design-review.md:27`）。
+- 逐项对照：
+
+| The Pound 需求 | HOLD 现成度 |
+| --- | --- |
+| 主链一条 bonding curve | 无自有合约；有 Pons、Flap、Long、pump.fun、stonk.fun 曲线的解析与生命周期投影 |
+| 跨链买入 | Relay 入站加 Solana 代付源交易已实现，目标链只验 BNB，parser 不支持 Base |
+| 毕业后全链代币 | 无 |
+| 无平台币、费用买入并销毁 Pack | 无销毁或回购；批次发放加幂等请求键加按交易阶段结算的模型可直接改成周度 Pack 销毁批次 |
+| 配对资产可选 | parser 有 `pairToken` 概念，market 支持任意报价资产估值，fund 的成本配对只认 USDC |
+| 创作者分成加推荐 | 推荐归因、计提、发放设计完整但发放未接线；返佣表加一个受益人类型字段即可复用 |
+| 费用分配 | 平台费是同一交易内的独立转账，可拆成多条；比例逐行存版本 |
