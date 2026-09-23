@@ -55,3 +55,29 @@ PackBurner.burn(amount, minOut):
 `script/DeployPoundCore.s.sol` with FACTORY, HOOK, KEEPER, OWNER, TREASURY and the four template
 implementation addresses. On a chain the broadcaster owns it wires everything; on mainnet it prints
 the Safe calls (forwarder, vault, keepers, hook recipient and share, acceptOwnership ×2).
+
+
+## Attribution rule (2026-09-22)
+
+The router credits a referral only when the traded curve's snapshotted `protocolFeeRecipient`
+is the PoundVault. Fee policy is copied into every curve at launch, so tokens launched before
+The Pound send their protocol share elsewhere; crediting those trades would create accruals the
+vault never receives funds for, and `settle` would pay them out of other tokens' fees. On such
+curves `buy` / `sell` / `launchAndBuy` still work, just without a tag.
+
+## Robinhood testnet (46630) deployment
+
+| Contract | Address | Code hash |
+|---|---|---|
+| PoundVault | `0xf1AEB4C7F4529eF6cf1A1096fFD8629a044D20Ad` | `0xb998a8015082fa9a771ad838276d751122631145558476b233e2a62fa0a5d974` |
+| PackBurner | `0xd8c4A6129b8b9dbaFf651A22e9504dd49358Ea6c` | `0x5e4b96843a6752a1d3ddb66e9d2ecc83699c2f3a94fa2bc2898bc957e2f8aa51` |
+| RadianLaunchRouter v4 | `0x6AD94a7A0073deCc6114Ee8B5A1ED3fcC20296a4` | `0x42dbe1954b067922be4659fac9980535fd54d227208dfafdc1b0df877fee4c01` |
+| PoFRouter | `0x90A6F2d85A8Ac9958d388238215C8b3bA21D519d` | `0xd0cd6d82d35e6ac44023ae0aa6ef9e9aed5fa015a35f0e75cee32739e2ebeade` |
+| RadianExecutor v2 | `0x620BeE504c7BCe3c6abBAE3518f273655B1d37D0` | `0xe5aa55605b6b83fca3f5899cee94a7f3a2f35f26e458e503290cd61a71713604` |
+
+Proven on chain 2026-09-22 (see HANDOFF.md): launch + buy with a referrer, sweep, `settle`
+(16 USDGx → 9.05 referrals / 4.87 burn / 2.09 treasury), Pack #0 = RHSMK on its real V4 pool,
+`burn` sent 97,801 RHSMK to `0x…dEaD` with a 0.024 USDGx bounty.
+
+Scripts: `script/DeployPoundCore.s.sol` (all four), `script/DeployRouterV4.s.sol` (router only,
+against an existing vault), `script/SmokeLaunchQuoted.s.sol` (ERC-20-quoted launch with `REFERRER`).

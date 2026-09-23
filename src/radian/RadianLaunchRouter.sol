@@ -16,6 +16,7 @@ interface IRadianCurve {
     function buy(uint256 quoteIn, uint256 minTokensOut, address recipient) external payable returns (uint256 tokensOut);
     function sell(uint256 tokensIn, uint256 minQuoteOut, address recipient) external returns (uint256 quoteOut);
     function feeBps() external view returns (uint256);
+    function protocolFeeRecipient() external view returns (address);
 }
 
 interface IPoundVaultAttribution {
@@ -146,7 +147,7 @@ contract RadianLaunchRouter {
             spent = quoteIn - _refundToken(quote, baseline);
         }
         uint256 fee = (spent * IRadianCurve(L.curve).feeBps()) / 10_000;
-        _attribute(L.pairToken, msg.sender, referrer, token, fee);
+        _attribute(L.curve, L.pairToken, msg.sender, referrer, token, fee);
         emit Bought(token, msg.sender, recipient, referrer, spent, tokensOut, fee);
     }
 
@@ -166,7 +167,7 @@ contract RadianLaunchRouter {
         t.forceApprove(L.curve, 0);
         uint256 feeBps = IRadianCurve(L.curve).feeBps();
         uint256 fee = (quoteOut * feeBps) / (10_000 - feeBps); // the fee came off the gross quote
-        _attribute(L.pairToken, msg.sender, referrer, token, fee);
+        _attribute(L.curve, L.pairToken, msg.sender, referrer, token, fee);
         emit Sold(token, msg.sender, recipient, referrer, tokensIn, quoteOut, fee);
     }
 
@@ -191,7 +192,7 @@ contract RadianLaunchRouter {
         (tokensOut, spent) = _openingBuy(curve, pairToken, buyAmount, minTokensOut);
         _refundNative(baseline);
         uint256 tradeFee = (spent * IRadianCurve(curve).feeBps()) / 10_000;
-        _attribute(pairToken, msg.sender, referrer, token, tradeFee);
+        _attribute(curve, pairToken, msg.sender, referrer, token, tradeFee);
         emit LaunchedAndBought(msg.sender, token, curve, pairToken, spent, tokensOut);
     }
 
@@ -337,8 +338,13 @@ contract RadianLaunchRouter {
         }
     }
 
-    function _attribute(address pairToken, address user, address referrer, address token, uint256 fee) private {
+    /// @dev Credits the vault only when this curve's fee policy (snapshotted at
+    ///      launch) actually pays the vault. Launches from before The Pound send
+    ///      their protocol share elsewhere, and an accrual the vault never receives
+    ///      funds for would be paid out of other tokens' fees.
+    function _attribute(address curve, address pairToken, address user, address referrer, address token, uint256 fee) private {
         if (vault == address(0) || fee == 0) return;
+        if (IRadianCurve(curve).protocolFeeRecipient() != vault) return;
         IPoundVaultAttribution(vault).attribute(pairToken, user, referrer, launcherRef[token], fee);
     }
 

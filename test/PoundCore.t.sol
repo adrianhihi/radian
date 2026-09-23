@@ -105,6 +105,27 @@ contract PoundCoreTest is PonsV2IntegrationTest {
         assertEq(pv.pending(address(0), ref2), (fee * pv.REFERRAL_BPS()) / 10_000, "referrer credited on the sell");
     }
 
+    function test_noAttributionWhenTheCurvePaysSomeoneElse() public {
+        // a launch from before The Pound: its curve's snapshot sends the protocol share to
+        // another recipient, so the vault would never receive funds for these accruals
+        address legacy = makeAddr("legacyTreasury");
+        address carol = makeAddr("carol");
+        vm.prank(owner);
+        hook.setProtocolFeeRecipient(legacy);
+        (address t,) = _launch(bytes32(uint256(0xC0FFEE)), 1e18, bob);
+        vm.prank(owner);
+        hook.setProtocolFeeRecipient(address(pv));
+        assertEq(pv.pending(address(0), bob), 0, "no launch-side credit");
+        vm.prank(bob);
+        router.buy{value: 1e18}(t, 1e18, 0, bob, carol);
+        assertEq(pv.pending(address(0), carol), 0, "no buy-side credit");
+        assertEq(pv.totalPending(address(0)), 0, "nothing pending");
+        // a launch under the current policy still credits
+        (address t2,) = _launch(bytes32(uint256(0xC0FFEF)), 1e18, bob);
+        assertGt(pv.pending(address(0), bob), 0, "current-policy launch credits");
+        assertEq(router.launcherRef(t2), bob);
+    }
+
     function test_onlyRouterAttributes() public {
         vm.expectRevert(PoundVault.NotRouter.selector);
         pv.attribute(address(0), bob, ref1, address(0), 1e18);

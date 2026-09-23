@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { formatUnits, type Address } from "viem";
-import { useNetwork } from "@/lib/networks";
+import type { NetworkConfig } from "@/lib/networks";
 import { publicClient, arcTestnet, QUOTE_ASSETS, NATIVE_QUOTE } from "@/lib/radian";
 import { useRadianWallet } from "@/lib/useRadianWallet";
 import { useIdentity } from "@/lib/identity";
@@ -37,8 +37,9 @@ function Stat({ k, l, color }: { k: string; l: string; color?: string }) {
   );
 }
 
-export function PoundEarn() {
-  const net = useNetwork();
+// `net` comes from the page's own SSR-safe network hook: a child hook would start on the
+// default network for its first render (no `pound` there) and crash before syncing.
+export function PoundEarn({ net }: { net: NetworkConfig }) {
   const pound = net.pound!;
   const { authenticated, login, address, getWalletClient } = useRadianWallet();
   const identity = useIdentity();
@@ -175,7 +176,15 @@ export function PoundEarn() {
           l="Burn pool waiting"
         />
         <Stat
-          k={view ? view.assets.filter((a) => BigInt(a.totalReferrals) > 0n).map((a) => `${fmt(a.totalReferrals, a.decimals, 2)} ${a.symbol}`).join(" · ") || "0" : "—"}
+          k={
+            view
+              ? view.assets
+                  .filter((a) => BigInt(a.totalReferrals) + BigInt(a.totalPending) > 0n)
+                  // all-time referral earnings = still outstanding (totalPending) + already paid out (totalReferrals)
+                  .map((a) => `${fmt(BigInt(a.totalReferrals) + BigInt(a.totalPending), a.decimals, 2)} ${a.symbol}`)
+                  .join(" · ") || "0"
+              : "—"
+          }
           l="Earned by referrers"
           color="var(--up)"
         />

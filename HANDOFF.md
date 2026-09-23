@@ -183,8 +183,10 @@ Facts and per-chain notes: `MULTICHAIN.md` → "Robinhood Chain".
 | `PonsV2MemeHook` | `0x15d5B10A1fCe67c01196EF118E5632B0D18Ca044` |
 | `PonsV2FeeEscrow` / `PonsV2BuybackVault` / `PonsV2LaunchLocker` | `0x112923deC686B647D140Ee58C17b0e4B6F804149` / `0xD7aD9E5c0216E09238105363DdaA6Ce3B81eCca1` / `0x61171A1a50AA2493918f6EAf3d9cf112e569FAea` |
 | `PonsV2GraduationExecutor` / `PonsV2LaunchDeployer` | `0x24219d0F3611fE4E438850bB7DB165439957dc9f` / `0x76099b39E6678018FB5B65c4e977C93e27fa9aF1` |
-| `RadianLaunchRouter` v3 (forwarder) / `PoFRouter` v3 | `0xD7ed78E15590c8B0d962133Af74aec1589Dc8a54` / `0xF101f27A5156771c66E343FB3BF04e6208677660` (v2: `0x5AC74F26…a3Da` / `0xa6B14Ab7…4fC5`, retired) |
-| `RadianExecutor` | `0xefb3FBDCf95662177d66E264B8394E7BD4Ece11c` |
+| `RadianLaunchRouter` v4 (forwarder, 2026-09-22) / `PoFRouter` | `0x6AD94a7A0073deCc6114Ee8B5A1ED3fcC20296a4` / `0x90A6F2d85A8Ac9958d388238215C8b3bA21D519d` (v4.0 `0xd1769255…ca286` and v3 `0xD7ed78E1…8a54` retired; v2 `0x5AC74F26…a3Da` / `0xa6B14Ab7…4fC5`) |
+| `RadianExecutor` v2 (asset + price floor + snipe-window guard) | `0x620BeE504c7BCe3c6abBAE3518f273655B1d37D0` (v1 `0xefb3FBDC…e11c` retired) |
+| **The Pound** `PoundVault` / `PackBurner` (2026-09-22, block 123023738) | `0xf1AEB4C7F4529eF6cf1A1096fFD8629a044D20Ad` / `0xd8c4A6129b8b9dbaFf651A22e9504dd49358Ea6c` — hook `protocolFeeRecipient` = vault, share 5000; burner keeper `0xBb5b…779c`; Pack #0 = `RHSMK` (graduated 2026-09-22, V4 pool key `(RHSMK, USDGx, fee 0, spacing 200, hook)`, floor 0.1 / cap 5 USDGx) |
+| Pound smoke launch `PNDT` (hidden candidate) | token `0x8a4B5bB570e7338f3b8555F1aaD3179CC24F4055`, curve `0x475b6C97…B5ac`, launcherRef `0x4392…0Adb`; proven: launch+buy with referrer → sweep → `settle` (16 USDGx in → 9.05 referrals / 4.87 burn / 2.09 treasury) → `burn` bought 97,801 RHSMK on the real pool and sent it to `0x…dEaD` |
 | Template impls v3 `WallTreasury` / `WallStaking` / `WallLadder` / `PoFVault` | `0x55379F8fbA5b47290E535999682Ccd0E1773009E` / `0x1da4Ebf52892Fb209701a8E6cFF06058e89c21Cc` / `0xbFf760f35F421cAE2E9650aF1571FDd618e206a7` / `0xb097101C0DF29a5ffb03bcd3552cbFf81C14A1eC` |
 | Uniswap V4 PoolManager / PositionManager (canonical) | `0x8366a39CC670B4001A1121B8F6A443A643e40951` / `0x58daec3116aae6d93017baaea7749052e8a04fa7` |
 | Stand-ins: `USDGx` (6-dec) · `NVDAx` · `TSLAx` · `AAPLx` | `0xf6f8fF47fEa2f2cE3195ad197B8A9BF520c13ed0` · `0x4B2E6503e10708d5be2245DE0DED7D0ccF5AeF19` · `0xE8a0d16201bfbA7c42712Fa000B86E0b3BfD0745` · `0x176892e311fB4e517Ed2419626d6F9691bD7DcC6` |
@@ -200,6 +202,18 @@ buy $RADIAN back and burn it, the rest streams to stakers as USDGx; gas-coin and
 fees are held for the owner to route. The curve graduates at USDGx's pair threshold (10,000),
 after which everything streams to stakers until a pool-side buyback module exists.
 Owner is still the deployer EOA; the testnet is not handed to a multisig.
+
+**The Pound replaces the flywheel on this chain (2026-09-22):** the hook's protocol share now
+goes to `PoundVault` (see `docs/POUND_CORE.md`); the staking/treasury pair above is retired and
+receives no new fees. The router credits referrals only for curves whose snapshotted
+`protocolFeeRecipient` is the vault, so launches from before the switch (RHSMK, RADIAN) carry
+no referral tags. Indexer env for this stack: `LAUNCH_ROUTER=0x6AD9…96a4`,
+`LEGACY_ROUTERS=0xd176…ca286,0xD7ed…8a54,0xF101…7660,0xefb3…e11c`, `EXECUTOR=0x620B…37D0`,
+`EXECUTOR_VERSION=2`, `POUND_VAULT=0xf1AE…20Ad`, `PACK_BURNER=0xd8c4…Ea6c`, plus the three new
+entries in `CODE_HASHES_JSON` (router `0x42dbe195…4c01`, vault `0xb998a801…d974`, burner
+`0x5e4b9684…aa51`; executor `0xe5aa5560…3604`, PoFRouter `0xd0cd6d82…eade`). The keeper settles
+the vault hourly per quote asset and burns when the burner's interval has passed and the pool
+holds at least the next coin's floor.
 
 **Keeper roles (both chains, 2026-09-16):** the bot `0xBb5b…779c` is the hook's `feeSweepOperator`
 (sweeps every curve's pending fees hourly), the treasury `keeper` (claims + flushes), the template

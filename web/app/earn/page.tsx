@@ -99,7 +99,7 @@ export default function EarnPage() {
       <main className="wrap" style={{ padding: "48px 24px 0" }}>
         <SoonBanner />
         {/* The Pound replaces the $RADIAN flywheel on the chains that run it */}
-        {net.live && net.pound && <PoundEarn />}
+        {net.live && net.pound && <PoundEarn net={net} />}
         {net.live && !net.pound && net.radian.token === "0x0000000000000000000000000000000000000000" && (
           <div className="panel reveal" style={{ marginTop: 20, maxWidth: 640 }}>
             <h1 style={{ fontSize: 28 }}>$RADIAN lives on Arc.</h1>

@@ -221,7 +221,7 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
       escrow: "0x112923deC686B647D140Ee58C17b0e4B6F804149",
       hook: "0x15d5B10A1fCe67c01196EF118E5632B0D18Ca044",
       poolManager: "0x8366a39CC670B4001A1121B8F6A443A643e40951",
-      router: "0xd1769255870E4c6CD3A496A77022254D697ca286", // v4 (2026-09-22): The Pound referral tags; templates gated
+      router: "0x6AD94a7A0073deCc6114Ee8B5A1ED3fcC20296a4", // v4 (2026-09-22): The Pound referral tags (only for curves that pay the vault); templates gated
       pofRouter: "0x90A6F2d85A8Ac9958d388238215C8b3bA21D519d",
       executor: "0x620BeE504c7BCe3c6abBAE3518f273655B1d37D0", // v2: price floor, asset, snipe-window guard
       wallTreasuryImpl: "0x55379F8fbA5b47290E535999682Ccd0E1773009E",
@@ -252,7 +252,7 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
       // recorded 2026-09-16; the three clone implementations hash identically to Arc's (no immutables)
       factory: "0xad2a5c89974e730ab607d7fb734aded658373624816548bf4f7d3b1ff6dab0b6",
       hook: "0x505ddf6d9505bf40d0291550fb1ddb9a366d5dc1767fb26ca8512b652421ab9f",
-      router: "0x0bfd9fadadffc11d4291f3c34052ce7864ae2f92de96e415b7db5091c51b8c59",
+      router: "0x42dbe1954b067922be4659fac9980535fd54d227208dfafdc1b0df877fee4c01",
       escrow: "0x87218669be442aa96ee406a6ba1886c29d8d450a7266628fa6f19b2c788d8316",
       vault: "0x0c146bf2d9808a225cbefef67e7a68a530398791b15a4b825d500a69b91e7878",
       locker: "0x5304631acb89c64e75397509c745337b6ddb3e7f529e2297a335114049bcff7d",
