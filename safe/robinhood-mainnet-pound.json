@@ -1,0 +1,151 @@
+{
+  "version": "1.0",
+  "chainId": "4663",
+  "createdAt": 1790141824405,
+  "meta": {
+    "name": "Radian: switch on The Pound (router v4, vault, burner, executor v2)",
+    "description": "1) factory.setLaunchForwarder(router v4) 2) router.setVault(PoundVault) 3) router.setKeeper 4) executor v2.setKeeper 5) hook.setProtocolFeeRecipient(PoundVault) 6) hook.setProtocolFeeShareBps(5000) 7) PoundVault.acceptOwnership 8) PackBurner.acceptOwnership. Retires the $RADIAN flywheel (the flywheel-v2 batch is superseded and must not be executed). Deployed 2026-09-22 at blocks 70267869-70. Safe 0x6db9a7fF776c7091C0A3c9847bD8a43eBA6892D8",
+    "txBuilderVersion": "1.17.0",
+    "createdFromSafeAddress": "0x6db9a7fF776c7091C0A3c9847bD8a43eBA6892D8",
+    "createdFromOwnerAddress": "",
+    "checksum": ""
+  },
+  "transactions": [
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "forwarder",
+            "type": "address",
+            "internalType": "address"
+          }
+        ],
+        "name": "setLaunchForwarder",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "forwarder": "0xD8e86A664e50eb9998Fec3F1a694960A279De6bD"
+      }
+    },
+    {
+      "to": "0xD8e86A664e50eb9998Fec3F1a694960A279De6bD",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "v",
+            "type": "address",
+            "internalType": "address"
+          }
+        ],
+        "name": "setVault",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "v": "0x184366a1DBA58011fA89161899b4E20813654330"
+      }
+    },
+    {
+      "to": "0xD8e86A664e50eb9998Fec3F1a694960A279De6bD",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "k",
+            "type": "address",
+            "internalType": "address"
+          }
+        ],
+        "name": "setKeeper",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "k": "0xA86480B3658d220f43c274E244A0c1b3d35d79FA"
+      }
+    },
+    {
+      "to": "0x693A5459b6c27849180fAf8580B3E83B4e4D6041",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "k",
+            "type": "address",
+            "internalType": "address"
+          }
+        ],
+        "name": "setKeeper",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "k": "0xA86480B3658d220f43c274E244A0c1b3d35d79FA"
+      }
+    },
+    {
+      "to": "0x892aB29D86219391CFF9A127eeE428853c71a044",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "recipient",
+            "type": "address",
+            "internalType": "address"
+          }
+        ],
+        "name": "setProtocolFeeRecipient",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "recipient": "0x184366a1DBA58011fA89161899b4E20813654330"
+      }
+    },
+    {
+      "to": "0x892aB29D86219391CFF9A127eeE428853c71a044",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "bps",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ],
+        "name": "setProtocolFeeShareBps",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "bps": "5000"
+      }
+    },
+    {
+      "to": "0x184366a1DBA58011fA89161899b4E20813654330",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [],
+        "name": "acceptOwnership",
+        "payable": false
+      },
+      "contractInputsValues": null
+    },
+    {
+      "to": "0xBA7b0b8E33d64c14caFBd44cA808875A25713C34",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [],
+        "name": "acceptOwnership",
+        "payable": false
+      },
+      "contractInputsValues": null
+    }
+  ]
+}

@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Nav } from "@/components/Nav";
 import { RADIAN } from "@/lib/radian";
@@ -198,17 +199,36 @@ export default function DocsPage() {
           </section>
 
           <section id="fees">
-            <h2>Fees & the buyback flywheel</h2>
+            <h2>Fees &amp; The Pound</h2>
             <Table
               head={["Leg", "Where it goes"]}
-              rows={[
-                ["Trade fee", "1% of every swap, on the quote-asset leg, before and after graduation"],
-                ["Protocol", "30% of the fee — to the protocol recipient via escrow"],
-                ["Creator", "70% of the fee — to the fee escrow, claimable anytime (35% when Buyback & Lock is on)"],
-                ["Buyback", "In Buyback & Lock mode, the other 35% buys the token back when the platform sweeps fees and vests it over 5 years (70% creator / 30% protocol)"],
-                ["Creator tax", "Optional, up to 10%, paid 100% to the creator on top of the base fee"],
-              ]}
+              rows={
+                net.pound
+                  ? [
+                      ["Trade fee", "1% of every swap, on the quote-asset leg, before and after graduation"],
+                      ["Creator", "50% of the fee — to the fee escrow, claimable anytime (25% when Buyback & Lock is on)"],
+                      ["Buyback", "In Buyback & Lock mode, the other 25% buys the token back when the platform sweeps fees and vests it over 5 years"],
+                      ["Protocol → The Pound", "50% of the fee — swept into the PoundVault, which settles it in this order:"],
+                      ["1. Referrals", "5.55% of the fee to whoever referred the buyer, 5.55% to whoever referred the token's creator (referral tags travel with router trades; self-referrals are dropped)"],
+                      ["2. Pack burn", "70% of what remains buys the next Pack coin (native coins of this chain with a V4 pool, curated by the Safe) and sends it to 0x…dEaD, at most once a day, within 5% of spot"],
+                      ["3. Treasury", "the remainder"],
+                      ["Creator tax", "Optional, up to 10%, paid 100% to the creator on top of the base fee"],
+                    ]
+                  : [
+                      ["Trade fee", "1% of every swap, on the quote-asset leg, before and after graduation"],
+                      ["Protocol", "30% of the fee — to the protocol recipient via escrow"],
+                      ["Creator", "70% of the fee — to the fee escrow, claimable anytime (35% when Buyback & Lock is on)"],
+                      ["Buyback", "In Buyback & Lock mode, the other 35% buys the token back when the platform sweeps fees and vests it over 5 years (70% creator / 30% protocol)"],
+                      ["Creator tax", "Optional, up to 10%, paid 100% to the creator on top of the base fee"],
+                    ]
+              }
             />
+            {net.pound && (
+              <p style={{ color: "var(--fg-dim)", marginTop: 10 }}>
+                Launches from before The Pound keep the fee policy they were created with and carry no referral tags. The live split,
+                the Pack and every settlement are on <Link href="/earn">/earn</Link>; the roles behind it are on <Link href="/factory">/factory</Link>.
+              </p>
+            )}
           </section>
 
           <section id="contracts">
@@ -229,6 +249,7 @@ export default function DocsPage() {
                 ["LaunchRouter (templates)", RADIAN.router],
                 ["PoFRouter", RADIAN.pofRouter],
                 ["RadianExecutor (auto-buy)", RADIAN.executor],
+                ...(net.pound ? [["PoundVault (fee waterfall)", net.pound.vault], ["PackBurner (Pack buy-and-burn)", net.pound.burner]] : []),
               ].map(([label, a]) => (
                 <div key={a} className="kv" style={{ padding: "13px 20px" }}>
                   <span>{label}</span>

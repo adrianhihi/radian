@@ -236,6 +236,26 @@ Go-live (minimal, decided 2026-09-17: open with USDG + ETH only, few users expec
 5. Watch the mainnet indexer logs for the first hour; keeper sweeps hourly. Lesson: never run two broadcasts from the
 same key at once (the smoke launch collided with a `cast send` and wasted two no-op nonces).
 
+### 5f status, 2026-09-22 — The Pound deployed (stage A still closed)
+
+`script/DeployPoundCore.s.sol` broadcast from the deployer (OWNER = TREASURY = the Safe): PoundVault
+`0x184366a1…4330`, PackBurner `0xBA7b0b8E…3C34`, RadianLaunchRouter v4 `0xD8e86A66…e6bD`, PoFRouter
+`0xC1dBC830…02BF`, RadianExecutor v2 `0x693A5459…6041` (blocks 70267869-70). Vault and burner have
+`pendingOwner` = Safe. Mainnet indexer redeployed with `EXECUTOR_VERSION=2`, `POUND_VAULT`, `PACK_BURNER`,
+`LEGACY_ROUTERS` (v3 router, v3 PoFRouter, executor v1) and 17 pinned hashes; web `robinhood` config points
+at the new addresses.
+
+TO DO from the Safe, in this order:
+1. Execute `safe/robinhood-mainnet-pound.json` (forwarder → router v4, router vault/keeper, executor keeper,
+   hook recipient → vault, share 30% → 50%, two acceptOwnership). Verify `factory.launchForwarder()`,
+   `hook.protocolFeeRecipient()`, `vault.owner()`, `burner.owner()`.
+2. Pick the first Pack coins (native Robinhood Chain coins with a V4 pool on the canonical PoolManager) and
+   `addPack(token, key, floor, maxPerBurn)` from the Safe; the keeper burns once a day when the pool holds
+   the floor. Nothing burns until the Pack has an active coin (the pool just accrues).
+3. Then the go-live checklist (audit, legal on stock quotes, Safe 1/1 → 2/3, paid RPC), the open-launches
+   batch and the web default network flip.
+Note: the $RADIAN flywheel v2 is retired unused; `safe/robinhood-mainnet-flywheel-v2.json` must not run.
+
 ## 5e. Keeper roles (before the handover)
 
 The bot key that runs `indexer/src/keeper.ts` must be: `hook.setFeeSweepOperator(keeper)` (fees sit

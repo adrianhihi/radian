@@ -17,7 +17,7 @@ export default function TermsPage() {
     {
       h: "Not audited",
       p: [
-        "The trading engine is a source-identical port of a verified upstream launchpad. The Radian-specific contracts (launch router, launch templates, delegated buys, the $RADIAN flywheel) have been reviewed internally but have not been audited by an external firm. Bugs can exist. Do not put in money you cannot afford to lose.",
+        "The trading engine is a source-identical port of a verified upstream launchpad. The Radian-specific contracts (launch router, launch templates, delegated buys, The Pound's vault and burner) have been reviewed internally but have not been audited by an external firm. Bugs can exist. Do not put in money you cannot afford to lose.",
       ],
     },
     {

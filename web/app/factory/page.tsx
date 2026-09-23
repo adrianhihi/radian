@@ -70,7 +70,8 @@ export default function FactoryPage() {
 
   const others = Object.values(NETWORKS).filter((n) => n.live && !n.hidden && n.key !== net.key);
 
-  const roles: { role: string; address: string | null | undefined; note: string; check?: boolean | null }[] = state
+  // `check` compares the live address with what this site expects; `expect` names that expectation
+  const roles: { role: string; address: string | null | undefined; note: string; check?: boolean | null; expect?: string }[] = state
     ? [
         { role: "Factory owner", address: state.factoryOwner, note: "sets the launch fee, launch configs, approved quote assets and the launch forwarder" },
         { role: "Hook owner", address: state.hook.owner, note: "sets the trade fee split and the price-impact cap for every curve" },
@@ -80,6 +81,7 @@ export default function FactoryPage() {
               address: state.hook.protocolFeeRecipient,
               note: "the PoundVault: settles the protocol share into referral accruals, the Pack burn pool and the treasury",
               check: same(state.hook.protocolFeeRecipient, net.pound.vault),
+              expect: "the PoundVault",
             }
           : { role: "Protocol fee recipient", address: state.hook.protocolFeeRecipient, note: "receives the protocol share of trade fees" },
         ...(net.pound
@@ -90,6 +92,7 @@ export default function FactoryPage() {
           address: state.launchForwarder,
           note: "the only contract allowed to launch on someone's behalf; this site launches through it",
           check: state.launchForwarder ? same(state.launchForwarder, RADIAN.router) : null,
+          expect: "this site's router",
         },
         { role: "Fee sweep operator", address: state.hook.feeSweepOperator, note: "the keeper: moves earned fees off every curve about once an hour" },
         { role: "Router keeper", address: state.routerKeeper, note: "the keeper: Wall defends and ladders, Proof-of-Fee buybacks, delegated buys, stuck graduations" },
@@ -249,8 +252,8 @@ export default function FactoryPage() {
                     <td style={{ ...td, whiteSpace: "nowrap" }}>{r.role}</td>
                     <td style={mono}>
                       {r.address && r.address !== ZERO ? <a href={explorerAddr(r.address)} target="_blank" rel="noreferrer" style={{ color: "var(--radian-2)" }}>{r.address}</a> : "—"}
-                      {r.check === true && <span style={{ color: "var(--up)", marginLeft: 8, fontFamily: "inherit" }}>this site&apos;s router</span>}
-                      {r.check === false && <span style={{ color: "var(--down)", marginLeft: 8, fontFamily: "inherit" }}>not the router this site uses</span>}
+                      {r.check === true && <span style={{ color: "var(--up)", marginLeft: 8, fontFamily: "inherit" }}>{r.expect ?? "as expected"}</span>}
+                      {r.check === false && <span style={{ color: "var(--down)", marginLeft: 8, fontFamily: "inherit" }}>not {r.expect ?? "what this site expects"} — an owner change is pending</span>}
                     </td>
                     <td style={td}>{r.note}</td>
                   </Row>

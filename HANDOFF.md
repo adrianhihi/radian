@@ -160,14 +160,15 @@ user in the Railway UI; key generated locally, never in chat); identity check 15
 | PonsV2BuybackVault | `0x7E59C701b355b41f87605aA38935f4031A87Ce96` |
 | PonsV2LaunchLocker | `0xe148601dC40427E634639536EdC00302b738C5bC` |
 | GraduationExecutor / LaunchDeployer | `0xa582492706c75499EbCdAD37D07DA958079FDbab` / `0x75D10c9Ff52BFEA4A87306C728c08D45537d621C` |
-| RadianLaunchRouter (v3, launch forwarder) | `0xBC96c94a5C380Bd8B986341c1b7e61109c503959` |
-| PoFRouter | `0x5A2c5Dd3D0eD4644FE99265d7986eB249Df69aDD` |
-| RadianExecutor | `0xf6cb8d88a9Eccd3F3E0114a387D0B308849b4C72` |
+| RadianLaunchRouter v4 (2026-09-22; becomes the launch forwarder when the Safe runs `safe/robinhood-mainnet-pound.json`) | `0xD8e86A664e50eb9998Fec3F1a694960A279De6bD` (v3 `0xBC96c94a…3959` retired, still the forwarder until the batch executes) |
+| PoFRouter (v4) | `0xC1dBC83073bcA0AA683b7ffcda3BE18FA96702BF` (v3 `0x5A2c5Dd3…9aDD` retired) |
+| RadianExecutor v2 (asset + price floor + snipe-window guard; keeper set by the same batch) | `0x693A5459b6c27849180fAf8580B3E83B4e4D6041` (v1 `0xf6cb8d88…4C72` retired) |
+| **The Pound** PoundVault / PackBurner (2026-09-22, blocks 70267869-70, 9 txs, 9.24M gas; pendingOwner = Safe; vault router/burner/treasury(Safe)/burnShare 7000 set; burner keeper = `0xA864…79FA`, 1-day interval, 50 bps bounty, 5% max slippage) | `0x184366a1DBA58011fA89161899b4E20813654330` / `0xBA7b0b8E33d64c14caFBd44cA808875A25713C34` — hashes: vault `0xa1d46142…ad8a`, burner `0x5e4b9684…aa51`, router `0x5e70da33…4424`, PoFRouter `0x5f482c1d…eee9`, executor `0xa5543581…26bc` |
 | WallTreasury / WallStaking / WallLadder impl | `0x7248AAFBf5D4E0cadd2B03cE358a0E0e5f8B1F60` / `0x9a02091e763668fab0F25042d2Ff6274dD7E1e2b` / `0xe82Ab46b9639396b21eF226edc8a480E8F7a6885` |
 | PoFVault impl | `0xBC2c79ca69075d17d5A208CBB764B9EF7832cdDc` |
 | Uniswap V4 PoolManager / PositionManager (canonical) | `0x8366a39CC670B4001A1121B8F6A443A643e40951` / `0x58daec3116aae6d93017baaea7749052e8a04fa7` |
 | $RADIAN token / curve (USDG-quoted) | `0xA7eb3296f97b06989FcBf5627a1aC6848bd86Bc6` / `0x9397f3F4F77f72E72b4F3d3B0E2Af94f072F25A9` |
-| RadianStakingERC20 / RadianTreasuryERC20 v2 (review fixes 2026-09-17; hook protocol-fee recipient = treasury once the Safe runs `safe/robinhood-mainnet-flywheel-v2.json`) | `0xBC10A308CFD19cD2541e19609e6F730eC5a10683` / `0x6F5375684EB6C3C48cDa4F4a0e92471c2397d717` |
+| RadianStakingERC20 / RadianTreasuryERC20 v2 (review fixes 2026-09-17; RETIRED before use — The Pound takes the protocol share instead; `safe/robinhood-mainnet-flywheel-v2.json` is superseded and must not run; hook recipient is still treasury v1 `0x8058…ce73` at 30% until the Pound batch sets the vault at 50%) | `0xBC10A308CFD19cD2541e19609e6F730eC5a10683` / `0x6F5375684EB6C3C48cDa4F4a0e92471c2397d717` |
 | RadianStakingERC20 / RadianTreasuryERC20 v1 (retired the same day; Safe-owned, holds dust) | `0x2Fd94e5Aa812144cFEE976ea3dCCfbC666c1029e` / `0x8058FbA12F7CF9e141Fe3020ab28DF41dE52ce73` |
 
 ## Robinhood Chain testnet (46630) — live, 2026-09-16

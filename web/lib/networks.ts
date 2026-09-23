@@ -329,15 +329,19 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
       hook: "0x892aB29D86219391CFF9A127eeE428853c71a044",
       // canonical Uniswap V4 PoolManager (same address as the testnet; code verified 2026-09-16)
       poolManager: "0x8366a39CC670B4001A1121B8F6A443A643e40951",
-      router: "0xBC96c94a5C380Bd8B986341c1b7e61109c503959",
-      pofRouter: "0x5A2c5Dd3D0eD4644FE99265d7986eB249Df69aDD",
-      executor: "0xf6cb8d88a9Eccd3F3E0114a387D0B308849b4C72",
+      // The Pound core, 2026-09-22 (blocks 70267869-70). Router v4 becomes the launch forwarder and
+      // executor v2 gets its keeper only once the Safe executes safe/robinhood-mainnet-pound.json.
+      router: "0xD8e86A664e50eb9998Fec3F1a694960A279De6bD", // v4 (v3 0xBC96c94a…3959 retired)
+      pofRouter: "0xC1dBC83073bcA0AA683b7ffcda3BE18FA96702BF",
+      executor: "0x693A5459b6c27849180fAf8580B3E83B4e4D6041", // v2 (v1 0xf6cb8d88…4C72 retired)
       wallTreasuryImpl: "0x7248AAFBf5D4E0cadd2B03cE358a0E0e5f8B1F60",
       wallStakingImpl: "0x9a02091e763668fab0F25042d2Ff6274dD7E1e2b",
       pofVaultImpl: "0xBC2c79ca69075d17d5A208CBB764B9EF7832cdDc",
       wallLadderImpl: "0xe82Ab46b9639396b21eF226edc8a480E8F7a6885",
     },
-    // $RADIAN on Robinhood mainnet: priced in USDG; ERC-20-reward flywheel (DeployRadianERC20.s.sol, 2026-09-17, block 65107010)
+    // The Pound (2026-09-22): protocol share → PoundVault waterfall → PackBurner. Retires the flywheel below.
+    pound: { vault: "0x184366a1DBA58011fA89161899b4E20813654330", burner: "0xBA7b0b8E33d64c14caFBd44cA808875A25713C34" },
+    // $RADIAN on Robinhood mainnet: priced in USDG; ERC-20-reward flywheel (DeployRadianERC20.s.sol, 2026-09-17, block 65107010) — retired by The Pound
     // Wall / Proof-of-Fee templates and delegated buys stay off here until the fixes from the
     // 2026-09-17 review are deployed (MAINNET_RUNBOOK.md 5f). Standard launches only.
     features: { templates: false, delegatedBuys: false },
@@ -354,15 +358,17 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
       // Robinhood Chain mainnet, recorded 2026-09-17 right after DeployChain (cast keccak of cast code)
       factory: "0x30321f7890c173da00785f7e5c732da9823dcced5aa42304cd57893aaf584ba1",
       hook: "0x1b9550ae872f8cca151d6d64d12f7cadc93254d7f848a5e0628d107ccd3db09f",
-      router: "0x231cb4534fdf4410e5d4a722f50357e32adc4f15b456e9d814ccee2bae7c02de",
+      router: "0x5e70da33e4d33658aaa0d1d7dca106beb371be7267457d9a7bc46cf238bd4424", // v4, 2026-09-22
       escrow: "0x87218669be442aa96ee406a6ba1886c29d8d450a7266628fa6f19b2c788d8316",
       vault: "0xf5dd53418e18be0283cbc25d178cfbcdec58d010c708f705254f506832d81f8a",
       locker: "0x5304631acb89c64e75397509c745337b6ddb3e7f529e2297a335114049bcff7d",
       poolManager: "0xbd3881180b547f5fe817545743cfb4343e96b1bc6640dcd70c106b0066e95626",
       staking: "0xfc5f64184e973f8a264d4528456ac9f0dd7dec422f602e3ea4e643d69f9737f7",
       treasury: "0xffdbb612f67a486a247576e267f86d332d66949c49f73a6cd864fdfd65947d62",
-      pofRouter: "0xf774c7b4802a0ff4b46ae267319888103f490541b356dfcd59935f7614723aa2",
-      executor: "0xf489aa31e0be0a6e6e785c1872d06e9570d02a61f003e53de93695e15c08fba0",
+      pofRouter: "0x5f482c1d62008d3c7ee4ecc1cb20e780b0deebbe3bd043d873ce19ab517deee9",
+      executor: "0xa55435817c2a11bcc8ec5bf0063076c0c4896a33408f89dda7a5f963a1e326bc",
+      poundVault: "0xa1d46142f5f8d06b5836b196bedf9e2baadca4fb4bcc4318c130e9305d90ad8a",
+      packBurner: "0x5e4b96843a6752a1d3ddb66e9d2ecc83699c2f3a94fa2bc2898bc957e2f8aa51",
       wallTreasuryImpl: "0x71fed5a3a76f5a3a67ca91e5313acad88147fe6196709d7c4d7e922b987c433b",
       wallStakingImpl: "0x0128ecfb818d294790edc549a882cf0efa8a2ee787e249fca92ca888c3d5c012",
       pofVaultImpl: "0x95f3971dff5cc41428090a979a462c5784b5204b8833c2b5716fdb4ceffe0674",

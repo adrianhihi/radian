@@ -74,8 +74,9 @@ export default function Home() {
           <br /> priced in real money.
         </h1>
         <p className="sub reveal" data-reveal-delay={160}>
-          Radian is a fair-launch platform on Circle&apos;s Arc chain and Robinhood Chain. Every token starts on a bonding
-          curve priced in a stablecoin or a stock. No presale. Liquidity is locked. Tokens graduate to Uniswap V4.
+          Radian is a fair-launch platform on Robinhood Chain and Circle&apos;s Arc. Every token starts on a bonding
+          curve priced in a dollar or a stock; no presale, liquidity locked, graduation into Uniswap V4. And every fee
+          feeds <strong>The Pound</strong>: referrers get paid first, then the Pack of native coins gets bought and burned.
         </p>
         <div className="hero-cta reveal" data-reveal-delay={240}>
           <Link href="/launch" className="btn btn-primary">
@@ -198,11 +199,43 @@ export default function Home() {
               },
               {
                 t: "Trade",
-                d: "Buy and sell on the curve from block one. Price rises as supply is bought — fair discovery, no presale, no team allocation. 1% fee, shared with the creator.",
+                d: "Buy and sell on the curve from block one. Price rises as supply is bought — fair discovery, no presale, no team allocation. 1% fee: half to the creator, half into The Pound.",
               },
               {
                 t: "Graduate",
                 d: "When the curve fills, liquidity migrates into a permanently-locked Uniswap V4 pool. No withdrawal path — the liquidity is locked for good.",
+              },
+            ].map((s, i) => (
+              <div className="step reveal" data-reveal-delay={i * 100} key={s.t}>
+                <div className="n">{i + 1}</div>
+                <h3>{s.t}</h3>
+                <p>{s.d}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="section wrap" id="pound">
+          <div className="section-head">
+            <div className="reveal">
+              <h2>The Pound</h2>
+              <p>Where the protocol&apos;s half of every fee goes. Split by a contract, in this order, on every trade.</p>
+            </div>
+            <Link href="/earn" className="btn btn-ghost reveal">Get a referral link →</Link>
+          </div>
+          <div className="steps">
+            {[
+              {
+                t: "Referrers first",
+                d: "5.55% of every fee goes to whoever brought the buyer, and the same again to whoever brought the token's creator. Paid in the token's quote asset, claimable any time, for as long as they trade.",
+              },
+              {
+                t: "The Pack gets burned",
+                d: "70% of what is left buys the next coin in the Pack — native coins of this chain, curated by the Safe, each with a real Uniswap V4 pool — and sends it to 0x…dEaD. One coin per rotation, within 5% of spot.",
+              },
+              {
+                t: "Nothing is minted",
+                d: "No platform token, no emissions, no yield promise. The remainder funds the treasury. Every settlement and burn is a public event you can read on /earn and verify on the explorer.",
               },
             ].map((s, i) => (
               <div className="step reveal" data-reveal-delay={i * 100} key={s.t}>
@@ -227,6 +260,7 @@ export default function Home() {
             <Link href="/#explore">Explore</Link>
             <Link href="/verify">Verify</Link>
             <Link href="/factory">Factory</Link>
+            <Link href="/earn">The Pound</Link>
             {net.key === "testnet" && <a href="https://faucet.circle.com" target="_blank" rel="noreferrer">Testnet USDC</a>}
             <a href="https://logo.dev" target="_blank" rel="noreferrer">Logos by Logo.dev</a>
           </div>
