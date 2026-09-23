@@ -8,6 +8,7 @@ import {IPonsV2LaunchFactory} from "../v2/interfaces/ILaunchpadV2.sol";
 
 interface IExecCurve {
     function buy(uint256 quoteIn, uint256 minTokensOut, address recipient) external payable returns (uint256);
+    function currentSnipeTaxBps(address recipient) external view returns (uint256);
 }
 
 /// @title RadianExecutor
@@ -29,7 +30,10 @@ contract RadianExecutor {
     struct BuyAuth {
         address user;
         address token; // launch token (its curve + quote asset come from the factory)
+        address asset; // the quote asset the user expects to spend (checked against the curve)
         uint256 perBuyMax; // quote units per execution
+        uint256 minPerBuy; // smallest execution the keeper may run (no dust buys to farm the stipend)
+        uint256 minTokensPerQuote; // price floor, 1e18-scaled: tokensOut * 1e18 >= spent * minTokensPerQuote
         uint256 maxGasPrice; // caps the stipend the keeper can charge
         uint32 totalCount;
         uint32 minInterval; // seconds between executions
@@ -43,7 +47,7 @@ contract RadianExecutor {
     }
 
     bytes32 public constant AUTH_TYPEHASH = keccak256(
-        "BuyAuth(address user,address token,uint256 perBuyMax,uint256 maxGasPrice,uint32 totalCount,uint32 minInterval,uint64 deadline,uint256 nonce)"
+        "BuyAuth(address user,address token,address asset,uint256 perBuyMax,uint256 minPerBuy,uint256 minTokensPerQuote,uint256 maxGasPrice,uint32 totalCount,uint32 minInterval,uint64 deadline,uint256 nonce)"
     );
     uint256 public constant FEE_BPS = 50; // 0.5% of quote spent, fixed forever
     uint256 public constant GAS_STIPEND = 300_000; // gas units × min(tx.gasprice, auth.maxGasPrice)
@@ -79,6 +83,9 @@ contract RadianExecutor {
     error OverCap();
     error UnknownToken();
     error Insufficient();
+    error WrongAsset();
+    error BelowPriceFloor();
+    error SnipeWindow();
 
     modifier nonReentrant() {
         require(_lock != 2, "reentrancy");
@@ -94,7 +101,7 @@ contract RadianExecutor {
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
                 keccak256("RadianExecutor"),
-                keccak256("1"),
+                keccak256("2"),
                 block.chainid,
                 address(this)
             )
@@ -103,7 +110,7 @@ contract RadianExecutor {
 
     // ---- user: funds + authority ----
 
-    function deposit() external payable {
+    function deposit() external payable nonReentrant {
         require(msg.value > 0, "zero");
         balanceOf[msg.sender][NATIVE] += msg.value;
         emit Deposited(msg.sender, NATIVE, msg.value);
@@ -136,12 +143,27 @@ contract RadianExecutor {
     }
 
     function authId(BuyAuth calldata a) public pure returns (bytes32) {
-        return keccak256(abi.encode(a.user, a.token, a.perBuyMax, a.maxGasPrice, a.totalCount, a.minInterval, a.deadline, a.nonce));
+        return keccak256(
+            abi.encode(a.user, a.token, a.asset, a.perBuyMax, a.minPerBuy, a.minTokensPerQuote, a.maxGasPrice, a.totalCount, a.minInterval, a.deadline, a.nonce)
+        );
     }
 
     function hashAuth(BuyAuth calldata a) public view returns (bytes32) {
         bytes32 structHash = keccak256(
-            abi.encode(AUTH_TYPEHASH, a.user, a.token, a.perBuyMax, a.maxGasPrice, a.totalCount, a.minInterval, a.deadline, a.nonce)
+            abi.encode(
+                AUTH_TYPEHASH,
+                a.user,
+                a.token,
+                a.asset,
+                a.perBuyMax,
+                a.minPerBuy,
+                a.minTokensPerQuote,
+                a.maxGasPrice,
+                a.totalCount,
+                a.minInterval,
+                a.deadline,
+                a.nonce
+            )
         );
         return keccak256(abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash));
     }
@@ -157,18 +179,21 @@ contract RadianExecutor {
         returns (uint256 tokensOut)
     {
         if (msg.sender != keeper) revert NotKeeper();
-        if (_recover(hashAuth(a), sig) != a.user) revert BadSignature();
+        if (a.user == address(0) || _recover(hashAuth(a), sig) != a.user) revert BadSignature();
         if (a.nonce != nonces[a.user]) revert BadSignature();
         if (block.timestamp > a.deadline) revert AuthExpired();
         bytes32 id = authId(a);
         Exec storage e = execs[id];
         if (e.count >= a.totalCount) revert AuthExhausted();
         if (e.lastAt != 0 && block.timestamp < uint256(e.lastAt) + a.minInterval) revert TooSoon();
-        if (amount == 0 || amount > a.perBuyMax) revert OverCap();
+        if (amount == 0 || amount > a.perBuyMax || amount < a.minPerBuy) revert OverCap();
 
         IPonsV2LaunchFactory.LaunchedToken memory L = factory.getLaunchedToken(a.token);
         if (L.curve == address(0)) revert UnknownToken();
         address asset = L.pairToken;
+        if (asset != a.asset) revert WrongAsset();
+        // never execute inside the launch's snipe window: the tax would eat the buy
+        if (IExecCurve(L.curve).currentSnipeTaxBps(a.user) != 0) revert SnipeWindow();
 
         uint256 gasPrice = tx.gasprice < a.maxGasPrice ? tx.gasprice : a.maxGasPrice;
         uint256 stipend = GAS_STIPEND * gasPrice;
@@ -198,6 +223,8 @@ contract RadianExecutor {
             q.forceApprove(L.curve, 0);
             spent = before - q.balanceOf(address(this));
         }
+        // the user's own price floor, whatever the keeper quoted as minOut
+        if (tokensOut * 1e18 < spent * a.minTokensPerQuote) revert BelowPriceFloor();
         // fee is on what was actually spent; the difference (and any refund) goes back
         uint256 feeDue = (spent * FEE_BPS) / BPS;
         balanceOf[a.user][asset] += (amount - spent) + (fee - feeDue);

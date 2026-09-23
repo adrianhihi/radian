@@ -54,7 +54,7 @@ contract RadianLaunchRouterTest is PonsV2IntegrationTest {
         uint256 before = dana.balance;
         vm.prank(dana);
         (address t, address c, uint256 out) =
-            router.launchAndBuy{value: LAUNCH_FEE + buyAmt}(_p(bytes32(uint256(7))), 0, address(0), buyAmt, 0, noExempt);
+            router.launchAndBuy{value: LAUNCH_FEE + buyAmt}(_p(bytes32(uint256(7))), 0, address(0), buyAmt, 0, noExempt, address(0));
 
         assertGt(out, 0, "bought");
         assertEq(IERC20(t).balanceOf(dana), out, "tokens land on the user, not the router");
@@ -71,7 +71,7 @@ contract RadianLaunchRouterTest is PonsV2IntegrationTest {
         address[] memory ex = new address[](1);
         ex[0] = teamWallet;
         vm.prank(dana);
-        (, address c,) = router.launchAndBuy{value: LAUNCH_FEE}(_p(bytes32(uint256(8))), 0, address(0), 0, 0, ex);
+        (, address c,) = router.launchAndBuy{value: LAUNCH_FEE}(_p(bytes32(uint256(8))), 0, address(0), 0, 0, ex, address(0));
         assertEq(PonsV2BondingCurve(c).currentSnipeTaxBps(teamWallet), 0, "declared wallet exempt");
         assertGt(PonsV2BondingCurve(c).currentSnipeTaxBps(alice), 0);
     }
@@ -79,7 +79,7 @@ contract RadianLaunchRouterTest is PonsV2IntegrationTest {
     function test_router_launchOnly() public {
         vm.prank(dana);
         (address t, address c, uint256 out) =
-            router.launchAndBuy{value: LAUNCH_FEE}(_p(bytes32(uint256(9))), 0, address(0), 0, 0, noExempt);
+            router.launchAndBuy{value: LAUNCH_FEE}(_p(bytes32(uint256(9))), 0, address(0), 0, 0, noExempt, address(0));
         assertEq(out, 0);
         assertEq(IERC20(t).balanceOf(dana), 0);
         assertEq(PonsV2BondingCurve(c).deployer(), dana);
@@ -93,7 +93,7 @@ contract RadianLaunchRouterTest is PonsV2IntegrationTest {
         uint256 before = dana.balance;
         vm.prank(dana);
         (address t, address c, uint256 out) =
-            router.launchAndBuy{value: LAUNCH_FEE + offer}(_p(bytes32(uint256(10))), 0, address(0), offer, 0, noExempt);
+            router.launchAndBuy{value: LAUNCH_FEE + offer}(_p(bytes32(uint256(10))), 0, address(0), offer, 0, noExempt, address(0));
         assertGt(out, 0);
         uint256 spent = before - dana.balance - LAUNCH_FEE;
         assertLt(spent, offer, "part of the offer was refunded");
@@ -104,20 +104,20 @@ contract RadianLaunchRouterTest is PonsV2IntegrationTest {
     function test_router_slippageReverts() public {
         vm.prank(dana);
         vm.expectRevert();
-        router.launchAndBuy{value: LAUNCH_FEE + 1e18}(_p(bytes32(uint256(11))), 0, address(0), 1e18, type(uint256).max, noExempt);
+        router.launchAndBuy{value: LAUNCH_FEE + 1e18}(_p(bytes32(uint256(11))), 0, address(0), 1e18, type(uint256).max, noExempt, address(0));
     }
 
     function test_router_wrongValueReverts() public {
         vm.prank(dana);
         vm.expectRevert(abi.encodeWithSelector(RadianLaunchRouter.BadValue.selector, LAUNCH_FEE + 1e18, LAUNCH_FEE));
-        router.launchAndBuy{value: LAUNCH_FEE}(_p(bytes32(uint256(12))), 0, address(0), 1e18, 0, noExempt);
+        router.launchAndBuy{value: LAUNCH_FEE}(_p(bytes32(uint256(12))), 0, address(0), 1e18, 0, noExempt, address(0));
     }
 
     function test_router_onlyTrustedForwarder() public {
         RadianLaunchRouter rogue = _newRouter();
         vm.prank(dana);
         vm.expectRevert(PonsV2LaunchFactory.NotLaunchForwarder.selector);
-        rogue.launchAndBuy{value: LAUNCH_FEE}(_p(bytes32(uint256(13))), 0, address(0), 0, 0, noExempt);
+        rogue.launchAndBuy{value: LAUNCH_FEE}(_p(bytes32(uint256(13))), 0, address(0), 0, 0, noExempt, address(0));
     }
 
     function test_router_whitelistGateAppliesToUserNotRouter() public {
@@ -125,7 +125,7 @@ contract RadianLaunchRouterTest is PonsV2IntegrationTest {
         factory.setLaunchEnabled(false);
         vm.prank(dana);
         vm.expectRevert(PonsV2LaunchFactory.NotWhitelisted.selector);
-        router.launchAndBuy{value: LAUNCH_FEE}(_p(bytes32(uint256(14))), 0, address(0), 0, 0, noExempt);
+        router.launchAndBuy{value: LAUNCH_FEE}(_p(bytes32(uint256(14))), 0, address(0), 0, 0, noExempt, address(0));
     }
 
     // ---- ERC-20 (stock) quote ----
@@ -135,7 +135,7 @@ contract RadianLaunchRouterTest is PonsV2IntegrationTest {
         vm.startPrank(dana);
         stock.approve(address(router), buyAmt);
         (address t, address c, uint256 out) =
-            router.launchAndBuy{value: LAUNCH_FEE}(_p(bytes32(uint256(15))), 0, address(stock), buyAmt, 0, noExempt);
+            router.launchAndBuy{value: LAUNCH_FEE}(_p(bytes32(uint256(15))), 0, address(stock), buyAmt, 0, noExempt, address(0));
         vm.stopPrank();
 
         assertGt(out, 0);
@@ -152,7 +152,7 @@ contract RadianLaunchRouterTest is PonsV2IntegrationTest {
         vm.startPrank(dana);
         stock.approve(address(router), 5e18);
         vm.expectRevert(abi.encodeWithSelector(RadianLaunchRouter.BadValue.selector, LAUNCH_FEE, LAUNCH_FEE + 5e18));
-        router.launchAndBuy{value: LAUNCH_FEE + 5e18}(_p(bytes32(uint256(16))), 0, address(stock), 5e18, 0, noExempt);
+        router.launchAndBuy{value: LAUNCH_FEE + 5e18}(_p(bytes32(uint256(16))), 0, address(stock), 5e18, 0, noExempt, address(0));
         vm.stopPrank();
     }
 
@@ -161,7 +161,7 @@ contract RadianLaunchRouterTest is PonsV2IntegrationTest {
         vm.startPrank(dana);
         stock.approve(address(router), offer);
         (, , uint256 out) =
-            router.launchAndBuy{value: LAUNCH_FEE}(_p(bytes32(uint256(17))), 0, address(stock), offer, 0, noExempt);
+            router.launchAndBuy{value: LAUNCH_FEE}(_p(bytes32(uint256(17))), 0, address(stock), offer, 0, noExempt, address(0));
         vm.stopPrank();
         assertGt(out, 0);
         uint256 spent = 1_000e18 - stock.balanceOf(dana);

@@ -22,6 +22,8 @@ contract WallTemplateTest is PonsV2IntegrationTest {
     function setUp() public override {
         super.setUp();
         router = new RadianLaunchRouter(factory, address(new WallTreasury()), address(new WallStaking()), address(new WallLadder()), address(new PoFVault()));
+        vm.prank(factory.owner());
+        router.setTemplatesEnabled(true);
         vm.startPrank(owner);
         factory.setLaunchForwarder(address(router));
         router.setKeeper(kp);

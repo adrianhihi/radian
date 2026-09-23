@@ -30,6 +30,8 @@ contract WallLadderTest is PonsV2IntegrationTest {
         router = new RadianLaunchRouter(
             factory, address(new WallTreasury()), address(new WallStaking()), address(new WallLadder()), address(new PoFVault())
         );
+        vm.prank(factory.owner());
+        router.setTemplatesEnabled(true);
         vm.startPrank(owner);
         factory.setLaunchForwarder(address(router));
         router.setKeeper(kp);

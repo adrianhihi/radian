@@ -44,7 +44,8 @@ contract SmokeLaunchEth is Script {
             address(0),
             buy,
             0,
-            new address[](0)
+            new address[](0),
+            address(0)
         );
         uint256 half = out / 2;
         IERC20(token).approve(curve, half);

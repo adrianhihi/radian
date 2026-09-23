@@ -37,7 +37,17 @@ contract RadianExecutorTest is PonsV2IntegrationTest {
         returns (RadianExecutor.BuyAuth memory)
     {
         return RadianExecutor.BuyAuth({
-            user: user, token: tok, perBuyMax: perBuyMax, maxGasPrice: 2 gwei, totalCount: count, minInterval: interval, deadline: deadline, nonce: nonce
+            user: user,
+            token: tok,
+            asset: factory.getLaunchedToken(tok).pairToken,
+            perBuyMax: perBuyMax,
+            minPerBuy: 0,
+            minTokensPerQuote: 0,
+            maxGasPrice: 2 gwei,
+            totalCount: count,
+            minInterval: interval,
+            deadline: deadline,
+            nonce: nonce
         });
     }
 
