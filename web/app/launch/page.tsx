@@ -7,6 +7,8 @@ import { StockTag, StockRef } from "@/components/StockRef";
 import { useReveal } from "@/lib/useReveal";
 import { useNetwork } from "@/lib/networks";
 import { factoryStateAbi } from "@/lib/factory";
+import { getReferrer } from "@/lib/referral";
+import { hasPound } from "@/lib/radian";
 import { publicClient, RADIAN, factoryAbi, routerAbi, hasLaunchRouter, curveAbi, erc20Abi, arcTestnet, activeNetwork, QUOTE_ASSETS, type QuoteAsset } from "@/lib/radian";
 import { useRadianWallet } from "@/lib/useRadianWallet";
 import { addLocalLaunch } from "@/lib/registry";
@@ -290,7 +292,7 @@ export default function LaunchPage() {
         } else {
           hash = await client.writeContract({
             account, chain: arcTestnet, address: RADIAN.router, abi: routerAbi, functionName: "launchAndBuy",
-            args: [params, 0n, quote.address, buyAmt, 0n, []],
+            args: [params, 0n, quote.address, buyAmt, 0n, [], hasPound ? getReferrer() : ("0x0000000000000000000000000000000000000000" as `0x${string}`)],
             value,
           });
         }

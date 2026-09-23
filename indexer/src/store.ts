@@ -34,7 +34,11 @@ export type StoredAuth = {
   authId: string;
   user: Address;
   token: Address;
-  auth: { user: Address; token: Address; perBuyMax: string; maxGasPrice: string; totalCount: number; minInterval: number; deadline: number; nonce: string };
+  auth: {
+    user: Address; token: Address; perBuyMax: string; maxGasPrice: string; totalCount: number; minInterval: number; deadline: number; nonce: string;
+    // executor v2 only
+    asset?: Address; minPerBuy?: string; minTokensPerQuote?: string;
+  };
   signature: `0x${string}`;
   createdAt: number; // ms
   count: number;
@@ -57,6 +61,21 @@ export type Trade = {
 };
 
 // One RadianTreasury event: a fee claim or a flush (buyback + burn + stream).
+// The Pound ledger: vault settlements, referral accruals and claims, Pack burns.
+export type PoundEvent = {
+  txHash: string;
+  logIndex: number;
+  block: string;
+  ts: number; // ms
+  kind: "settle" | "burn" | "referralClaim" | "attributed" | "packAdded" | "packSet";
+  asset?: string; // quote asset (zero = gas coin)
+  intake?: string; toReferrals?: string; toBurn?: string; toTreasury?: string; // settle
+  index?: number; token?: string; quoteIn?: string; tokensOut?: string; caller?: string; bounty?: string; // burn / pack
+  floor?: string; maxPerBurn?: string; active?: boolean; // packAdded / packSet
+  referrer?: string; user?: string; amount?: string; launcher?: boolean; // attributed / referralClaim
+};
+export type ReferrerAgg = { referrer: string; asset: string; accrued: string; trades: number; lastAt: number };
+
 export type FlywheelEvent = {
   txHash: string;
   logIndex: number;
@@ -79,6 +98,8 @@ type Snapshot = {
   launches: Launch[];
   trades: Trade[];
   flywheel?: FlywheelEvent[];
+  pound?: PoundEvent[];
+  referrers?: ReferrerAgg[];
   auths?: StoredAuth[];
   rescansDone?: string[];
 };
@@ -97,6 +118,9 @@ class Store {
   launches = new Map<string, Launch>();
   trades: Trade[] = [];
   flywheel: FlywheelEvent[] = [];
+  pound: PoundEvent[] = [];
+  referrers = new Map<string, ReferrerAgg>(); // `${asset}:${referrer}` → running totals from Attributed events
+  private poundKeys = new Set<string>();
   auths = new Map<string, StoredAuth>();
   rescansDone = new Set<string>();
   identity: Identity = { checked: false, ok: true, mismatches: [] };
@@ -123,6 +147,8 @@ class Store {
         const rows = [...(s.trades ?? [])].sort((a, b) => (a.logIndex != null ? 0 : 1) - (b.logIndex != null ? 0 : 1));
         for (const t of rows) this.addTrade(t);
         for (const f of s.flywheel ?? []) this.addFlywheel(f);
+        for (const r of s.referrers ?? []) this.referrers.set(`${r.asset.toLowerCase()}:${r.referrer.toLowerCase()}`, r);
+        for (const e of s.pound ?? []) this.addPound(e, false);
         for (const a of s.auths ?? []) this.auths.set(a.authId.toLowerCase(), a);
         for (const r of s.rescansDone ?? []) this.rescansDone.add(r);
         console.log(
@@ -144,6 +170,8 @@ class Store {
       launches: [...this.launches.values()],
       trades: this.trades.slice(-MAX_TRADES),
       flywheel: this.flywheel.slice(-2000),
+      pound: this.pound.slice(-5000),
+      referrers: [...this.referrers.values()],
       auths: [...this.auths.values()],
       rescansDone: [...this.rescansDone],
     };
@@ -156,6 +184,23 @@ class Store {
     } catch (e) {
       console.error("[store] snapshot write failed", e);
     }
+  }
+
+  // `aggregate` is false when replaying a snapshot (its referrer totals are already stored).
+  addPound(e: PoundEvent, aggregate = true): boolean {
+    const key = `${e.txHash.toLowerCase()}:${e.logIndex}`;
+    if (this.poundKeys.has(key)) return false;
+    this.poundKeys.add(key);
+    this.pound.push(e);
+    if (aggregate && e.kind === "attributed" && e.asset && e.referrer && e.amount) {
+      const k = `${e.asset.toLowerCase()}:${e.referrer.toLowerCase()}`;
+      const cur = this.referrers.get(k) ?? { referrer: e.referrer, asset: e.asset, accrued: "0", trades: 0, lastAt: 0 };
+      cur.accrued = (BigInt(cur.accrued) + BigInt(e.amount)).toString();
+      cur.trades += 1;
+      cur.lastAt = Math.max(cur.lastAt, e.ts);
+      this.referrers.set(k, cur);
+    }
+    return true;
   }
 
   addFlywheel(f: FlywheelEvent): boolean {

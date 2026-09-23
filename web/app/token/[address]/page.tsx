@@ -5,7 +5,9 @@ import { formatUnits, isAddress, parseEther, type Address } from "viem";
 import { Nav } from "@/components/Nav";
 import { TradePanel } from "@/components/TradePanel";
 import { StockRef } from "@/components/StockRef";
-import { publicClient, curveAbi, tokenAbi, erc20Abi, explorer, arcTestnet, quoteByAddress, RADIAN, hasPofRouter, hasExecutor, type QuoteAsset, type LaunchTemplate } from "@/lib/radian";
+import { publicClient, curveAbi, tokenAbi, erc20Abi, explorer, arcTestnet, quoteByAddress, RADIAN, hasPofRouter, hasExecutor, hasPound, type QuoteAsset, type LaunchTemplate } from "@/lib/radian";
+import { routerTradeAbi } from "@/lib/pound";
+import { getReferrer } from "@/lib/referral";
 import { useRadianWallet } from "@/lib/useRadianWallet";
 import { findCurve } from "@/lib/registry";
 import { fetchTokenMeta, hasIndexer, type Sunset } from "@/lib/indexer";
@@ -328,17 +330,25 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
         // the buyer (same curve, same price, same on-chain minOut); a direct
         // curve buy would pay the fee and earn nothing.
         const pof = template?.kind === "pof" ? template : null;
-        const spender = pof ? pof.pofRouter : st.curve;
+        // The Pound: plain buys go through the launch router, which forwards to the
+        // curve at the same price and tags the referrer for the fee split.
+        const viaRouter = hasPound && !pof;
+        const spender = pof ? pof.pofRouter : viaRouter ? RADIAN.router : st.curve;
         const sendBuy = (value?: bigint) =>
           pof
             ? client.writeContract({
                 account: acct, chain: arcTestnet, address: pof.pofRouter, abi: pofRouterAbi,
                 functionName: "buy", args: [token, inWei, minOut], value,
               })
-            : client.writeContract({
-                account: acct, chain: arcTestnet, address: st.curve, abi: curveAbi,
-                functionName: "buy", args: [inWei, minOut, acct], value,
-              });
+            : viaRouter
+              ? client.writeContract({
+                  account: acct, chain: arcTestnet, address: RADIAN.router, abi: routerTradeAbi,
+                  functionName: "buy", args: [token, inWei, minOut, acct, getReferrer()], value,
+                })
+              : client.writeContract({
+                  account: acct, chain: arcTestnet, address: st.curve, abi: curveAbi,
+                  functionName: "buy", args: [inWei, minOut, acct], value,
+                });
         if (st.native) {
           setToast("Confirm buy…");
           const hash = await sendBuy(inWei);
@@ -362,6 +372,7 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
         setToast("Bought ✓");
       } else {
         const inTok = parseEther(amount);
+        const sellVia = hasPound ? RADIAN.router : st.curve; // The Pound: sells go through the router too (referral tag)
         setToast("Approve…");
         const ah = await client.writeContract({
           account: acct,
@@ -369,22 +380,27 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
           address: token,
           abi: tokenAbi,
           functionName: "approve",
-          args: [st.curve, inTok],
+          args: [sellVia, inTok],
         });
         await waitReceipt(ah, "approve");
         const allowed = (await publicClient.readContract({
-          address: token, abi: erc20Abi, functionName: "allowance", args: [acct, st.curve],
+          address: token, abi: erc20Abi, functionName: "allowance", args: [acct, sellVia],
         })) as bigint;
         if (allowed < inTok) throw new Error("Your wallet approved a smaller amount, so nothing was sold. Approve the full amount to continue.");
         setToast("Confirm sell…");
-        const hash = await client.writeContract({
-          account: acct,
-          chain: arcTestnet,
-          address: st.curve,
-          abi: curveAbi,
-          functionName: "sell",
-          args: [inTok, minOut, acct],
-        });
+        const hash = hasPound
+          ? await client.writeContract({
+              account: acct, chain: arcTestnet, address: RADIAN.router, abi: routerTradeAbi,
+              functionName: "sell", args: [token, inTok, minOut, acct, getReferrer()],
+            })
+          : await client.writeContract({
+              account: acct,
+              chain: arcTestnet,
+              address: st.curve,
+              abi: curveAbi,
+              functionName: "sell",
+              args: [inTok, minOut, acct],
+            });
         await waitReceipt(hash, "sell", { token });
         setToast("Sold ✓");
       }
@@ -649,13 +665,14 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
                 <p className="hint" style={{ textAlign: "center" }}>
                   Min. received is enforced on-chain — the trade reverts instead of filling below it.
                   {template?.kind === "pof" && side === "buy" && " Buys go through the PoF router, so they count as Work."}
+                  {hasPound && template?.kind !== "pof" && " Trades go through the Radian router, which credits the referrer who brought you (if any)."}
                 </p>
               </>
             )}
           </div>
           {!st.graduated && hasExecutor && !sunset && (
             <AutoBuyPanel
-              token={token} symbol={st.symbol} quote={st.quoteAsset}
+              token={token} curve={st.curve} symbol={st.symbol} quote={st.quoteAsset}
               identity={identity} onToast={setToast} onPending={setPendingHash} refreshKey={refreshKey}
             />
           )}

@@ -14,6 +14,7 @@ import {
   curveTradeAbi,
   executorAbi,
   EXECUTOR_DOMAIN,
+  EXECUTOR_VERSION,
   BUY_AUTH_TYPES,
 } from "./config.js";
 import { keeperAddress } from "./keeper.js";
@@ -192,28 +193,42 @@ export function mountAgentApi(app: Express) {
     for (const k of ["totalCount", "minInterval", "deadline"]) if (!Number.isInteger(Number(a[k])) || Number(a[k]) < 0) return bad(res, 400, `${k} must be an integer`);
     if (Number(a.totalCount) === 0 || BigInt(a.perBuyMax) === 0n) return bad(res, 400, "totalCount and perBuyMax must be positive");
     if (Number(a.deadline) <= Math.floor(Date.now() / 1000)) return bad(res, 400, "deadline is in the past");
-    if (!launchOf(a.token)) return bad(res, 404, "unknown token");
-    const message = {
+    const launch = launchOf(a.token);
+    if (!launch) return bad(res, 404, "unknown token");
+    const v2 = EXECUTOR_VERSION === "2";
+    if (v2) {
+      if (!isAddress(a.asset ?? "")) return bad(res, 400, "auth.asset must be an address (executor v2)");
+      for (const k of ["minPerBuy", "minTokensPerQuote"]) if (!/^\d+$/.test(String(a[k] ?? ""))) return bad(res, 400, `${k} must be a decimal string`);
+      if (String(a.asset).toLowerCase() !== (launch.pairToken ?? "0x0000000000000000000000000000000000000000").toLowerCase()) return bad(res, 400, "auth.asset is not this token's quote asset");
+    }
+    const base = {
       user: a.user as Address, token: a.token as Address, perBuyMax: BigInt(a.perBuyMax), maxGasPrice: BigInt(a.maxGasPrice),
       totalCount: Number(a.totalCount), minInterval: Number(a.minInterval), deadline: BigInt(a.deadline), nonce: BigInt(a.nonce),
     };
+    const message = v2
+      ? { user: base.user, token: base.token, asset: a.asset as Address, perBuyMax: base.perBuyMax, minPerBuy: BigInt(a.minPerBuy), minTokensPerQuote: BigInt(a.minTokensPerQuote), maxGasPrice: base.maxGasPrice, totalCount: base.totalCount, minInterval: base.minInterval, deadline: base.deadline, nonce: base.nonce }
+      : base;
     try {
+      // BUY_AUTH_TYPES / message follow EXECUTOR_VERSION; the literal typing viem wants is per-version, hence the cast
       const signer = await recoverTypedDataAddress({
         domain: { ...EXECUTOR_DOMAIN, chainId: arcTestnet.id, verifyingContract: EXECUTOR },
         types: BUY_AUTH_TYPES, primaryType: "BuyAuth", message, signature: sig as Hex,
-      });
+      } as never);
       if (signer.toLowerCase() !== String(a.user).toLowerCase()) return bad(res, 400, "signature does not match auth.user");
       const [nonce, authId] = (await publicClient.multicall({
         allowFailure: false,
         contracts: [
           { address: EXECUTOR, abi: executorAbi, functionName: "nonces", args: [a.user as Address] },
-          { address: EXECUTOR, abi: executorAbi, functionName: "authId", args: [message] },
+          { address: EXECUTOR, abi: executorAbi, functionName: "authId", args: [message as never] },
         ],
       })) as unknown as [bigint, Hex];
       if (nonce !== message.nonce) return bad(res, 409, `nonce mismatch: on-chain nonce is ${nonce}`);
       const stored = {
         authId, user: a.user as Address, token: a.token as Address,
-        auth: { ...a, user: a.user, token: a.token, perBuyMax: String(a.perBuyMax), maxGasPrice: String(a.maxGasPrice), totalCount: Number(a.totalCount), minInterval: Number(a.minInterval), deadline: Number(a.deadline), nonce: String(a.nonce) },
+        auth: {
+          user: a.user as Address, token: a.token as Address, perBuyMax: String(a.perBuyMax), maxGasPrice: String(a.maxGasPrice), totalCount: Number(a.totalCount), minInterval: Number(a.minInterval), deadline: Number(a.deadline), nonce: String(a.nonce),
+          ...(v2 ? { asset: a.asset as Address, minPerBuy: String(a.minPerBuy), minTokensPerQuote: String(a.minTokensPerQuote) } : {}),
+        },
         signature: sig as Hex, createdAt: Date.now(), count: 0, lastAt: 0, status: "active" as const,
       };
       store.auths.set(authId.toLowerCase(), stored);

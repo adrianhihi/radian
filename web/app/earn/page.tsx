@@ -14,6 +14,7 @@ import { formatUnits } from "viem";
 import { useIdentity } from "@/lib/identity";
 import { waitReceipt, ReceiptTimeout, usePendingResume } from "@/lib/pendingTx";
 import { IdentityBanner, PendingBar } from "@/components/TrustBanners";
+import { PoundEarn } from "@/components/PoundEarn";
 
 function Stat({ k, l, color }: { k: string; l: string; color?: string }) {
   return (
@@ -97,7 +98,9 @@ export default function EarnPage() {
       <Nav />
       <main className="wrap" style={{ padding: "48px 24px 0" }}>
         <SoonBanner />
-        {net.live && net.radian.token === "0x0000000000000000000000000000000000000000" && (
+        {/* The Pound replaces the $RADIAN flywheel on the chains that run it */}
+        {net.live && net.pound && <PoundEarn />}
+        {net.live && !net.pound && net.radian.token === "0x0000000000000000000000000000000000000000" && (
           <div className="panel reveal" style={{ marginTop: 20, maxWidth: 640 }}>
             <h1 style={{ fontSize: 28 }}>$RADIAN lives on Arc.</h1>
             <p style={{ color: "var(--fg-dim)", marginTop: 10 }}>
@@ -105,7 +108,7 @@ export default function EarnPage() {
             </p>
           </div>
         )}
-        {net.live && net.radian.token !== "0x0000000000000000000000000000000000000000" && (
+        {net.live && !net.pound && net.radian.token !== "0x0000000000000000000000000000000000000000" && (
           <>
             <IdentityBanner identity={identity} />
             <PendingBar hash={pendingHash} onClose={() => setPendingHash(null)} />

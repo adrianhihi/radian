@@ -53,6 +53,9 @@ export const hasLaunchRouter = RADIAN.router !== "0x0000000000000000000000000000
 export const hasTemplates = hasLaunchRouter && (NET.features?.templates ?? true);
 export const hasPofRouter = RADIAN.pofRouter !== "0x0000000000000000000000000000000000000000" && hasTemplates;
 export const hasExecutor = RADIAN.executor !== "0x0000000000000000000000000000000000000000" && (NET.features?.delegatedBuys ?? true);
+// The Pound: when the network has a PoundVault the router is v4 (trades carry referral tags)
+export const POUND = NET.pound;
+export const hasPound = !!NET.pound;
 
 // ---- ABIs (only what the UI needs) ----
 export const factoryAbi = parseAbi([
@@ -67,7 +70,7 @@ export const factoryAbi = parseAbi([
 // `creatorFeeRecipient` / `buybackEnabled` for templates (fees must reach the
 // treasury / vault), so the UI sends the params as-is.
 export const routerAbi = parseAbi([
-  "function launchAndBuy((string name, string symbol, string logo, string description, (string twitter, string telegram, string discord, string website, string farcaster) socials, address creatorFeeRecipient, uint16 creatorTaxBps, bool buybackEnabled, bytes32 expectedEconomics, bytes32 salt) params, uint256 launchConfigId, address pairToken, uint256 buyAmount, uint256 minTokensOut, address[] snipeTaxExemptions) payable returns (address token, address curve, uint256 tokensOut)",
+  "function launchAndBuy((string name, string symbol, string logo, string description, (string twitter, string telegram, string discord, string website, string farcaster) socials, address creatorFeeRecipient, uint16 creatorTaxBps, bool buybackEnabled, bytes32 expectedEconomics, bytes32 salt) params, uint256 launchConfigId, address pairToken, uint256 buyAmount, uint256 minTokensOut, address[] snipeTaxExemptions, address referrer) payable returns (address token, address curve, uint256 tokensOut)",
   "function launchWall((string name, string symbol, string logo, string description, (string twitter, string telegram, string discord, string website, string farcaster) socials, address creatorFeeRecipient, uint16 creatorTaxBps, bool buybackEnabled, bytes32 expectedEconomics, bytes32 salt) params, uint256 launchConfigId, address pairToken, uint256 buyAmount, uint256 minTokensOut, address[] snipeTaxExemptions, (uint16 marginBps, uint16 epochBudgetBps, uint16 streamBps, uint16 maxSlippageBps, uint32 minInterval, uint128 keeperBounty) cfg) payable returns (address token, address curve, address treasury, address staking)",
   "function launchPoF((string name, string symbol, string logo, string description, (string twitter, string telegram, string discord, string website, string farcaster) socials, address creatorFeeRecipient, uint16 creatorTaxBps, bool buybackEnabled, bytes32 expectedEconomics, bytes32 salt) params, uint256 launchConfigId, address pairToken, uint256 buyAmount, uint256 minTokensOut, address[] snipeTaxExemptions, (uint128 targetWork, uint32 roundSeconds, uint32 minInterval, uint16 maxBuybackReserveBps) cfg) payable returns (address token, address curve, address vault)",
   "function predictWall(address creator, bytes32 salt) view returns (address treasury, address staking)",

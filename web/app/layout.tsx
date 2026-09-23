@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
+import { ReferralCapture } from "@/components/ReferralCapture";
 
 export const metadata: Metadata = {
   title: "Radian: fair launches on Arc and Robinhood Chain",
@@ -20,7 +21,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
-        <Providers>{children}</Providers>
+        <Providers>
+          <ReferralCapture />
+          {children}
+        </Providers>
       </body>
     </html>
   );

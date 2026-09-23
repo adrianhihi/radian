@@ -21,7 +21,17 @@ import {
   RADIAN_QUOTE_DECIMALS,
   RADIAN_QUOTE_SYMBOL,
   erc20BalanceAbi,
+  HAS_POUND,
+  POUND_VAULT,
+  PACK_BURNER,
+  poundVaultAbi,
+  packBurnerAbi,
+  quoteMeta,
 } from "./config.js";
+import { isAddress, parseAbi, type Address } from "viem";
+
+const ZERO_ADDR = "0x0000000000000000000000000000000000000000" as Address;
+const symbolAbi = parseAbi(["function symbol() view returns (string)"]);
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR ?? "./uploads";
 const PUBLIC_URL = (process.env.PUBLIC_URL ?? "https://radian-indexer-production.up.railway.app").replace(/\/$/, "");
@@ -273,6 +283,138 @@ export function startServer() {
         // append-only ledger of treasury events, newest first
         ledger: [...store.flywheel].sort((a, b) => b.ts - a.ts || b.logIndex - a.logIndex).slice(0, 50),
       });
+    } catch (e: any) {
+      res.status(500).json({ error: e?.shortMessage ?? String(e) });
+    }
+  });
+
+  // The Pound: vault totals per quote asset, the Pack, burner parameters, the
+  // ledger (settlements, burns, claims) and the referrer leaderboard.
+  app.get("/pound", async (_req, res) => {
+    if (!HAS_POUND) return res.status(404).json({ error: "no Pound on this chain" });
+    try {
+      const assetSet = new Set<string>([ZERO_ADDR]);
+      for (const l of store.launches.values()) assetSet.add((l.pairToken ?? ZERO_ADDR).toLowerCase());
+      const assets = [...assetSet] as Address[];
+      const head = (await publicClient.multicall({
+        allowFailure: true,
+        contracts: [
+          { address: POUND_VAULT, abi: poundVaultAbi, functionName: "router" },
+          { address: POUND_VAULT, abi: poundVaultAbi, functionName: "burner" },
+          { address: POUND_VAULT, abi: poundVaultAbi, functionName: "treasury" },
+          { address: POUND_VAULT, abi: poundVaultAbi, functionName: "burnShareBps" },
+          { address: POUND_VAULT, abi: poundVaultAbi, functionName: "REFERRAL_BPS" },
+          { address: POUND_VAULT, abi: poundVaultAbi, functionName: "LAUNCHER_BPS" },
+          { address: PACK_BURNER, abi: packBurnerAbi, functionName: "packCount" },
+          { address: PACK_BURNER, abi: packBurnerAbi, functionName: "cursor" },
+          { address: PACK_BURNER, abi: packBurnerAbi, functionName: "lastBurnAt" },
+          { address: PACK_BURNER, abi: packBurnerAbi, functionName: "minInterval" },
+          { address: PACK_BURNER, abi: packBurnerAbi, functionName: "bountyBps" },
+          { address: PACK_BURNER, abi: packBurnerAbi, functionName: "maxSlippageBps" },
+          { address: PACK_BURNER, abi: packBurnerAbi, functionName: "permissionless" },
+          { address: PACK_BURNER, abi: packBurnerAbi, functionName: "keeper" },
+        ],
+      })) as { status: string; result?: unknown }[];
+      const g = <T,>(i: number, d: T): T => (head[i].status === "success" ? (head[i].result as T) : d);
+      const packCount = Number(g<bigint>(6, 0n));
+      const perAsset = (await publicClient.multicall({
+        allowFailure: true,
+        contracts: assets.flatMap((a) => [
+          { address: POUND_VAULT, abi: poundVaultAbi, functionName: "totalPending", args: [a] },
+          { address: POUND_VAULT, abi: poundVaultAbi, functionName: "reserve", args: [a] },
+          { address: POUND_VAULT, abi: poundVaultAbi, functionName: "totalReferrals", args: [a] },
+          { address: POUND_VAULT, abi: poundVaultAbi, functionName: "totalBurned", args: [a] },
+          { address: POUND_VAULT, abi: poundVaultAbi, functionName: "totalTreasury", args: [a] },
+          { address: PACK_BURNER, abi: packBurnerAbi, functionName: "pool", args: [a] },
+          { address: PACK_BURNER, abi: packBurnerAbi, functionName: "spentOf", args: [a] },
+        ]),
+      })) as { status: string; result?: unknown }[];
+      const s = (i: number) => (perAsset[i]?.status === "success" ? String(perAsset[i].result) : "0");
+      const assetRows = assets.map((a, k) => {
+        const m = quoteMeta(a);
+        const o = k * 7;
+        return {
+          asset: a, symbol: m.symbol, decimals: m.decimals,
+          totalPending: s(o), reserve: s(o + 1), totalReferrals: s(o + 2), totalBurned: s(o + 3), totalTreasury: s(o + 4),
+          burnPool: s(o + 5), burnSpent: s(o + 6),
+        };
+      });
+      const packReads = packCount
+        ? ((await publicClient.multicall({
+            allowFailure: true,
+            contracts: Array.from({ length: packCount }, (_, i) => ({ address: PACK_BURNER, abi: packBurnerAbi, functionName: "packAt" as const, args: [BigInt(i)] })),
+          })) as { status: string; result?: unknown }[])
+        : [];
+      const packs = packReads.map((r, i) => {
+        const p = (r.status === "success" ? r.result : null) as { token: Address; asset: Address; floor: bigint; maxPerBurn: bigint; active: boolean; key: { fee: number; tickSpacing: number; hooks: Address } } | null;
+        return p ? { index: i, token: p.token, asset: p.asset, floor: p.floor.toString(), maxPerBurn: p.maxPerBurn.toString(), active: p.active, poolFee: p.key.fee, hooks: p.key.hooks } : null;
+      }).filter(Boolean) as { index: number; token: Address; asset: Address; floor: string; maxPerBurn: string; active: boolean; poolFee: number; hooks: Address }[];
+      if (packs.length) {
+        const extra = (await publicClient.multicall({
+          allowFailure: true,
+          contracts: packs.flatMap((p) => [
+            { address: p.token, abi: symbolAbi, functionName: "symbol" as const },
+            { address: PACK_BURNER, abi: packBurnerAbi, functionName: "burnedOf" as const, args: [p.token] },
+          ]),
+        })) as { status: string; result?: unknown }[];
+        packs.forEach((p, i) => {
+          Object.assign(p, {
+            symbol: extra[i * 2]?.status === "success" ? String(extra[i * 2].result) : "?",
+            burned: extra[i * 2 + 1]?.status === "success" ? String(extra[i * 2 + 1].result) : "0",
+            assetSymbol: quoteMeta(p.asset).symbol, assetDecimals: quoteMeta(p.asset).decimals,
+          });
+        });
+      }
+      let nextPack: number | null = null;
+      for (let k = 0; k < packs.length; k++) {
+        const i = (Number(g<bigint>(7, 0n)) + k) % packs.length;
+        if (packs[i]?.active) { nextPack = i; break; }
+      }
+      const referrers = [...store.referrers.values()].sort((a, b) => (BigInt(b.accrued) > BigInt(a.accrued) ? 1 : -1)).slice(0, 50);
+      res.json({
+        vault: {
+          address: POUND_VAULT, router: g<Address>(0, ZERO_ADDR), burner: g<Address>(1, ZERO_ADDR), treasury: g<Address>(2, ZERO_ADDR),
+          burnShareBps: Number(g<number>(3, 0)), referralBps: Number(g<bigint>(4, 0n)), launcherBps: Number(g<bigint>(5, 0n)),
+        },
+        burner: {
+          address: PACK_BURNER, packCount, cursor: Number(g<bigint>(7, 0n)), nextPack, lastBurnAt: Number(g<bigint>(8, 0n)),
+          minInterval: Number(g<number>(9, 0)), bountyBps: Number(g<number>(10, 0)), maxSlippageBps: Number(g<number>(11, 0)),
+          permissionless: g<boolean>(12, false), keeper: g<Address>(13, ZERO_ADDR),
+        },
+        assets: assetRows,
+        packs,
+        referrers,
+        ledger: [...store.pound].filter((e) => e.kind !== "attributed").sort((a, b) => b.ts - a.ts || b.logIndex - a.logIndex).slice(0, 100),
+      });
+    } catch (e: any) {
+      res.status(500).json({ error: e?.shortMessage ?? String(e) });
+    }
+  });
+
+  // One referrer: what they can claim and have accrued per quote asset (live), plus indexed trade counts.
+  app.get("/pound/referral/:addr", async (req, res) => {
+    if (!HAS_POUND) return res.status(404).json({ error: "no Pound on this chain" });
+    const who = String(req.params.addr);
+    if (!isAddress(who)) return res.status(400).json({ error: "bad address" });
+    try {
+      const assetSet = new Set<string>([ZERO_ADDR]);
+      for (const l of store.launches.values()) assetSet.add((l.pairToken ?? ZERO_ADDR).toLowerCase());
+      const assets = [...assetSet] as Address[];
+      const r = (await publicClient.multicall({
+        allowFailure: true,
+        contracts: assets.map((a) => ({ address: POUND_VAULT, abi: poundVaultAbi, functionName: "referralOf" as const, args: [a, who as Address] })),
+      })) as { status: string; result?: unknown }[];
+      const rows = assets.map((a, i) => {
+        const m = quoteMeta(a);
+        const v = (r[i].status === "success" ? r[i].result : [0n, 0n]) as readonly [bigint, bigint];
+        const agg = store.referrers.get(`${a.toLowerCase()}:${who.toLowerCase()}`);
+        return { asset: a, symbol: m.symbol, decimals: m.decimals, claimable: v[0].toString(), accrued: v[1].toString(), trades: agg?.trades ?? 0 };
+      });
+      const recent = [...store.pound]
+        .filter((e) => e.referrer?.toLowerCase() === who.toLowerCase())
+        .sort((a, b) => b.ts - a.ts || b.logIndex - a.logIndex)
+        .slice(0, 50);
+      res.json({ referrer: who, assets: rows, recent });
     } catch (e: any) {
       res.status(500).json({ error: e?.shortMessage ?? String(e) });
     }

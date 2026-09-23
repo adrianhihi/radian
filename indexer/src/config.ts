@@ -1,4 +1,4 @@
-import { createPublicClient, http, defineChain, parseAbi, type Address } from "viem";
+import { createPublicClient, http, defineChain, parseAbi, type Abi, type Address } from "viem";
 
 // Chain parameters. Defaults are Arc testnet; every value can be overridden so
 // the same image serves another EVM chain (e.g. Robinhood Chain testnet:
@@ -94,13 +94,19 @@ export const isSunset = (token: string) => token.toLowerCase() in SUNSET;
 export const LAUNCH_ROUTER = (process.env.LAUNCH_ROUTER ?? "0x166B40423f5F592C4619237463244b6BCA1942E0") as Address; // v3 (templates + Wall ladder)
 export const LAUNCH_ROUTER_V1 = (IS_ARC_TESTNET ? "0x2333449a1d83c5F99f29d5a17554D76245412C0E" : "0x0000000000000000000000000000000000000000") as Address; // Arc only, kept for history
 // Retired routers whose launches/trades still exist (Arc v2 router + its PoFRouter). Other chains: EXTRA_ROUTERS.
-export const LEGACY_ROUTERS: Address[] = IS_ARC_TESTNET
-  ? ["0xB9F097662302F220989AAeBa6776041d7d625fAE" as Address, "0x7a21533EBEdC7222F299dcfd46E0463E744bF6E8" as Address]
-  : [];
+export const LEGACY_ROUTERS: Address[] = [
+  ...(IS_ARC_TESTNET ? ["0xB9F097662302F220989AAeBa6776041d7d625fAE" as Address, "0x7a21533EBEdC7222F299dcfd46E0463E744bF6E8" as Address] : []),
+  // other chains: LEGACY_ROUTERS=0x…,0x… (retired launch routers whose launches must still be attributed)
+  ...((process.env.LEGACY_ROUTERS ?? "").split(",").map((a) => a.trim()).filter(Boolean) as Address[]),
+];
 // Template + delegated-execution contracts (2026-09-14). Buys through PoFRouter
 // and RadianExecutor have tx.to = those contracts, so they are entry points too.
 export const POF_ROUTER = (process.env.POF_ROUTER ?? "0x972Eb013331aDc75800983605B170C12a7421991") as Address; // v3
 export const EXECUTOR = (process.env.EXECUTOR ?? "0xbf1fbda5991Ff34733AE74eDB84F74527B9588C1") as Address;
+// RadianExecutor ABI generation: "1" (Arc, Robinhood mainnet stage A) or "2"
+// (2026-09-22: BuyAuth carries the quote asset, a minimum per buy and a price
+// floor; EIP-712 domain version "2"). Must match the deployed EXECUTOR.
+export const EXECUTOR_VERSION = (process.env.EXECUTOR_VERSION ?? "1") as "1" | "2";
 export const KEEPER_PRIVATE_KEY = process.env.KEEPER_PRIVATE_KEY as `0x${string}` | undefined;
 export const KEEPER_INTERVAL_MS = Number(process.env.KEEPER_INTERVAL_MS ?? 60_000);
 // Block ranges to (re)scan once on startup, e.g. launches that happened before
@@ -266,7 +272,7 @@ export const pofVaultAbi = parseAbi([
   "function currentRound() view returns (uint256)",
 ]);
 
-export const executorAbi = parseAbi([
+const executorAbiV1 = parseAbi([
   "struct BuyAuth { address user; address token; uint256 perBuyMax; uint256 maxGasPrice; uint32 totalCount; uint32 minInterval; uint64 deadline; uint256 nonce; }",
   "function executeBuy(BuyAuth a, bytes sig, uint256 amount, uint256 minOut) returns (uint256 tokensOut)",
   "function nonces(address) view returns (uint256)",
@@ -275,6 +281,16 @@ export const executorAbi = parseAbi([
   "function authId((address user,address token,uint256 perBuyMax,uint256 maxGasPrice,uint32 totalCount,uint32 minInterval,uint64 deadline,uint256 nonce) a) pure returns (bytes32)",
   "function keeper() view returns (address)",
 ]);
+const executorAbiV2 = parseAbi([
+  "struct BuyAuth { address user; address token; address asset; uint256 perBuyMax; uint256 minPerBuy; uint256 minTokensPerQuote; uint256 maxGasPrice; uint32 totalCount; uint32 minInterval; uint64 deadline; uint256 nonce; }",
+  "function executeBuy(BuyAuth a, bytes sig, uint256 amount, uint256 minOut) returns (uint256 tokensOut)",
+  "function nonces(address) view returns (uint256)",
+  "function balanceOf(address user, address asset) view returns (uint256)",
+  "function execs(bytes32) view returns (uint32 count, uint64 lastAt)",
+  "function authId((address user,address token,address asset,uint256 perBuyMax,uint256 minPerBuy,uint256 minTokensPerQuote,uint256 maxGasPrice,uint32 totalCount,uint32 minInterval,uint64 deadline,uint256 nonce) a) pure returns (bytes32)",
+  "function keeper() view returns (address)",
+]);
+export const executorAbi = (EXECUTOR_VERSION === "2" ? executorAbiV2 : executorAbiV1) as Abi;
 
 export const curveTradeAbi = parseAbi([
   "function buy(uint256 quoteIn, uint256 minTokensOut, address recipient) payable returns (uint256 tokensOut)",
@@ -291,14 +307,14 @@ export const curveTradeAbi = parseAbi([
   "function graduated() view returns (bool)",
 ]);
 
-export const EXECUTOR_DOMAIN = { name: "RadianExecutor", version: "1" } as const;
+export const EXECUTOR_DOMAIN = { name: "RadianExecutor", version: EXECUTOR_VERSION } as const;
 export const HAS_RADIAN = RADIAN.token !== "0x0000000000000000000000000000000000000000";
 // Reward / quote asset of the flywheel: the gas coin on Arc (zero address, 18-dec),
 // an ERC-20 dollar elsewhere (RADIAN_QUOTE=0x…, RADIAN_QUOTE_DECIMALS=6).
 export const RADIAN_QUOTE = (process.env.RADIAN_QUOTE ?? "0x0000000000000000000000000000000000000000") as Address;
 export const RADIAN_QUOTE_DECIMALS = Number(process.env.RADIAN_QUOTE_DECIMALS ?? 18);
 export const RADIAN_QUOTE_SYMBOL = process.env.RADIAN_QUOTE_SYMBOL ?? (RADIAN_QUOTE === "0x0000000000000000000000000000000000000000" ? NATIVE_SYMBOL : "USD");
-export const BUY_AUTH_TYPES = {
+const BUY_AUTH_TYPES_V1 = {
   BuyAuth: [
     { name: "user", type: "address" },
     { name: "token", type: "address" },
@@ -310,6 +326,22 @@ export const BUY_AUTH_TYPES = {
     { name: "nonce", type: "uint256" },
   ],
 } as const;
+const BUY_AUTH_TYPES_V2 = {
+  BuyAuth: [
+    { name: "user", type: "address" },
+    { name: "token", type: "address" },
+    { name: "asset", type: "address" },
+    { name: "perBuyMax", type: "uint256" },
+    { name: "minPerBuy", type: "uint256" },
+    { name: "minTokensPerQuote", type: "uint256" },
+    { name: "maxGasPrice", type: "uint256" },
+    { name: "totalCount", type: "uint32" },
+    { name: "minInterval", type: "uint32" },
+    { name: "deadline", type: "uint64" },
+    { name: "nonce", type: "uint256" },
+  ],
+} as const;
+export const BUY_AUTH_TYPES: Record<string, readonly { name: string; type: string }[]> = EXECUTOR_VERSION === "2" ? BUY_AUTH_TYPES_V2 : BUY_AUTH_TYPES_V1;
 
 export const erc20BalanceAbi = parseAbi(["function balanceOf(address) view returns (uint256)"]);
 
@@ -326,3 +358,57 @@ export const curveGradAbi = parseAbi([
 ]);
 export const lockerAbi = parseAbi(["function isLocked(address token) view returns (bool)"]);
 export const LOCKER = (process.env.LOCKER ?? (IS_ARC_TESTNET ? "0x7efb5B773BBbf69Bd163b52b1BA88C529a0f123c" : "0x0000000000000000000000000000000000000000")) as Address;
+
+// ---- The Pound (2026-09-22) ----
+// PoundVault is the hook's protocol-fee recipient on chains that run The Pound:
+// it settles what the escrow holds per quote asset and splits it between
+// referral accruals, the PackBurner and the treasury. PackBurner spends the
+// burn pool, in rotation, on the Pack (curated coins with a V4 pool here).
+export const POUND_VAULT = (process.env.POUND_VAULT ?? "0x0000000000000000000000000000000000000000") as Address;
+export const PACK_BURNER = (process.env.PACK_BURNER ?? "0x0000000000000000000000000000000000000000") as Address;
+export const HAS_POUND = POUND_VAULT !== "0x0000000000000000000000000000000000000000";
+export const poundVaultAbi = parseAbi([
+  "function router() view returns (address)",
+  "function burner() view returns (address)",
+  "function treasury() view returns (address)",
+  "function burnShareBps() view returns (uint16)",
+  "function REFERRAL_BPS() view returns (uint256)",
+  "function LAUNCHER_BPS() view returns (uint256)",
+  "function pending(address asset, address referrer) view returns (uint256)",
+  "function totalPending(address asset) view returns (uint256)",
+  "function reserve(address asset) view returns (uint256)",
+  "function totalReferrals(address asset) view returns (uint256)",
+  "function totalBurned(address asset) view returns (uint256)",
+  "function totalTreasury(address asset) view returns (uint256)",
+  "function referralOf(address asset, address referrer) view returns (uint256 claimable, uint256 accrued)",
+  "function settle(address asset) returns (uint256 intake, uint256 toReferrals, uint256 toBurn, uint256 toTreasury)",
+  "function claimReferral(address asset) returns (uint256 amount)",
+]);
+export const packBurnerAbi = parseAbi([
+  "struct PoolKey { address currency0; address currency1; uint24 fee; int24 tickSpacing; address hooks; }",
+  "struct Pack { address token; PoolKey key; address asset; uint128 floor; uint128 maxPerBurn; bool active; }",
+  "function packCount() view returns (uint256)",
+  "function packAt(uint256 i) view returns (Pack)",
+  "function nextPack() view returns (uint256)",
+  "function cursor() view returns (uint256)",
+  "function lastBurnAt() view returns (uint64)",
+  "function minInterval() view returns (uint32)",
+  "function bountyBps() view returns (uint16)",
+  "function maxSlippageBps() view returns (uint16)",
+  "function permissionless() view returns (bool)",
+  "function keeper() view returns (address)",
+  "function pool(address asset) view returns (uint256)",
+  "function burnedOf(address token) view returns (uint256)",
+  "function spentOf(address asset) view returns (uint256)",
+  "function spotOut(uint256 index, uint256 quoteIn) view returns (uint256)",
+  "function burn(uint256 amount, uint256 minOut) returns (uint256 index, uint256 tokensOut)",
+]);
+export const poundEventsAbi = parseAbi([
+  "event Attributed(address indexed asset, address indexed referrer, address indexed user, uint256 amount, bool launcher)",
+  "event ReferralClaimed(address indexed asset, address indexed referrer, uint256 amount)",
+  "event Settled(address indexed asset, uint256 intake, uint256 toReferrals, uint256 toBurn, uint256 toTreasury)",
+  "event Deposited(address indexed asset, uint256 amount, address from)",
+  "event PackAdded(uint256 indexed index, address indexed token, address asset, uint128 floor, uint128 maxPerBurn)",
+  "event PackSet(uint256 indexed index, uint128 floor, uint128 maxPerBurn, bool active)",
+  "event Burned(uint256 indexed index, address indexed token, address indexed asset, uint256 quoteIn, uint256 tokensOut, address caller, uint256 bounty)",
+]);

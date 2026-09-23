@@ -147,6 +147,10 @@ export type AuthMessage = {
   minInterval: string;
   deadline: string;
   nonce: string;
+  // executor v2 only
+  asset?: Address;
+  minPerBuy?: string;
+  minTokensPerQuote?: string;
 };
 export type AuthStatus = "active" | "done" | "expired" | "cancelled";
 export type AuthRecord = {

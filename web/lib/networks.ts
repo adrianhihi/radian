@@ -71,6 +71,8 @@ export type NetworkConfig = {
     rewardDecimals?: number;
   };
   quoteAssets: QuoteAssetDef[];
+  // The Pound (fee waterfall + rotating buy-and-burn); absent on chains that still run the $RADIAN flywheel
+  pound?: { vault: Address; burner: Address };
   // Per-network product switches. Absent = on. Used to keep modules that are
   // deployed but not yet cleared for real money out of the UI on that network.
   features?: { templates?: boolean; delegatedBuys?: boolean };
@@ -80,7 +82,8 @@ export type NetworkConfig = {
   codeHashes: Partial<
     Record<
       | "factory" | "hook" | "router" | "escrow" | "vault" | "locker" | "poolManager" | "staking" | "treasury"
-      | "pofRouter" | "executor" | "wallTreasuryImpl" | "wallStakingImpl" | "pofVaultImpl" | "wallLadderImpl",
+      | "pofRouter" | "executor" | "wallTreasuryImpl" | "wallStakingImpl" | "pofVaultImpl" | "wallLadderImpl"
+      | "poundVault" | "packBurner",
       `0x${string}`
     >
   >;
@@ -218,14 +221,16 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
       escrow: "0x112923deC686B647D140Ee58C17b0e4B6F804149",
       hook: "0x15d5B10A1fCe67c01196EF118E5632B0D18Ca044",
       poolManager: "0x8366a39CC670B4001A1121B8F6A443A643e40951",
-      router: "0xD7ed78E15590c8B0d962133Af74aec1589Dc8a54", // v3 (2026-09-16): + Wall ladder
-      pofRouter: "0xF101f27A5156771c66E343FB3BF04e6208677660",
-      executor: "0xefb3FBDCf95662177d66E264B8394E7BD4Ece11c",
+      router: "0xd1769255870E4c6CD3A496A77022254D697ca286", // v4 (2026-09-22): The Pound referral tags; templates gated
+      pofRouter: "0x90A6F2d85A8Ac9958d388238215C8b3bA21D519d",
+      executor: "0x620BeE504c7BCe3c6abBAE3518f273655B1d37D0", // v2: price floor, asset, snipe-window guard
       wallTreasuryImpl: "0x55379F8fbA5b47290E535999682Ccd0E1773009E",
       wallStakingImpl: "0x1da4Ebf52892Fb209701a8E6cFF06058e89c21Cc",
       pofVaultImpl: "0xb097101C0DF29a5ffb03bcd3552cbFf81C14A1eC",
       wallLadderImpl: "0xbFf760f35F421cAE2E9650aF1571FDd618e206a7",
     },
+    // The Pound core (2026-09-22): protocol fees → PoundVault waterfall → PackBurner; the flywheel below is retired here
+    pound: { vault: "0xf1AEB4C7F4529eF6cf1A1096fFD8629a044D20Ad", burner: "0xd8c4A6129b8b9dbaFf651A22e9504dd49358Ea6c" },
     // $RADIAN on Robinhood testnet: priced in USDGx; ERC-20-reward flywheel (RadianStakingERC20 / RadianTreasuryERC20), 2026-09-16
     radian: {
       token: "0x5300d9Df3D687C1b037A6D124Eb6334cD9dE1B9a",
@@ -247,13 +252,15 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
       // recorded 2026-09-16; the three clone implementations hash identically to Arc's (no immutables)
       factory: "0xad2a5c89974e730ab607d7fb734aded658373624816548bf4f7d3b1ff6dab0b6",
       hook: "0x505ddf6d9505bf40d0291550fb1ddb9a366d5dc1767fb26ca8512b652421ab9f",
-      router: "0xf806a4631888e239d4510d8c516003895fb9ec82b2f6da188e652daa607f85f0",
+      router: "0x0bfd9fadadffc11d4291f3c34052ce7864ae2f92de96e415b7db5091c51b8c59",
       escrow: "0x87218669be442aa96ee406a6ba1886c29d8d450a7266628fa6f19b2c788d8316",
       vault: "0x0c146bf2d9808a225cbefef67e7a68a530398791b15a4b825d500a69b91e7878",
       locker: "0x5304631acb89c64e75397509c745337b6ddb3e7f529e2297a335114049bcff7d",
       poolManager: "0xbd3881180b547f5fe817545743cfb4343e96b1bc6640dcd70c106b0066e95626",
-      pofRouter: "0x6cfe16ceb8c7db8585a4fe70c966e1418aabda29c77810c22deba705859a0db6",
-      executor: "0x4e35c2b6d49b5b007a4abd1d1ad8c76e0aee92178b530880dabb21d9b3c6f7df",
+      pofRouter: "0xd0cd6d82d35e6ac44023ae0aa6ef9e9aed5fa015a35f0e75cee32739e2ebeade",
+      executor: "0xe5aa55605b6b83fca3f5899cee94a7f3a2f35f26e458e503290cd61a71713604",
+      poundVault: "0xb998a8015082fa9a771ad838276d751122631145558476b233e2a62fa0a5d974",
+      packBurner: "0x5e4b96843a6752a1d3ddb66e9d2ecc83699c2f3a94fa2bc2898bc957e2f8aa51",
       wallTreasuryImpl: "0x71fed5a3a76f5a3a67ca91e5313acad88147fe6196709d7c4d7e922b987c433b",
       wallStakingImpl: "0x0128ecfb818d294790edc549a882cf0efa8a2ee787e249fca92ca888c3d5c012",
       pofVaultImpl: "0x95f3971dff5cc41428090a979a462c5784b5204b8833c2b5716fdb4ceffe0674",

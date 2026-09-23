@@ -8,7 +8,8 @@ import { NETWORKS, setActiveNetwork, useNetwork } from "@/lib/networks";
 import { useIdentity, pinnedContracts } from "@/lib/identity";
 import { useLaunches } from "@/lib/useLaunches";
 import { useFactoryState } from "@/lib/factory";
-import { RADIAN, type LaunchRow } from "@/lib/radian";
+import { RADIAN, publicClient, type LaunchRow } from "@/lib/radian";
+import { poundVaultAbi } from "@/lib/pound";
 import { fmtAmount } from "@/lib/templates";
 
 // The factory directory: what the one factory contract on this network is
@@ -48,6 +49,12 @@ export default function FactoryPage() {
   const identity = useIdentity();
   const [pinned, setPinned] = useState<ReturnType<typeof pinnedContracts>>([]);
   useEffect(() => setPinned(pinnedContracts()), [net.key]);
+  // The Pound's live split (the vault owner can move it between 50% and 100%)
+  const [burnShare, setBurnShare] = useState<number | null>(null);
+  useEffect(() => {
+    if (!net.pound) return;
+    publicClient.readContract({ address: net.pound.vault, abi: poundVaultAbi, functionName: "burnShareBps" }).then((v) => setBurnShare(Number(v))).catch(() => {});
+  }, [net.key, net.pound]);
 
   const gas = net.nativeSymbol ?? "USDC";
   const explorerAddr = (a: string) => `${net.explorer}/address/${a}`;
@@ -67,7 +74,17 @@ export default function FactoryPage() {
     ? [
         { role: "Factory owner", address: state.factoryOwner, note: "sets the launch fee, launch configs, approved quote assets and the launch forwarder" },
         { role: "Hook owner", address: state.hook.owner, note: "sets the trade fee split and the price-impact cap for every curve" },
-        { role: "Protocol fee recipient", address: state.hook.protocolFeeRecipient, note: "receives the protocol share of trade fees" },
+        net.pound
+          ? {
+              role: "Protocol fee recipient",
+              address: state.hook.protocolFeeRecipient,
+              note: "the PoundVault: settles the protocol share into referral accruals, the Pack burn pool and the treasury",
+              check: same(state.hook.protocolFeeRecipient, net.pound.vault),
+            }
+          : { role: "Protocol fee recipient", address: state.hook.protocolFeeRecipient, note: "receives the protocol share of trade fees" },
+        ...(net.pound
+          ? [{ role: "Pack burner", address: net.pound.burner, note: "spends the burn pool, in rotation, on the Pack (Safe-curated coins with a V4 pool here) and sends what it buys to 0x…dEaD" }]
+          : []),
         {
           role: "Launch forwarder",
           address: state.launchForwarder,
@@ -76,7 +93,7 @@ export default function FactoryPage() {
         },
         { role: "Fee sweep operator", address: state.hook.feeSweepOperator, note: "the keeper: moves earned fees off every curve about once an hour" },
         { role: "Router keeper", address: state.routerKeeper, note: "the keeper: Wall defends and ladders, Proof-of-Fee buybacks, delegated buys, stuck graduations" },
-        { role: "$RADIAN treasury keeper", address: state.treasuryKeeper, note: "the keeper: buys back $RADIAN with protocol fees and pays stakers" },
+        ...(net.pound ? [] : [{ role: "$RADIAN treasury keeper", address: state.treasuryKeeper, note: "the keeper: buys back $RADIAN with protocol fees and pays stakers" }]),
       ]
     : [];
 
@@ -121,6 +138,13 @@ export default function FactoryPage() {
                 <Row><td style={td}>Trade fee</td><td style={td}>{pct(state.hook.hookFeeBps)}</td><td style={td}>taken on every buy and sell on the curve</td></Row>
                 <Row><td style={td}>Protocol share</td><td style={td}>{pct(state.hook.protocolFeeShareBps)}</td><td style={td}>of each trade fee; the rest is the creator slice</td></Row>
                 <Row><td style={td}>Buyback share</td><td style={td}>{pct(state.hook.buybackBurnBps)}</td><td style={td}>of the creator slice locked for buybacks when the creator enables buyback</td></Row>
+                {net.pound && (
+                  <>
+                    <Row><td style={td}>Referral share</td><td style={td}>5.55%</td><td style={td}>of each trade fee, to whoever referred the buyer — carved out of the protocol share by the PoundVault</td></Row>
+                    <Row><td style={td}>Launcher-referral share</td><td style={td}>5.55%</td><td style={td}>of each trade fee, to whoever referred the token&apos;s creator</td></Row>
+                    <Row><td style={td}>Pack burn share</td><td style={td}>{burnShare == null ? "≥ 50%" : pct(burnShare)}</td><td style={td}>of what remains of the protocol share, spent buying and burning Pack coins; the rest funds the treasury</td></Row>
+                  </>
+                )}
                 <Row><td style={td}>Max creator tax</td><td style={td}>{pct(state.maxCreatorTaxBps)}</td><td style={td}>the most a creator can add on top of the trade fee</td></Row>
                 <Row><td style={td}>Snipe tax</td><td style={td}>{state.snipeTaxStartBps == null || state.snipeTaxSeconds == null ? "—" : `${pct(state.snipeTaxStartBps)} falling to 0 over ${state.snipeTaxSeconds}s`}</td><td style={td}>on buys in the first seconds after launch, so bots cannot front-run the creator</td></Row>
                 <Row><td style={td}>Price impact cap</td><td style={td}>{pct(state.hook.maxInternalPriceImpactBps)}</td><td style={td}>the most one internal buyback may move the price</td></Row>

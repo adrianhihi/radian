@@ -15,6 +15,10 @@ import {
   quoteMeta,
   LAUNCH_ROUTER,
   treasuryEventsAbi,
+  poundEventsAbi,
+  POUND_VAULT,
+  PACK_BURNER,
+  HAS_POUND,
   CODE_HASHES,
   LAUNCH_ROUTER_V1,
   POF_ROUTER,
@@ -47,6 +51,9 @@ const SCAN_INTERVAL_MS = Number(process.env.SCAN_INTERVAL_MS ?? 5000);
 
 const FACTORY_LC = FACTORY.toLowerCase();
 const TREASURY_LC = RADIAN.treasury.toLowerCase();
+// The Pound's vault + burner emit the settlement / referral / burn ledger (logs mode only:
+// their events come from keeper and user transactions, not from entry points the receipts scan follows).
+const POUND_LCS = new Set(HAS_POUND ? [POUND_VAULT, PACK_BURNER].map((a) => a.toLowerCase()) : []);
 const ROUTER_LCS = new Set([LAUNCH_ROUTER, ...LEGACY_ROUTERS].map((a) => a.toLowerCase()));
 const pendingLadders = new Map<string, Address>();
 // Contracts that route buys/sells on users' behalf. The treasury's flush()
@@ -219,7 +226,7 @@ async function collectBackfill(nums: bigint[]): Promise<BlockLogs[]> {
 // Timestamps come from the logs (standard RPCs include blockTimestamp); blocks
 // without a matching log are simply skipped. The range shrinks on a provider
 // limit error and grows back slowly.
-const SCAN_EVENTS = [...factoryAbi, ...curveEventsAbi, ...treasuryEventsAbi, ...routerEventsAbi].filter((x) => x.type === "event");
+const SCAN_EVENTS = [...factoryAbi, ...curveEventsAbi, ...treasuryEventsAbi, ...routerEventsAbi, ...poundEventsAbi].filter((x) => x.type === "event");
 let logsRange = BigInt(Math.max(10, LOGS_RANGE));
 const blockTsCache = new Map<string, number>();
 
@@ -263,7 +270,7 @@ async function collectLogs(nums: bigint[]): Promise<BlockLogs[]> {
   return [...byBlock.values()].sort((a, b) => (a.number < b.number ? -1 : 1));
 }
 
-function decode(abi: typeof factoryAbi | typeof curveEventsAbi | typeof treasuryEventsAbi | typeof routerEventsAbi, log: RawLog) {
+function decode(abi: typeof factoryAbi | typeof curveEventsAbi | typeof treasuryEventsAbi | typeof routerEventsAbi | typeof poundEventsAbi, log: RawLog) {
   try {
     if (log.topics.length === 0) return null;
     return decodeEventLog({ abi, topics: log.topics, data: log.data }) as unknown as {
@@ -305,6 +312,11 @@ function applyBlock(b: BlockLogs) {
     if (addr === TREASURY_LC) {
       const ev = decode(treasuryEventsAbi, log);
       if (ev) recordFlywheel(ev, log, n.toString(), b.ts);
+      continue;
+    }
+    if (POUND_LCS.has(addr)) {
+      const ev = decode(poundEventsAbi, log);
+      if (ev) recordPound(ev, log, n.toString(), b.ts);
       continue;
     }
     if (ROUTER_LCS.has(addr)) {
@@ -391,6 +403,43 @@ function recordFlywheel(ev: { eventName: string; args: unknown }, log: RawLog, b
   } else if (ev.eventName === "TokenFeesClaimed") {
     const a = ev.args as { token: Address; amount: bigint };
     store.addFlywheel({ ...base, kind: "claimToken", token: a.token, amount: a.amount.toString() });
+  }
+}
+
+function recordPound(ev: { eventName: string; args: unknown }, log: RawLog, block: string, ts: number) {
+  const base = { txHash: log.transactionHash, logIndex: toNum(log.logIndex), block, ts };
+  const str = (v: bigint) => v.toString();
+  switch (ev.eventName) {
+    case "Settled": {
+      const a = ev.args as { asset: Address; intake: bigint; toReferrals: bigint; toBurn: bigint; toTreasury: bigint };
+      store.addPound({ ...base, kind: "settle", asset: a.asset, intake: str(a.intake), toReferrals: str(a.toReferrals), toBurn: str(a.toBurn), toTreasury: str(a.toTreasury) });
+      break;
+    }
+    case "Burned": {
+      const a = ev.args as { index: bigint; token: Address; asset: Address; quoteIn: bigint; tokensOut: bigint; caller: Address; bounty: bigint };
+      store.addPound({ ...base, kind: "burn", index: Number(a.index), token: a.token, asset: a.asset, quoteIn: str(a.quoteIn), tokensOut: str(a.tokensOut), caller: a.caller, bounty: str(a.bounty) });
+      break;
+    }
+    case "ReferralClaimed": {
+      const a = ev.args as { asset: Address; referrer: Address; amount: bigint };
+      store.addPound({ ...base, kind: "referralClaim", asset: a.asset, referrer: a.referrer, amount: str(a.amount) });
+      break;
+    }
+    case "Attributed": {
+      const a = ev.args as { asset: Address; referrer: Address; user: Address; amount: bigint; launcher: boolean };
+      store.addPound({ ...base, kind: "attributed", asset: a.asset, referrer: a.referrer, user: a.user, amount: str(a.amount), launcher: a.launcher });
+      break;
+    }
+    case "PackAdded": {
+      const a = ev.args as { index: bigint; token: Address; asset: Address; floor: bigint; maxPerBurn: bigint };
+      store.addPound({ ...base, kind: "packAdded", index: Number(a.index), token: a.token, asset: a.asset, floor: str(a.floor), maxPerBurn: str(a.maxPerBurn) });
+      break;
+    }
+    case "PackSet": {
+      const a = ev.args as { index: bigint; floor: bigint; maxPerBurn: bigint; active: boolean };
+      store.addPound({ ...base, kind: "packSet", index: Number(a.index), floor: str(a.floor), maxPerBurn: str(a.maxPerBurn), active: a.active });
+      break;
+    }
   }
 }
 

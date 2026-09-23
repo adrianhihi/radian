@@ -22,6 +22,13 @@ import {
   factoryGraduateAbi,
   curveGradAbi,
   lockerAbi,
+  EXECUTOR_VERSION,
+  HAS_POUND,
+  POUND_VAULT,
+  PACK_BURNER,
+  poundVaultAbi,
+  packBurnerAbi,
+  erc20BalanceAbi,
 } from "./config.js";
 
 // The platform keeper. Runs the maintenance calls the template contracts
@@ -91,6 +98,13 @@ async function tick() {
         await radianTick();
       } catch (e) {
         console.warn("[keeper] radian flywheel:", short(e));
+      }
+    }
+    if (HAS_POUND) {
+      try {
+        await poundTick();
+      } catch (e) {
+        console.warn("[keeper] pound:", short(e));
       }
     }
     for (const a of store.auths.values()) {
@@ -339,6 +353,78 @@ async function radianTick() {
   console.log(`[keeper] radian flush burned=${formatUnits(burned, 18)} toStakers=${formatUnits(toStakers, RADIAN_QUOTE_DECIMALS)} ${h}`);
 }
 
+// ---- The Pound ----
+// 1. settle: the vault claims what the escrow holds for it per quote asset and
+//    runs the waterfall (referrals → burn pool → treasury), at most hourly per asset.
+// 2. burn: when the burner's interval has passed and the burn pool holds at least
+//    the next Pack coin's floor, buy it at the pool's spot (within maxSlippage) and
+//    send it to the dead address. minOut is bound to the simulated fill.
+const SETTLE_INTERVAL_S = 3600;
+const lastSettleAt = new Map<string, number>();
+
+async function poundTick() {
+  const assets = new Set<string>([NATIVE]);
+  for (const l of store.launches.values()) assets.add((l.pairToken ?? NATIVE).toLowerCase());
+  const t = Number(now());
+  for (const asset of assets) {
+    if (t < (lastSettleAt.get(asset) ?? 0) + SETTLE_INTERVAL_S) continue;
+    let intake = 0n;
+    try {
+      const sim = await singleClient.simulateContract({ address: POUND_VAULT, abi: poundVaultAbi, functionName: "settle", args: [asset as Address], account: account! });
+      intake = (sim.result as readonly [bigint, bigint, bigint, bigint])[0];
+    } catch (e) {
+      console.warn(`[keeper] pound settle ${asset}:`, short(e));
+      lastSettleAt.set(asset, t);
+      continue;
+    }
+    lastSettleAt.set(asset, t);
+    if (intake === 0n) continue;
+    const h = await send(POUND_VAULT, poundVaultAbi, "settle", [asset]);
+    console.log(`[keeper] pound settle ${asset.slice(0, 10)} intake=${intake} ${h}`);
+  }
+
+  if (PACK_BURNER === NATIVE) return;
+  const [kp, permissionless, lastBurnAt, minInterval, bountyBps, maxSlippageBps] = (await singleClient.multicall({
+    allowFailure: false,
+    contracts: [
+      { address: PACK_BURNER, abi: packBurnerAbi, functionName: "keeper" },
+      { address: PACK_BURNER, abi: packBurnerAbi, functionName: "permissionless" },
+      { address: PACK_BURNER, abi: packBurnerAbi, functionName: "lastBurnAt" },
+      { address: PACK_BURNER, abi: packBurnerAbi, functionName: "minInterval" },
+      { address: PACK_BURNER, abi: packBurnerAbi, functionName: "bountyBps" },
+      { address: PACK_BURNER, abi: packBurnerAbi, functionName: "maxSlippageBps" },
+    ],
+  })) as unknown as [Address, boolean, bigint, number, number, number];
+  if (!permissionless && kp.toLowerCase() !== account!.address.toLowerCase()) return; // not our job
+  if (lastBurnAt !== 0n && now() < lastBurnAt + BigInt(minInterval)) return;
+  let index: bigint;
+  try {
+    index = (await singleClient.readContract({ address: PACK_BURNER, abi: packBurnerAbi, functionName: "nextPack" })) as bigint;
+  } catch {
+    return; // NoActivePack: nothing curated yet
+  }
+  const p = (await singleClient.readContract({ address: PACK_BURNER, abi: packBurnerAbi, functionName: "packAt", args: [index] })) as {
+    token: Address; asset: Address; floor: bigint; maxPerBurn: bigint; active: boolean;
+  };
+  const poolBal = (await singleClient.readContract({ address: PACK_BURNER, abi: packBurnerAbi, functionName: "pool", args: [p.asset] })) as bigint;
+  const amount = min(poolBal, p.maxPerBurn);
+  if (amount < p.floor || amount === 0n) return; // pool below this coin's floor: wait for more fees
+  const quoteIn = amount - (amount * BigInt(bountyBps)) / BPS;
+  const spot = (await singleClient.readContract({ address: PACK_BURNER, abi: packBurnerAbi, functionName: "spotOut", args: [index, quoteIn] })) as bigint;
+  const floorOut = (spot * (BPS - BigInt(maxSlippageBps))) / BPS;
+  let sim;
+  try {
+    sim = await singleClient.simulateContract({ address: PACK_BURNER, abi: packBurnerAbi, functionName: "burn", args: [amount, floorOut], account: account! });
+  } catch (e) {
+    console.warn(`[keeper] pound burn #${index} ${p.token.slice(0, 10)} would revert:`, short(e)); // thin pool / impact over the cap
+    return;
+  }
+  const [, tokensOut] = sim.result as readonly [bigint, bigint];
+  const minOut = tokensOut > floorOut ? ((tokensOut * 995n) / 1000n > floorOut ? (tokensOut * 995n) / 1000n : floorOut) : floorOut;
+  const h = await send(PACK_BURNER, packBurnerAbi, "burn", [amount, minOut]);
+  console.log(`[keeper] pound burn #${index} ${p.token.slice(0, 10)} amount=${amount} out=${formatUnits(tokensOut, 18)} ${h}`);
+}
+
 // ---- delegated buys ----
 
 async function execTick(a: StoredAuth) {
@@ -346,7 +432,7 @@ async function execTick(a: StoredAuth) {
   if (t > a.auth.deadline) return mark(a, "expired");
   if (a.count >= a.auth.totalCount) return mark(a, "done");
   if (a.lastAt !== 0 && t < a.lastAt + a.auth.minInterval) return;
-  const authTuple = {
+  const v1 = {
     user: a.auth.user,
     token: a.auth.token,
     perBuyMax: BigInt(a.auth.perBuyMax),
@@ -356,6 +442,15 @@ async function execTick(a: StoredAuth) {
     deadline: BigInt(a.auth.deadline),
     nonce: BigInt(a.auth.nonce),
   };
+  // executor v2 auths carry the quote asset, a minimum per buy and a price floor (all signed)
+  const authTuple =
+    EXECUTOR_VERSION === "2"
+      ? {
+          user: v1.user, token: v1.token, asset: (a.auth.asset ?? NATIVE) as Address, perBuyMax: v1.perBuyMax,
+          minPerBuy: BigInt(a.auth.minPerBuy ?? "0"), minTokensPerQuote: BigInt(a.auth.minTokensPerQuote ?? "0"),
+          maxGasPrice: v1.maxGasPrice, totalCount: v1.totalCount, minInterval: v1.minInterval, deadline: v1.deadline, nonce: v1.nonce,
+        }
+      : v1;
   const [nonce, [count, lastAt]] = (await singleClient.multicall({
     allowFailure: false,
     contracts: [
@@ -383,8 +478,8 @@ async function execTick(a: StoredAuth) {
     a.lastError = msg;
     if (/AuthExpired/.test(msg)) return mark(a, "expired");
     if (/AuthExhausted/.test(msg)) return mark(a, "done");
-    if (/BadSignature/.test(msg)) return mark(a, "cancelled");
-    return; // Insufficient / TooSoon / UnknownToken: wait for the next tick
+    if (/BadSignature|WrongAsset/.test(msg)) return mark(a, "cancelled");
+    return; // Insufficient / TooSoon / UnknownToken / BelowPriceFloor / SnipeWindow: wait for the next tick
   }
   const minOut = (out * 99n) / 100n;
   const h = await send(EXECUTOR, executorAbi, "executeBuy", [authTuple, a.signature, amount, minOut]);

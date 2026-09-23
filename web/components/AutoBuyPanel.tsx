@@ -1,8 +1,8 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { formatUnits, parseUnits, type Address } from "viem";
-import { publicClient, arcTestnet, erc20Abi, explorer, RADIAN, NATIVE_QUOTE, type QuoteAsset, activeNetwork } from "@/lib/radian";
-import { executorAbi, executorDomain, BUY_AUTH_TYPES, EXECUTOR_FEE_BPS, EXECUTOR_GAS_STIPEND } from "@/lib/executor";
+import { publicClient, arcTestnet, erc20Abi, curveAbi, explorer, RADIAN, NATIVE_QUOTE, type QuoteAsset, activeNetwork } from "@/lib/radian";
+import { executorAbi, executorDomain, BUY_AUTH_TYPES, EXECUTOR_FEE_BPS, EXECUTOR_GAS_STIPEND, EXECUTOR_V2 } from "@/lib/executor";
 import { fetchAuths, postAuth, hasIndexer, type AuthRecord } from "@/lib/indexer";
 import { fmtAmount, fmtDuration } from "@/lib/templates";
 import { useRadianWallet } from "@/lib/useRadianWallet";
@@ -26,9 +26,17 @@ const VALID_FOR = [
   { label: "30 days", secs: 30 * 86400 },
 ] as const;
 const GWEI = 1_000_000_000n;
+// executor v2: the signed price floor, as "stop if the price is above N× today's"
+const PRICE_CAPS = [
+  { label: "1.5×", mult: 150 },
+  { label: "2×", mult: 200 },
+  { label: "3×", mult: 300 },
+  { label: "no cap", mult: 0 },
+] as const;
 
 type Props = {
   token: Address;
+  curve: Address;
   symbol: string;
   quote: QuoteAsset;
   identity: IdentityResult;
@@ -37,9 +45,9 @@ type Props = {
   refreshKey: number;
 };
 
-type Data = Partial<{ quoteBal: bigint; nativeBal: bigint; nonce: bigint; feeBps: bigint; stipend: bigint; gasPrice: bigint }>;
+type Data = Partial<{ quoteBal: bigint; nativeBal: bigint; nonce: bigint; feeBps: bigint; stipend: bigint; gasPrice: bigint; reserves: readonly [bigint, bigint] }>;
 
-export function AutoBuyPanel({ token, symbol, quote, identity, onToast, onPending, refreshKey }: Props) {
+export function AutoBuyPanel({ token, curve, symbol, quote, identity, onToast, onPending, refreshKey }: Props) {
   const { authenticated, login, address: account, getWalletClient } = useRadianWallet();
   const executor = RADIAN.executor;
   const quoteAddr: Address = quote.native ? NATIVE_QUOTE : quote.address;
@@ -59,6 +67,7 @@ export function AutoBuyPanel({ token, symbol, quote, identity, onToast, onPendin
   const [customSecs, setCustomSecs] = useState("");
   const [count, setCount] = useState("10");
   const [validSecs, setValidSecs] = useState<number>(7 * 86400);
+  const [capMult, setCapMult] = useState<number>(200);
 
   const load = useCallback(async () => {
     if (!account) {
@@ -75,11 +84,13 @@ export function AutoBuyPanel({ token, symbol, quote, identity, onToast, onPendin
           { address: executor, abi: executorAbi, functionName: "nonces", args: [account] },
           { address: executor, abi: executorAbi, functionName: "FEE_BPS" },
           { address: executor, abi: executorAbi, functionName: "GAS_STIPEND" },
+          { address: curve, abi: curveAbi, functionName: "getReserves" },
         ],
       });
       const g = (i: number) => (mc[i].status === "success" ? (mc[i].result as bigint) : undefined);
       const gasPrice = await publicClient.getGasPrice().catch(() => undefined);
-      setD({ quoteBal: g(0), nativeBal: g(1), nonce: g(2), feeBps: g(3), stipend: g(4), gasPrice });
+      const reserves = mc[5].status === "success" ? (mc[5].result as readonly [bigint, bigint]) : undefined;
+      setD({ quoteBal: g(0), nativeBal: g(1), nonce: g(2), feeBps: g(3), stipend: g(4), gasPrice, reserves });
     } catch {}
     if (hasIndexer()) {
       try {
@@ -88,7 +99,7 @@ export function AutoBuyPanel({ token, symbol, quote, identity, onToast, onPendin
         setAuths((a) => a ?? []);
       }
     }
-  }, [account, executor, quoteAddr]);
+  }, [account, executor, quoteAddr, curve]);
 
   useEffect(() => {
     load();
@@ -107,6 +118,14 @@ export function AutoBuyPanel({ token, symbol, quote, identity, onToast, onPendin
   // Cap on what the keeper may charge per buy for gas: 3× the current gas price, at least 1 gwei.
   const maxGasPrice = d.gasPrice !== undefined ? (d.gasPrice * 3n > GWEI ? d.gasPrice * 3n : GWEI) : undefined;
   const stipendCap = maxGasPrice !== undefined ? stipend * maxGasPrice : undefined; // native, per buy
+  // v2 price floor: tokens per quote unit (1e18-scaled) the keeper must still get, = today's spot / cap.
+  // The contract checks tokensOut * 1e18 >= spent * minTokensPerQuote on every execution.
+  const priceFloor = (): bigint => {
+    if (!EXECUTOR_V2 || capMult === 0 || !d.reserves) return 0n;
+    const [q, t] = d.reserves;
+    if (q === 0n) return 0n;
+    return (((t * 10n ** 18n) / q) * 100n) / BigInt(capMult);
+  };
 
   const effInterval = intervalSecs === 0 ? Math.round(Number(customSecs) || 0) : intervalSecs;
   const nCount = Math.max(0, Math.floor(Number(count) || 0));
@@ -201,18 +220,25 @@ export function AutoBuyPanel({ token, symbol, quote, identity, onToast, onPendin
       if (maxGasPrice === undefined) return onToast("Could not read the network gas price; try again.");
       const nonce = (await publicClient.readContract({ address: executor, abi: executorAbi, functionName: "nonces", args: [acct] })) as bigint;
       const deadline = BigInt(Math.floor(Date.now() / 1000) + validSecs);
-      const message = {
-        user: acct, token, perBuyMax: perBuyWei, maxGasPrice, totalCount: nCount, minInterval: effInterval, deadline, nonce,
-      };
+      const floor = priceFloor();
+      if (EXECUTOR_V2 && capMult !== 0 && floor === 0n) return onToast("Could not read the curve price for the price cap; try again.");
+      const message = EXECUTOR_V2
+        ? {
+            user: acct, token, asset: quoteAddr, perBuyMax: perBuyWei, minPerBuy: perBuyWei, minTokensPerQuote: floor,
+            maxGasPrice, totalCount: nCount, minInterval: effInterval, deadline, nonce,
+          }
+        : { user: acct, token, perBuyMax: perBuyWei, maxGasPrice, totalCount: nCount, minInterval: effInterval, deadline, nonce };
       onToast("Sign the schedule in your wallet (no gas)…");
+      // the types object follows the executor generation, so viem's literal typing is per-version: cast
       const signature = (await client.signTypedData({
         account: acct, domain: executorDomain(), types: BUY_AUTH_TYPES, primaryType: "BuyAuth", message,
-      })) as `0x${string}`;
+      } as never)) as `0x${string}`;
       await postAuth(
         {
           user: acct, token,
           perBuyMax: perBuyWei.toString(), maxGasPrice: maxGasPrice.toString(), totalCount: String(nCount),
           minInterval: String(effInterval), deadline: deadline.toString(), nonce: nonce.toString(),
+          ...(EXECUTOR_V2 ? { asset: quoteAddr, minPerBuy: perBuyWei.toString(), minTokensPerQuote: floor.toString() } : {}),
         },
         signature,
       );
@@ -290,6 +316,17 @@ export function AutoBuyPanel({ token, symbol, quote, identity, onToast, onPendin
                   ))}
                 </div>
               </div>
+              {EXECUTOR_V2 && (
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <label style={{ fontSize: 12 }}>Skip buys if the price is above (× today&apos;s)</label>
+                  <div className="seg">
+                    {PRICE_CAPS.map((c) => (
+                      <button key={c.label} type="button" className={capMult === c.mult ? "on-buy" : ""} onClick={() => setCapMult(c.mult)}>{c.label}</button>
+                    ))}
+                  </div>
+                  <p className="hint" style={{ marginTop: 4 }}>Signed into the authorization: an execution that would fill above this price reverts on-chain. The keeper also cannot run buys during a launch&apos;s snipe-tax window.</p>
+                </div>
+              )}
             </div>
             {perBuyWei > 0n && nCount > 0 && (
               <div style={{ marginTop: 8 }}>
@@ -331,7 +368,7 @@ export function AutoBuyPanel({ token, symbol, quote, identity, onToast, onPendin
                     <span>
                       {mine ? symbol : <span className="mono">{a.auth.token.slice(0, 6)}…{a.auth.token.slice(-4)}</span>}
                       <span className="hint" style={{ display: "block", marginTop: 2 }}>
-                        every {fmtDuration(Number(a.auth.minInterval))} · up to {mine ? `${fmtAmount(BigInt(a.auth.perBuyMax), quote.decimals)} ${quote.symbol}` : `${a.auth.perBuyMax} raw`} · last run {ago(a.lastAt)}
+                        every {fmtDuration(Number(a.auth.minInterval))} · up to {mine ? `${fmtAmount(BigInt(a.auth.perBuyMax), quote.decimals)} ${quote.symbol}` : `${a.auth.perBuyMax} raw`}{a.auth.minTokensPerQuote && a.auth.minTokensPerQuote !== "0" ? " · price-capped" : ""} · last run {ago(a.lastAt)}
                       </span>
                     </span>
                     <span className="v" style={{ whiteSpace: "nowrap" }}>{a.count} / {a.auth.totalCount}</span>
