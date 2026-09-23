@@ -129,7 +129,8 @@ export function PoundEarn({ net }: { net: NetworkConfig }) {
 
   const burnShare = view ? view.vault.burnShareBps : 7000;
   const refBps = view ? view.vault.referralBps : 555;
-  const totalBurnedRows = (view?.assets ?? []).filter((a) => BigInt(a.burnSpent) > 0n || BigInt(a.burnPool) > 0n);
+  const spentRows = (view?.assets ?? []).filter((a) => BigInt(a.burnSpent) > 0n);
+  const poolRows = (view?.assets ?? []).filter((a) => BigInt(a.burnPool) > 0n);
   const nextBurnIn = view ? Math.max(0, view.burner.lastBurnAt + view.burner.minInterval - now) : 0;
   const myRows = Object.entries(live).filter(([, v]) => v.accrued > 0n || v.claimable > 0n);
 
@@ -167,12 +168,12 @@ export function PoundEarn({ net }: { net: NetworkConfig }) {
       <div className="stats" style={{ marginTop: 24 }}>
         <Stat k={view ? String(view.packs.filter((p) => p.active).length) : "—"} l="Coins in the Pack" />
         <Stat
-          k={totalBurnedRows.length ? totalBurnedRows.map((a) => `${fmt(a.burnSpent, a.decimals, 2)} ${a.symbol}`).join(" · ") : view ? "0" : "—"}
+          k={spentRows.length ? spentRows.map((a) => `${fmt(a.burnSpent, a.decimals, 2)} ${a.symbol}`).join(" · ") : view ? "0" : "—"}
           l="Spent on burns"
           color="var(--grad)"
         />
         <Stat
-          k={view ? view.assets.filter((a) => BigInt(a.burnPool) > 0n).map((a) => `${fmt(a.burnPool, a.decimals, 2)} ${a.symbol}`).join(" · ") || "0" : "—"}
+          k={poolRows.length ? poolRows.map((a) => `${fmt(a.burnPool, a.decimals, a.decimals >= 18 ? 5 : 2)} ${a.symbol}`).join(" · ") : view ? "0" : "—"}
           l="Burn pool waiting"
         />
         <Stat
