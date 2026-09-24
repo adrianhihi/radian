@@ -8,7 +8,7 @@ import { ArrowDown, ArrowRight, Check, Copy } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { Shell } from "@/components/shell/Shell";
-import { useLang } from "@/components/LangProvider";
+import { useLang, useT } from "@/components/LangProvider";
 import { Footer } from "@/components/ui/primitives";
 import { INTEGRATE } from "@/lib/content/integrate";
 import { useNetwork } from "@/lib/networks";
@@ -44,6 +44,7 @@ function CodeBlock({ code, label }: { code: string; label: string }) {
 
 export default function BuildersPage() {
   const { lang } = useLang();
+  const t = useT();
   const net = useNetwork();
   const c = INTEGRATE[lang] ?? INTEGRATE.en;
   const api = net.indexerUrl || "https://<indexer>";
@@ -102,10 +103,13 @@ GET  ${api}/v1/auth/<user>   // the user's active authorizations and how many bu
             <span className="bg-[image:var(--brand-grad)] bg-clip-text text-transparent">{c.title[1]}</span>
           </h1>
           <p className="mx-auto mt-6 max-w-[58ch] text-[16px] leading-[1.65] text-ink-2">{c.sub}</p>
-          <div className="mt-6 flex justify-center gap-3">
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
             <a href="#steps" className="grad-fill mono-label inline-flex items-center gap-1.5 rounded-full px-5 py-2.5 text-[11px] font-semibold tracking-[.14em]">
               {c.steps} <ArrowDown size={12} strokeWidth={2} aria-hidden="true" />
             </a>
+            <Link href="/api-docs" className="mono-label inline-flex items-center gap-1.5 rounded-full border border-stroke-2 px-5 py-2.5 text-[11px] tracking-[.14em] text-ink-2 hover:border-brand hover:text-brand">
+              {t("apiDocs.fromBuilders")} <ArrowRight size={12} strokeWidth={1.8} aria-hidden="true" />
+            </Link>
             <Link href="/docs" className="mono-label rounded-full border border-stroke-2 px-5 py-2.5 text-[11px] tracking-[.14em] text-ink-2 hover:border-brand hover:text-brand">
               {c.learn}
             </Link>

@@ -1,6 +1,9 @@
-// The Learn page's copy, English and Chinese. Numbers that live on chain
-// (fees, shares, addresses) are filled in by the page from the network config
-// and the factory, never typed here twice.
+// The Learn page's copy, English and Chinese. Every fee, share, length and
+// duration the copy states is a {placeholder} filled from lib/protocol.ts by
+// learnDoc(lang) below, so a number is typed once; addresses come from the
+// network. {q} is the one runtime placeholder (the search box, filled by the page).
+import type { Lang } from "../i18n";
+import { PROTOCOL } from "../protocol";
 
 export type LearnTag = "launch" | "trade" | "fees" | "templates" | "pound" | "trust";
 
@@ -48,7 +51,7 @@ const en: LearnDoc = {
     title: ["One transaction.", "Three decisions."],
     body: "The wizard asks for a name, a market and a fee template, then sends one transaction. What it fixes on chain cannot be changed afterwards — not by you, not by us.",
     cards: [
-      ["Fixed supply, no allocation", "1,000,000,000 tokens are minted to the curve and nowhere else. The only way to hold some is to buy them; the creator can make the first buy inside the launch transaction, before anyone else sees the curve."],
+      ["Fixed supply, no allocation", "{supply} tokens are minted to the curve and nowhere else. The only way to hold some is to buy them; the creator can make the first buy inside the launch transaction, before anyone else sees the curve."],
       ["A market you choose", "The curve is priced in the asset you pick: the gas coin, a dollar stand-in, or a tokenized stock. Graduation seeds a locked Uniswap V4 pool paired with that asset."],
       ["A fee template", "Standard sends the creator share to you (or into a buyback lock). The Wall turns it into a treasury of the paired stock that defends a floor. Proof-of-Fee turns it into buybacks paid to the traders who earned them."],
     ],
@@ -67,8 +70,8 @@ const en: LearnDoc = {
         title: "Seven contracts, one launch",
         tag: "trust",
         body: [
-          "LaunchFactory deploys the token and its curve in one transaction and snapshots the fee terms. LaunchToken is a fixed 1B-supply ERC-20 minted entirely to its curve — no owner, no mint. BondingCurve is a constant-product curve in the launch's quote asset; buy and sell enforce an on-chain minimum-received bound and there is no deadline parameter.",
-          "MemeHook is the Uniswap V4 hook on graduated pools; it keeps charging the fee. LaunchLocker holds the graduated V4 position forever — no withdrawal path exists. BuybackVault holds fee-funded buybacks on a 5-year linear vest (locked, never burned). FeeEscrow is the claimable ledger for creator and protocol fee balances.",
+          "LaunchFactory deploys the token and its curve in one transaction and snapshots the fee terms. LaunchToken is a fixed {supplyShort}-supply ERC-20 minted entirely to its curve — no owner, no mint. BondingCurve is a constant-product curve in the launch's quote asset; buy and sell enforce an on-chain minimum-received bound and there is no deadline parameter.",
+          "MemeHook is the Uniswap V4 hook on graduated pools; it keeps charging the fee. LaunchLocker holds the graduated V4 position forever — no withdrawal path exists. BuybackVault holds fee-funded buybacks on a linear vest over {vest} (locked, never burned). FeeEscrow is the claimable ledger for creator and protocol fee balances.",
           "The trading engine is a source-identical port of Pons V2, diffable byte for byte against the verified upstream.",
         ],
       },
@@ -88,7 +91,7 @@ const en: LearnDoc = {
         title: "What a launch needs",
         tag: "launch",
         body: [
-          "A name and a ticker (up to 10 letters or digits). Optionally an image (uploaded and linked in the token's on-chain logo field), a description and links, written into the token's metadata.",
+          "A name and a ticker (up to {symbolMax} letters or digits). Optionally an image (uploaded and linked in the token's on-chain logo field), a description and links, written into the token's metadata.",
           "The paired market, the template, and for a Standard launch the fee mode with an optional creator tax (up to the factory's maximum) and a fee recipient. Optionally a first buy in the quote asset.",
         ],
       },
@@ -97,7 +100,7 @@ const en: LearnDoc = {
         title: "What the creator share does",
         tag: "fees",
         body: [
-          "Chosen at launch and snapshotted on chain. Creator fees: your whole share goes to the wallet you chose, plus the creator tax if you set one. Buyback & lock: half of your share buys the token on its own curve when the platform sweeps fees and locks it in the 5-year vault; the other half is yours.",
+          "Chosen at launch and snapshotted on chain. Creator fees: your whole share goes to the wallet you chose, plus the creator tax if you set one. Buyback & lock: half of your share buys the token on its own curve when the platform sweeps fees and locks it in the vault, vesting over {vest}; the other half is yours.",
           "Holder rewards and fee sharing across several wallets are planned and need a contract upgrade; the wizard does not offer them.",
         ],
       },
@@ -107,8 +110,8 @@ const en: LearnDoc = {
         tag: "templates",
         body: [
           "A template decides what the creator-fee share of every trade does. The launch router writes it on chain at launch: creator-fee mode with a per-launch contract as the only recipient. No wallet can be substituted later, and the fee mode does not apply.",
-          "The Wall needs a stock as the paired market. Creator fees are claimed (by anyone) into a treasury that holds the stock and never sells it. A configured share of each claim streams to stakers of the token over 7 days, paid in the stock. The rest is a standing bid under book value: while the token is on its curve, a keeper may buy and burn when spot trades under book value × (1 + margin), within a daily budget. Book value = pile ÷ circulating supply, both read on chain.",
-          "Proof-of-Fee: creator fees buy the token back on its own curve. Each round (1 minute to 24 hours) the buyback is paid to the traders whose fees funded it, by share of quote spent through the official PoF router (“Work”). Direct curve buys and all sells earn no Work. Under-subscribed rounds pay out pro-rata and the rest rolls forward. Nothing is minted.",
+          "The Wall needs a stock as the paired market. Creator fees are claimed (by anyone) into a treasury that holds the stock and never sells it. A configured share of each claim streams to stakers of the token over {wallStream}, paid in the stock. The rest is a standing bid under book value: while the token is on its curve, a keeper may buy and burn when spot trades under book value × (1 + margin), within a daily budget. Book value = pile ÷ circulating supply, both read on chain.",
+          "Proof-of-Fee: creator fees buy the token back on its own curve. Each round ({pofRoundMin} to {pofRoundMax}) the buyback is paid to the traders whose fees funded it, by share of quote spent through the official PoF router (“Work”). Direct curve buys and all sells earn no Work. Under-subscribed rounds pay out pro-rata and the rest rolls forward. Nothing is minted.",
         ],
       },
       {
@@ -126,7 +129,7 @@ const en: LearnDoc = {
         tag: "trade",
         body: [
           "Any curve token's page can schedule buys through the RadianExecutor. You deposit the quote asset (and the gas coin for gas when the quote is an ERC-20), then sign one EIP-712 message that caps the amount per buy, the interval, the number of buys, the maximum gas price, a price floor and an expiry. A keeper run by the indexer executes the buys on that schedule; tokens always land in your wallet.",
-          "The fee is 0.5% of the quote actually spent (a contract constant) plus a gas stipend per buy, both taken from your deposit. Withdrawing your deposit and cancelling every schedule are plain transactions that need nobody's cooperation. The keeper cannot exceed the caps you signed and cannot move funds anywhere but into a buy of the token you named.",
+          "The fee is {execFee} of the quote actually spent (a contract constant) plus a gas stipend per buy, both taken from your deposit. Withdrawing your deposit and cancelling every schedule are plain transactions that need nobody's cooperation. The keeper cannot exceed the caps you signed and cannot move funds anywhere but into a buy of the token you named.",
         ],
       },
       {
@@ -151,8 +154,8 @@ const en: LearnDoc = {
         tag: "pound",
         when: "pound",
         body: [
-          "The trade fee is 1% of every swap, on the quote-asset leg, before and after graduation. Half of it is the creator's: to the fee escrow, claimable any time (a quarter when Buyback & lock is on, the other quarter into the vault). A creator tax, if set, is paid entirely to the creator on top.",
-          "The other half is the protocol share, swept into the PoundVault, which settles it in this order: 5.55% of the fee to whoever referred the buyer and 5.55% to whoever referred the token's creator (referral tags travel with router trades; self-referrals are dropped); then 70% of what remains buys the next Pack coin and sends it to a dead address, at most once a day, within 5% of spot; the remainder goes to the treasury.",
+          "The trade fee is {fee} of every swap, on the quote-asset leg, before and after graduation. Half of it is the creator's: to the fee escrow, claimable any time (a quarter when Buyback & lock is on, the other quarter into the vault). A creator tax, if set, is paid entirely to the creator on top.",
+          "The other half is the protocol share, swept into the PoundVault, which settles it in this order: {ref} of the fee to whoever referred the buyer and {launcherRef} to whoever referred the token's creator (referral tags travel with router trades; self-referrals are dropped); then {burn} of what remains buys the next Pack coin and sends it to a dead address, at most once every {burnInterval}, within {burnSlippage} of spot; the remainder goes to the treasury.",
           "Launches from before The Pound keep the fee policy they were created with and carry no referral tags. The live split, the Pack and every settlement are on The Pound page; the roles behind it are on Factory.",
         ],
         link: { href: "/earn", label: "The Pound" },
@@ -163,7 +166,7 @@ const en: LearnDoc = {
         tag: "fees",
         when: "legacy",
         body: [
-          "The trade fee is 1% of every swap, on the quote-asset leg, before and after graduation. The protocol share goes to the protocol recipient via the escrow; the rest is the creator's, claimable any time (half of it buys the token back and locks it when Buyback & lock is on). A creator tax, if set, is paid entirely to the creator on top.",
+          "The trade fee is {fee} of every swap, on the quote-asset leg, before and after graduation. The protocol share goes to the protocol recipient via the escrow; the rest is the creator's, claimable any time (half of it buys the token back and locks it when Buyback & lock is on). A creator tax, if set, is paid entirely to the creator on top.",
         ],
       },
       {
@@ -172,7 +175,7 @@ const en: LearnDoc = {
         tag: "pound",
         when: "pound",
         body: [
-          "Your referral link is your address. It stores a tag in the visitor's browser for 30 days; every router trade and launch then carries it, and the vault credits you 5.55% of the fee. Refer a creator and you earn the same on every trade of their token for its life.",
+          "Your referral link is your address. It stores a tag in the visitor's browser for {refTtl}; every router trade and launch then carries it, and the vault credits you {ref} of the fee. Refer a creator and you earn the same on every trade of their token for its life.",
           "Accruals become claimable after the vault's next settlement (the keeper settles hourly). Claim on The Pound page or in your portfolio, in the token's quote asset.",
         ],
         link: { href: "/earn", label: "Get your link" },
@@ -219,7 +222,7 @@ const en: LearnDoc = {
       {
         name: "FEES",
         items: [
-          { q: "Who gets the 1%?", a: "Half the creator (or their template), half the protocol. Where The Pound runs, the protocol half pays referrers first, then buys and burns the Pack, then funds the treasury." },
+          { q: "Who gets the {fee}?", a: "Half the creator (or their template), half the protocol. Where The Pound runs, the protocol half pays referrers first, then buys and burns the Pack, then funds the treasury." },
           { q: "Is there a platform token?", a: "Not where The Pound runs. Fees buy and burn other people's coins — the Pack — instead of minting one." },
           { q: "When can I claim?", a: "Creator fees once the keeper sweeps them off the curve (about hourly). Referral earnings after the vault's next settlement. Both from your portfolio." },
         ],
@@ -262,7 +265,7 @@ const zh: LearnDoc = {
     title: ["一笔交易。", "三个决定。"],
     body: "向导只问一个名字、一个市场和一个费用模板，然后发一笔交易。它固定在链上的东西之后都改不了——你不能，我们也不能。",
     cards: [
-      ["固定供给，没有份额", "10 亿个币铸到曲线上，别处一个也没有。想持有只能买；创作者可以在发射交易里完成首买，在任何人看到曲线之前。"],
+      ["固定供给，没有份额", "{supply}个币铸到曲线上，别处一个也没有。想持有只能买；创作者可以在发射交易里完成首买，在任何人看到曲线之前。"],
       ["你选的市场", "曲线按你选的资产定价：燃气币、美元替身，或代币化股票。毕业时以该资产为配对建立锁定的 Uniswap V4 池。"],
       ["一个费用模板", "标准把创作者那一份给你（或锁进回购）。The Wall 把它变成配对股票的国库并守住地板。Proof-of-Fee 把它变成付给赚到它的交易者的回购。"],
     ],
@@ -281,8 +284,8 @@ const zh: LearnDoc = {
         title: "七个合约，一次发射",
         tag: "trust",
         body: [
-          "LaunchFactory 在一笔交易里部署代币和曲线，并快照费用条款。LaunchToken 是固定 10 亿供给的 ERC-20，全部铸给曲线——没有 owner，不能增发。BondingCurve 是以发射计价资产计的常数乘积曲线；买卖在链上强制最少收到，没有 deadline 参数。",
-          "MemeHook 是毕业后池子上的 Uniswap V4 hook，继续收取手续费。LaunchLocker 永久持有毕业后的 V4 仓位——不存在提取路径。BuybackVault 持有费用资助的回购，5 年线性释放（锁定，不燃烧）。FeeEscrow 是创作者与协议费用余额的可领账本。",
+          "LaunchFactory 在一笔交易里部署代币和曲线，并快照费用条款。LaunchToken 是固定 {supplyShort}供给的 ERC-20，全部铸给曲线——没有 owner，不能增发。BondingCurve 是以发射计价资产计的常数乘积曲线；买卖在链上强制最少收到，没有 deadline 参数。",
+          "MemeHook 是毕业后池子上的 Uniswap V4 hook，继续收取手续费。LaunchLocker 永久持有毕业后的 V4 仓位——不存在提取路径。BuybackVault 持有费用资助的回购，{vest}线性释放（锁定，不燃烧）。FeeEscrow 是创作者与协议费用余额的可领账本。",
           "交易引擎是 Pons V2 的源码级移植，可与已验证的上游逐字节比对。",
         ],
       },
@@ -302,7 +305,7 @@ const zh: LearnDoc = {
         title: "发射需要什么",
         tag: "launch",
         body: [
-          "一个名字和一个代号（最多 10 个字母或数字）。可选：图片（上传后链接写进代币链上 logo 字段）、简介和链接，写进代币元数据。",
+          "一个名字和一个代号（最多 {symbolMax} 个字母或数字）。可选：图片（上传后链接写进代币链上 logo 字段）、简介和链接，写进代币元数据。",
           "计价市场、模板；标准发射还有费用模式，可选创作者税（最高到工厂的上限）和收款地址。可选一笔以计价资产计的首买。",
         ],
       },
@@ -311,7 +314,7 @@ const zh: LearnDoc = {
         title: "创作者那一份怎么用",
         tag: "fees",
         body: [
-          "发射时选定并在链上快照。创作者费用：你那一份全部打到你选的钱包，外加你设定的创作者税。回购并锁定：平台清扫费用时，你那一份的一半在曲线上回购代币并锁进 5 年金库；另一半归你。",
+          "发射时选定并在链上快照。创作者费用：你那一份全部打到你选的钱包，外加你设定的创作者税。回购并锁定：平台清扫费用时，你那一份的一半在曲线上回购代币并锁进金库（{vest}线性释放）；另一半归你。",
           "持有人奖励和多钱包分账在计划中，需要合约升级；向导不提供。",
         ],
       },
@@ -321,8 +324,8 @@ const zh: LearnDoc = {
         tag: "templates",
         body: [
           "模板决定每笔交易里创作者那一份费用怎么用。发射路由在发射时把它写进链上：创作者费用模式，唯一收款方是一个按发射部署的合约。之后没有钱包能替换，费用模式也不再适用。",
-          "The Wall 需要以股票作为计价市场。创作者费用（任何人都可触发）领进一个持有股票且永不卖出的国库。每次领取的一个设定比例 7 天内流向代币的质押者，以股票支付。其余是账面价值之下的常驻买单：代币仍在曲线上时，keeper 可以在现价低于账面价值 ×（1 + 边际）时买入并燃烧，受每日预算限制。账面价值 = 堆 ÷ 流通供给，两者都从链上读。",
-          "Proof-of-Fee：创作者费用在曲线上回购代币。每一轮（1 分钟到 24 小时）的回购按经官方 PoF 路由花掉的报价占比（「Work」）付给撑起它的交易者。直接对曲线买入和所有卖出不计 Work。认购不足的回合按比例派发，其余滚入下一轮。不增发。",
+          "The Wall 需要以股票作为计价市场。创作者费用（任何人都可触发）领进一个持有股票且永不卖出的国库。每次领取的一个设定比例 {wallStream}内流向代币的质押者，以股票支付。其余是账面价值之下的常驻买单：代币仍在曲线上时，keeper 可以在现价低于账面价值 ×（1 + 边际）时买入并燃烧，受每日预算限制。账面价值 = 堆 ÷ 流通供给，两者都从链上读。",
+          "Proof-of-Fee：创作者费用在曲线上回购代币。每一轮（{pofRoundMin}到 {pofRoundMax}）的回购按经官方 PoF 路由花掉的报价占比（「Work」）付给撑起它的交易者。直接对曲线买入和所有卖出不计 Work。认购不足的回合按比例派发，其余滚入下一轮。不增发。",
         ],
       },
       {
@@ -340,7 +343,7 @@ const zh: LearnDoc = {
         tag: "trade",
         body: [
           "任何曲线代币的页面都能经 RadianExecutor 安排定时买入。你把计价资产（计价资产是 ERC-20 时再加燃气币付 gas）存进执行器，签一条 EIP-712 消息，限定每笔金额、间隔、次数、最高 gas 价、价格上限和有效期。索引器运行的 keeper 按计划执行；代币永远落进你的钱包。",
-          "费用是实际花掉的报价的 0.5%（合约常数）加每笔的 gas 补贴，都从你的存款扣。提取存款和取消所有计划都是普通交易，不需要任何人配合。keeper 不能超过你签的上限，也不能把资金挪到你指定代币的买入之外。",
+          "费用是实际花掉的报价的 {execFee}（合约常数）加每笔的 gas 补贴，都从你的存款扣。提取存款和取消所有计划都是普通交易，不需要任何人配合。keeper 不能超过你签的上限，也不能把资金挪到你指定代币的买入之外。",
         ],
       },
       {
@@ -365,8 +368,8 @@ const zh: LearnDoc = {
         tag: "pound",
         when: "pound",
         body: [
-          "手续费是每笔兑换的 1%，在计价资产一侧，毕业前后都一样。一半归创作者：进费用托管，随时可领（开启回购并锁定时四分之一给你、四分之一进金库）。创作者税（如设）全部另付给创作者。",
-          "另一半是协议份额，清扫进 PoundVault，按这个顺序结算：手续费的 5.55% 给带来买家的推荐人，5.55% 给带来创作者的推荐人（推荐标记随路由交易传递；自我推荐作废）；然后余下的 70% 买入 Pack 里的下一个币并送进死地址，每天最多一次，在现价 5% 之内；剩余进国库。",
+          "手续费是每笔兑换的 {fee}，在计价资产一侧，毕业前后都一样。一半归创作者：进费用托管，随时可领（开启回购并锁定时四分之一给你、四分之一进金库）。创作者税（如设）全部另付给创作者。",
+          "另一半是协议份额，清扫进 PoundVault，按这个顺序结算：手续费的 {ref} 给带来买家的推荐人，{launcherRef} 给带来创作者的推荐人（推荐标记随路由交易传递；自我推荐作废）；然后余下的 {burn} 买入 Pack 里的下一个币并送进死地址，每 {burnInterval}最多一次，在现价 {burnSlippage} 之内；剩余进国库。",
           "早于 The Pound 的发射保留它们创建时的费用政策，不带推荐标记。实时分成、Pack 和每次结算都在 The Pound 页；背后的角色在工厂页。",
         ],
         link: { href: "/earn", label: "The Pound" },
@@ -376,7 +379,7 @@ const zh: LearnDoc = {
         title: "每一笔费用去哪",
         tag: "fees",
         when: "legacy",
-        body: ["手续费是每笔兑换的 1%，在计价资产一侧，毕业前后都一样。协议份额经托管付给协议收款方；其余归创作者，随时可领（开启回购并锁定时其中一半回购代币并锁定）。创作者税（如设）全部另付给创作者。"],
+        body: ["手续费是每笔兑换的 {fee}，在计价资产一侧，毕业前后都一样。协议份额经托管付给协议收款方；其余归创作者，随时可领（开启回购并锁定时其中一半回购代币并锁定）。创作者税（如设）全部另付给创作者。"],
       },
       {
         kicker: "推荐",
@@ -384,7 +387,7 @@ const zh: LearnDoc = {
         tag: "pound",
         when: "pound",
         body: [
-          "你的推荐链接就是你的地址。它在访客的浏览器里存一个标记 30 天；之后每笔经路由的交易和发射都带着它，金库记给你手续费的 5.55%。推荐一位创作者，你在他们代币的每笔交易上都赚同样的比例，伴随代币一生。",
+          "你的推荐链接就是你的地址。它在访客的浏览器里存一个标记 {refTtl}；之后每笔经路由的交易和发射都带着它，金库记给你手续费的 {ref}。推荐一位创作者，你在他们代币的每笔交易上都赚同样的比例，伴随代币一生。",
           "累计在金库下一次结算后可领（keeper 每小时结算）。在 The Pound 页或你的组合里领取，以该币的计价资产支付。",
         ],
         link: { href: "/earn", label: "获取你的链接" },
@@ -431,7 +434,7 @@ const zh: LearnDoc = {
       {
         name: "费用",
         items: [
-          { q: "1% 归谁？", a: "一半给创作者（或其模板），一半给协议。在 The Pound 运行的网络上，协议这一半先付推荐人，再买入并燃烧 Pack，再进国库。" },
+          { q: "{fee} 归谁？", a: "一半给创作者（或其模板），一半给协议。在 The Pound 运行的网络上，协议这一半先付推荐人，再买入并燃烧 Pack，再进国库。" },
           { q: "有平台币吗？", a: "The Pound 运行的地方没有。费用买入并燃烧别人的币——Pack——而不是增发一个。" },
           { q: "什么时候能领？", a: "创作者费用要等 keeper 从曲线上清扫（约每小时）。推荐收益要等金库下一次结算。都在你的组合页领。" },
         ],
@@ -455,4 +458,78 @@ const zh: LearnDoc = {
   ],
 };
 
+/** The raw copy, placeholders included; pages render learnDoc(lang) instead. */
 export const LEARN = { en, zh } as const;
+
+/** Every placeholder the Learn copy (this module and the learn.* dictionary keys) may use. */
+export type LearnVar =
+  | "supply" | "supplyShort" | "fee" | "execFee" | "ref" | "launcherRef" | "burn" | "burnInterval" | "burnSlippage"
+  | "vest" | "wallStream" | "pofRoundMin" | "pofRoundMax" | "refTtl" | "symbolMax";
+
+const UNITS: [secs: number, en: string, zh: string][] = [
+  [365 * 86400, "year", "年"],
+  [86400, "day", "天"],
+  [3600, "hour", "小时"],
+  [60, "minute", "分钟"],
+  [1, "second", "秒"],
+];
+
+/** The one formatter for protocol numbers in prose: percentages, whole-token counts and durations. */
+export const fmt = {
+  /** basis points → "1%", "0.5%", "5.55%", "70%" */
+  pct: (bps: number): string => `${+(bps / 100).toFixed(2)}%`,
+  /** whole tokens → "1,000,000,000" / "10 亿" */
+  count: (n: number, lang: Lang): string => (lang === "zh" ? fmt.compact(n, lang) : n.toLocaleString("en-US")),
+  /** whole tokens → "1B" / "10 亿" (billions or millions; the supply is a round number) */
+  compact: (n: number, lang: Lang): string => (lang === "zh" ? `${n / 1e8} 亿` : n % 1e9 === 0 ? `${n / 1e9}B` : `${n / 1e6}M`),
+  /** seconds → the largest unit that divides evenly ("7 days", "5 years"); hours stay hours below two days ("24 hours") */
+  duration: (secs: number, lang: Lang): string => {
+    const [u, en, zh] = UNITS.find(([u]) => secs % u === 0 && !(u === 86400 && secs < 2 * 86400)) ?? UNITS[UNITS.length - 1];
+    const n = secs / u;
+    return lang === "zh" ? `${n} ${zh}` : `${n} ${en}${n === 1 ? "" : "s"}`;
+  },
+};
+
+/** The fill map: each placeholder's value, formatted for the language. Also the vars for t("learn.step…"). */
+export function learnVars(lang: Lang): Record<LearnVar, string> {
+  const P = PROTOCOL;
+  return {
+    supply: fmt.count(P.supply, lang),
+    supplyShort: fmt.compact(P.supply, lang),
+    fee: fmt.pct(P.tradeFeeBps),
+    execFee: fmt.pct(P.executorFeeBps),
+    ref: fmt.pct(P.referralBps),
+    launcherRef: fmt.pct(P.launcherBps),
+    burn: fmt.pct(P.burnShareBps),
+    burnInterval: fmt.duration(P.burnMinIntervalSecs, lang),
+    burnSlippage: fmt.pct(P.burnMaxSlippageBps),
+    vest: fmt.duration(P.buybackVestSecs, lang),
+    wallStream: fmt.duration(P.wallStreamSecs, lang),
+    pofRoundMin: fmt.duration(P.pofRoundMinSecs, lang),
+    pofRoundMax: fmt.duration(P.pofRoundMaxSecs, lang),
+    refTtl: fmt.duration(P.referralTagTtlSecs, lang),
+    symbolMax: String(P.symbolMax),
+  };
+}
+
+/** Replace every known {placeholder} in a string; unknown ones (the runtime {q}) stay. Same rule as the dictionary's t(). */
+export function fillText(s: string, vars: Record<string, string>): string {
+  for (const k in vars) s = s.split(`{${k}}`).join(vars[k]);
+  return s;
+}
+
+function deepFill<T>(v: T, vars: Record<string, string>): T {
+  if (typeof v === "string") return fillText(v, vars) as T;
+  if (Array.isArray(v)) return v.map((x) => deepFill(x, vars)) as T;
+  if (v && typeof v === "object") {
+    const o: Record<string, unknown> = {};
+    for (const [k, x] of Object.entries(v)) o[k] = deepFill(x, vars);
+    return o as T;
+  }
+  return v;
+}
+
+/** The Learn copy for a language with its numbers filled in — what the page renders. */
+export function learnDoc(lang: Lang): LearnDoc {
+  return deepFill(LEARN[lang] ?? LEARN.en, learnVars(lang));
+}

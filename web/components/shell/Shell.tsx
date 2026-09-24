@@ -14,6 +14,7 @@ import { NavIcon } from "./NavIcon";
 import { NavMore } from "./NavMore";
 import { NavPortfolioValue } from "./NavPortfolioValue";
 import { NetworkPill } from "./NetworkPill";
+import { dismissStorageWarning, useStorageFailed, writeLS } from "@/lib/ui/storage";
 import { WalletPill } from "./WalletPill";
 
 export function Shell({ children, crumbSuffix }: { children: React.ReactNode; crumbSuffix?: string }) {
@@ -70,6 +71,8 @@ export function Chrome({ crumbSuffix }: { crumbSuffix?: string }) {
         </div>
       </header>
 
+      <StorageBanner />
+
       <div className="flex items-center justify-between gap-3 border-b border-stroke px-[18px] py-[9px] font-sans nav:px-10 nav:py-[11px]">
         <span className="mono-label text-[11px] uppercase tracking-[.14em] text-ink-2">{crumb}</span>
         <span className="mono-label hidden items-center gap-2 text-xs text-muted nav:flex">
@@ -112,11 +115,7 @@ function ThemeButton() {
     const toLight = root.getAttribute("data-theme") !== "light";
     if (toLight) root.setAttribute("data-theme", "light");
     else root.removeAttribute("data-theme");
-    try {
-      window.localStorage.setItem("radian.theme", toLight ? "light" : "dark");
-    } catch {
-      /* private mode: this session only */
-    }
+    writeLS("radian.theme", toLight ? "light" : "dark"); // refused (private mode): this session only, and the banner says so
   };
   return (
     <button
@@ -134,6 +133,40 @@ function ThemeButton() {
         <path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M5.3 18.7 7 17M17 7l1.7-1.7" />
       </svg>
     </button>
+  );
+}
+
+/**
+ * Under the top bar once a localStorage write was refused (private window, quota full,
+ * storage disabled): the modules carry on in memory, so the person is told what will not
+ * survive a reload. The status region is always in the DOM (a live region announces only
+ * changes inside it) and is empty with no padding or border until then, so the layout of
+ * a page never shifts. Dismissed for this page load; a new failure shows it again.
+ */
+function StorageBanner() {
+  const t = useT();
+  const { failed } = useStorageFailed();
+  return (
+    <div
+      role="status"
+      className={failed ? "flex items-center justify-between gap-3 border-b border-stroke bg-glass px-[18px] py-2.5 font-sans text-[13px] leading-[1.6] text-ink-2 backdrop-blur-xl nav:px-10" : undefined}
+    >
+      {failed && (
+        <>
+          <span className="flex items-start gap-2.5">
+            <i className="mt-[7px] size-2 flex-none rotate-45 border-2 border-signal" aria-hidden="true" />
+            {t("shell.storageFailed")}
+          </span>
+          <button
+            type="button"
+            onClick={dismissStorageWarning}
+            className="flex-none rounded-md border border-stroke-2 bg-glass-2 px-2.5 py-1 text-xs font-semibold text-ink-2 transition-colors hover:border-brand hover:text-brand"
+          >
+            {t("shell.storageDismiss")}
+          </button>
+        </>
+      )}
+    </div>
   );
 }
 

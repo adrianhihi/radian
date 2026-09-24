@@ -5,12 +5,14 @@
 // the site. Full addresses (same-named fakes exist), pinned runtime code hashes
 // with the live re-check, the other addresses, how to reproduce the bytecode,
 // and the numbers that must not be combined.
-import { Check, ExternalLink, X } from "lucide-react";
+import { Check, ExternalLink, RefreshCw, X } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Shell } from "@/components/shell/Shell";
-import { useT } from "@/components/LangProvider";
-import { Footer, Panel } from "@/components/ui/primitives";
+import { useT, useTDynamic } from "@/components/LangProvider";
+import { Info } from "@/components/ui/Info";
+import { Footer, Panel, SectionHead } from "@/components/ui/primitives";
+import { fetchReconcile, hasIndexer, type ReconcileReport } from "@/lib/indexer";
 import { useNetwork } from "@/lib/networks";
 import { useIdentity, pinnedContracts } from "@/lib/identity";
 import { parseAbi } from "viem";
@@ -18,6 +20,129 @@ import { publicClient, RADIAN } from "@/lib/radian";
 import { fingerprint } from "@/lib/ui/fingerprint";
 
 const CODE_HASH_CMD = "cast keccak $(cast code <address> --rpc-url <rpc>)";
+
+// Reconciliation (indexer GET /reconcile): the index re-derived from the chain at the index's own
+// checkpoint block. One row per family of checks; a read failure says so instead of showing zeros,
+// and the last good report stays on screen with its own timestamp.
+function ReconciliationPanel() {
+  const t = useT();
+  const td = useTDynamic();
+  const net = useNetwork();
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [report, setReport] = useState<ReconcileReport | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  const alive = useRef(true);
+  const load = useCallback((fresh: boolean) => {
+    if (!hasIndexer()) return;
+    setStatus("loading");
+    fetchReconcile(fresh)
+      .then((r) => {
+        if (!alive.current) return;
+        setReport(r);
+        setStatus("ready");
+        setNow(Date.now());
+      })
+      .catch(() => alive.current && setStatus("error"));
+  }, []);
+  useEffect(() => {
+    alive.current = true;
+    load(false);
+    return () => {
+      alive.current = false;
+    };
+  }, [load, net.key]);
+  // the "computed x min ago" line ticks without a re-read
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const minutes = report ? Math.max(0, Math.floor((now - report.computedAt) / 60_000)) : 0;
+  const ago = minutes === 0 ? t("verify.reconJustNow") : t("verify.reconMinAgo", { n: minutes });
+  const bad = report ? report.checks.filter((c) => !c.ok).length : 0;
+  // the dictionary names each check by key; an unknown key falls back to the label the indexer sent
+  const labelOf = (key: string, fallback: string) => {
+    const k = `verify.reconKey.${key}`;
+    const s = td(k);
+    return s === k ? fallback : s;
+  };
+
+  return (
+    <Panel aria-label={t("verify.reconTitle")}>
+      <SectionHead
+        title={
+          <span className="inline-flex items-center gap-2">
+            {t("verify.reconTitle")} <Info text={t("verify.reconInfo")} />
+          </span>
+        }
+        aside={
+          hasIndexer() ? (
+            <button
+              type="button"
+              onClick={() => load(true)}
+              disabled={status === "loading"}
+              aria-label={t("verify.reconRefreshAria")}
+              className="mono-label inline-flex items-center gap-1.5 rounded-full border border-stroke px-2.5 py-1 text-[10px] tracking-[.12em] text-ink-3 hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <RefreshCw size={11} strokeWidth={1.8} aria-hidden="true" className={status === "loading" ? "animate-spin" : ""} />
+              {t("verify.reconRefresh")}
+            </button>
+          ) : undefined
+        }
+        className="mb-1"
+      />
+      <p className="text-[12.5px] leading-[1.6] text-ink-3">{t("verify.reconSub")}</p>
+      {!hasIndexer() ? (
+        <p className="mt-4 text-[13px] text-muted">{t("verify.reconNoIndexer")}</p>
+      ) : (
+        <>
+          {status === "error" && (
+            <p role="status" className="mt-4 text-[13px] text-neg">
+              {t("verify.reconUnavailable")}
+            </p>
+          )}
+          {status === "loading" && !report && (
+            <p role="status" className="mt-4 text-[13px] text-ink-3">
+              {t("verify.reconReading")}
+            </p>
+          )}
+          {report && report.block === 0 && <p className="mt-4 text-[13px] text-muted">{t("verify.reconEmpty")}</p>}
+          {report && report.block > 0 && (
+            <>
+              <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+                <span className={`mono-label inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] tracking-[.12em] ${bad ? "border-neg/60 text-neg" : "border-pos/50 text-pos"}`}>
+                  {bad ? <X size={11} strokeWidth={2.2} aria-hidden="true" /> : <Check size={11} strokeWidth={2.2} aria-hidden="true" />}
+                  {bad ? t("verify.reconSomeFail", { bad, n: report.checks.length }) : t("verify.reconAllPass", { n: report.checks.length })}
+                </span>
+                <span className="mono-label text-[10px] tracking-[.12em] text-ink-3">{t("verify.reconAsOf", { block: report.block.toLocaleString("en-US"), ago })}</span>
+              </div>
+              <ul className="mt-3 divide-y divide-stroke">
+                {report.checks.map((c) => (
+                  <li key={c.key} className="grid gap-1.5 py-3 min-[720px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] min-[720px]:items-start">
+                    <div className="flex items-start gap-2 text-[13px] leading-[1.5] text-ink-2">
+                      {c.ok ? (
+                        <Check size={14} strokeWidth={2.2} className="mt-0.5 flex-none text-pos" aria-label={t("verify.reconPass")} />
+                      ) : (
+                        <X size={14} strokeWidth={2.2} className="mt-0.5 flex-none text-neg" aria-label={t("verify.reconFail")} />
+                      )}
+                      <span>{labelOf(c.key, c.label)}</span>
+                    </div>
+                    <div className="tnum min-w-0 break-words text-[12px] leading-[1.6] text-ink-3 min-[720px]:text-right">
+                      <span className="mono-label text-[9.5px] tracking-[.12em]">{t("verify.reconExpected")}</span> <span className="text-ink-2">{c.expected}</span>
+                      <span aria-hidden="true"> → </span>
+                      <span className="mono-label text-[9.5px] tracking-[.12em]">{t("verify.reconActual")}</span> <span className={c.ok ? "text-ink-2" : "text-neg"}>{c.actual}</span>
+                    </div>
+                    {!c.ok && c.detail && <p className="col-span-full break-words text-[12px] leading-[1.6] text-neg">{c.detail}</p>}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </>
+      )}
+    </Panel>
+  );
+}
 
 export default function VerifyPage() {
   const t = useT();
@@ -109,6 +234,8 @@ export default function VerifyPage() {
               {t("verify.reproduceHash")} <code className="rounded border border-stroke-2 bg-glass-2 px-1.5 py-px font-mono text-[11px] text-ink-2">{CODE_HASH_CMD}</code> · RPC <code className="rounded border border-stroke-2 bg-glass-2 px-1.5 py-px font-mono text-[11px] text-ink-2">{net.rpc}</code>
             </p>
           </Panel>
+
+          <ReconciliationPanel />
 
           <Panel>
             <h2 className="text-[20px] font-bold text-ink">{t("verify.othersTitle")}</h2>

@@ -3,14 +3,15 @@
 // Learn, on baskvia's /learn skeleton: head · this page's contents · the four
 // steps · launching · the details (searchable, tag-filtered accordion) · Q&A
 // with anchors · the contracts for this network · bottom links. Copy lives in
-// lib/content/learn.ts; live numbers and addresses come from the network.
+// lib/content/learn.ts with its fee numbers filled from lib/protocol.ts
+// (learnDoc / learnVars); addresses come from the network.
 import { ArrowRight, ChevronDown, Search } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Shell } from "@/components/shell/Shell";
 import { useLang, useT } from "@/components/LangProvider";
 import { Footer } from "@/components/ui/primitives";
-import { LEARN, type DetailItem, type LearnTag } from "@/lib/content/learn";
+import { learnDoc, learnVars, type DetailItem, type LearnTag } from "@/lib/content/learn";
 import type { TKey } from "@/lib/i18n";
 import { useNetwork } from "@/lib/networks";
 
@@ -41,7 +42,8 @@ export default function LearnPage() {
   const t = useT();
   const { lang } = useLang();
   const net = useNetwork();
-  const c = LEARN[lang] ?? LEARN.en;
+  const c = useMemo(() => learnDoc(lang), [lang]);
+  const vars = useMemo(() => learnVars(lang), [lang]);
   const pound = !!net.pound;
   const [q, setQ] = useState("");
   const [tag, setTag] = useState<LearnTag | "all">("all");
@@ -105,7 +107,7 @@ export default function LearnPage() {
               <li key={h} className="glass-panel flex flex-col rounded-2xl p-5">
                 <span className="mono-label text-[10px] text-ink-3">0{i + 1}</span>
                 <h3 className="mt-3 text-[14px] font-bold uppercase tracking-[.04em] text-ink">{t(h)}</h3>
-                <p className="mt-2 text-[12.5px] leading-[1.7] text-muted">{t(p)}</p>
+                <p className="mt-2 text-[12.5px] leading-[1.7] text-muted">{t(p, vars)}</p>
               </li>
             ))}
           </ol>

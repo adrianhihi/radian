@@ -5,8 +5,9 @@
 // returns to the trigger.
 import { X } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { useT } from "@/components/LangProvider";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLang, useT } from "@/components/LangProvider";
+import { learnVars } from "@/lib/content/learn";
 import type { TKey } from "@/lib/i18n";
 
 const STEPS: [TKey, TKey][] = [
@@ -42,6 +43,8 @@ export function HowItWorksButton() {
 
 function HowItWorksDialog({ onClose }: { onClose: () => void }) {
   const t = useT();
+  const { lang } = useLang();
+  const vars = useMemo(() => learnVars(lang), [lang]); // the steps quote fees; same fill as the Learn page
   const [i, setI] = useState(0);
   const panelRef = useRef<HTMLDivElement>(null);
   const last = i === STEPS.length - 1;
@@ -72,7 +75,7 @@ function HowItWorksDialog({ onClose }: { onClose: () => void }) {
           <h2 id="how-title" className="mt-5 text-[clamp(26px,4vw,34px)] font-bold leading-[1.1] text-ink">
             {t(titleKey)}
           </h2>
-          <p className="mt-3 min-h-[5.4em] text-[14.5px] leading-[1.75] text-muted">{t(bodyKey)}</p>
+          <p className="mt-3 min-h-[5.4em] text-[14.5px] leading-[1.75] text-muted">{t(bodyKey, vars)}</p>
         </div>
         <div className="flex items-center justify-between gap-3 border-t border-stroke px-6 py-4 nav:px-8">
           <div className="flex gap-1.5" aria-hidden="true">

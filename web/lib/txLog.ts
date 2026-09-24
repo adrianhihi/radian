@@ -6,6 +6,7 @@
 // links. Reads and writes are wrapped: a private window records nothing and
 // the transaction itself is unaffected.
 import { useSyncExternalStore } from "react";
+import { readLS, writeLS } from "./ui/storage";
 
 export type TxKind = "buy" | "sell" | "launch" | "claim" | "stake" | "unstake" | "deposit" | "withdraw" | "cancel" | "wallClaim" | "pofClaim" | "referralClaim";
 
@@ -28,7 +29,7 @@ const listeners = new Set<() => void>();
 function read(): Record<string, TxRecord[]> {
   if (cache) return cache;
   try {
-    const x = JSON.parse(localStorage.getItem(KEY) ?? "{}") as unknown;
+    const x = JSON.parse(readLS(KEY) ?? "{}") as unknown;
     cache = x && typeof x === "object" ? (x as Record<string, TxRecord[]>) : {};
   } catch {
     cache = {};
@@ -40,11 +41,7 @@ export function recordTx(address: string, rec: TxRecord): void {
   const all = read();
   const k = address.toLowerCase();
   cache = { ...all, [k]: [rec, ...(all[k] ?? []).filter((r) => r.hash !== rec.hash)].slice(0, MAX) };
-  try {
-    localStorage.setItem(KEY, JSON.stringify(cache));
-  } catch {
-    /* quota / private mode: this visit only */
-  }
+  writeLS(KEY, JSON.stringify(cache)); // refused (quota / private mode): this visit only, and the Shell says so
   listeners.forEach((f) => f());
 }
 

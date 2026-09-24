@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 import type { Hex, TransactionReceipt } from "viem";
 import { publicClient } from "./radian";
 import { getActiveNetworkKey } from "./networks";
+import { readLS, writeLS } from "./ui/storage";
 
 // "Unknown result" transaction semantics. Once a wallet has returned a hash the
 // transaction may land even if this tab loses the receipt (RPC timeout, tab
@@ -22,16 +23,15 @@ const STALE_MS = 24 * 3600 * 1000;
 export function listPending(): PendingTx[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = window.localStorage.getItem(KEY());
+    const raw = readLS(KEY());
     return raw ? (JSON.parse(raw) as PendingTx[]) : [];
   } catch {
     return [];
   }
 }
 function write(list: PendingTx[]) {
-  try {
-    window.localStorage.setItem(KEY(), JSON.stringify(list));
-  } catch {}
+  // a refused write is recorded by lib/ui/storage (the Shell says so); the wait itself is unaffected
+  writeLS(KEY(), JSON.stringify(list));
 }
 export function addPending(p: PendingTx) {
   write([...listPending().filter((x) => x.hash !== p.hash), p]);

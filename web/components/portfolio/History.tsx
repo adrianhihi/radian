@@ -90,8 +90,8 @@ export function HistoryChart({ h, m }: { h?: HistoryView; m: (v: number, d?: num
         <DitherChart series={vals} label={t("pf.chartAria")} orient="vertical" className="h-full w-full" />
       </div>
       <div className="relative mt-2 h-4 pl-14">
-        {labelIdx.map((i) => (
-          <span key={i} className={`tnum mono-label absolute whitespace-nowrap text-[10px] text-ink-3 ${i === 0 ? "" : i === h.times.length - 1 ? "-translate-x-full" : "-translate-x-1/2"}`} style={{ left: `calc(3.5rem + (100% - 3.5rem) * ${i / (h.times.length - 1)})` }}>
+        {labelIdx.map((i, k) => (
+          <span key={i} className={`tnum mono-label absolute whitespace-nowrap text-[10px] text-ink-3 ${i === 0 ? "" : i === h.times.length - 1 ? "-translate-x-full" : "-translate-x-1/2"} ${k === 1 || k === 2 || k === 4 ? "hidden min-[560px]:block" : ""}`} style={{ left: `calc(3.5rem + (100% - 3.5rem) * ${i / (h.times.length - 1)})` }}>
             {dayFmt.format(new Date(h.times[i]))}
           </span>
         ))}

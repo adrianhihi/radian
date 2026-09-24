@@ -24,6 +24,7 @@ export const NAV_MORE: NavItem[] = [
   { name: "creators", href: "/creators" },
   { name: "earn", href: "/earn" },
   { name: "builders", href: "/builders" },
+  { name: "apiDocs", href: "/api-docs" },
   { name: "factory", href: "/factory" },
   { name: "verify", href: "/verify" },
   { name: "live", href: "/live" },
@@ -33,6 +34,7 @@ export const NAV_MORE: NavItem[] = [
 export const NAV_FOOTER: NavItem[] = [
   { name: "learn", href: "/docs" },
   { name: "builders", href: "/builders" },
+  { name: "apiDocs", href: "/api-docs" },
   { name: "earn", href: "/earn" },
   { name: "verify", href: "/verify" },
   { name: "terms", href: "/terms" },
@@ -46,6 +48,7 @@ export const MORE_NAME = "more";
 const SUB: Record<string, string> = {
   token: "explore",
   activity: "portfolio",
+  tx: "portfolio",
   r: "explore",
   live: "explore",
   stats: "explore",
@@ -56,6 +59,7 @@ const SUB: Record<string, string> = {
   launch: MORE_NAME,
   earn: MORE_NAME,
   builders: MORE_NAME,
+  "api-docs": MORE_NAME, // the developer docs page (routeNameOf maps it to "apiDocs"; /docs is Learn)
   factory: MORE_NAME,
   verify: MORE_NAME,
   terms: MORE_NAME,
@@ -71,6 +75,7 @@ export function routeNameOf(pathname: string): string {
   const seg = pathname.split("/").filter(Boolean)[0];
   if (!seg) return "home"; // the landing: no Shell, no crumb, nothing highlighted
   if (seg === "docs") return "learn";
+  if (seg === "api-docs") return "apiDocs"; // dictionary keys are camelCase (nav.apiDocs, crumb.apiDocs)
   // Object.hasOwn, not `in`: `in` walks the prototype chain (/constructor, /toString…)
   return NAV_NAMES.has(seg) || Object.hasOwn(SUB, seg) ? seg : "explore";
 }

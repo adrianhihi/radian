@@ -1,5 +1,6 @@
 "use client";
 import { isAddress, type Address } from "viem";
+import { readLS, writeLS } from "./ui/storage";
 
 // Referral tags. A link like /?ref=0xABC… (or /r/0xABC…) stores the referrer for
 // 30 days in this browser; every router trade and launch then carries it, and
@@ -17,7 +18,7 @@ export function captureReferrer(): void {
     const m = url.pathname.match(/^\/r\/(0x[0-9a-fA-F]{40})$/);
     if (!ref && m) ref = m[1];
     if (ref && isAddress(ref)) {
-      window.localStorage.setItem(KEY, JSON.stringify({ ref, at: Date.now() }));
+      writeLS(KEY, JSON.stringify({ ref, at: Date.now() }));
     }
   } catch {}
 }
@@ -25,7 +26,7 @@ export function captureReferrer(): void {
 export function getReferrer(): Address {
   if (typeof window === "undefined") return ZERO_ADDRESS;
   try {
-    const raw = window.localStorage.getItem(KEY);
+    const raw = readLS(KEY);
     if (!raw) return ZERO_ADDRESS;
     const { ref, at } = JSON.parse(raw) as { ref: string; at: number };
     if (!isAddress(ref) || Date.now() - at > TTL_MS) return ZERO_ADDRESS;

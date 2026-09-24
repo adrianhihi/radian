@@ -2,11 +2,12 @@ import express from "express";
 import cors from "cors";
 import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync, existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { formatUnits } from "viem";
+import { formatUnits, decodeEventLog, getAddress, isHash, TransactionNotFoundError, TransactionReceiptNotFoundError, type Abi, type Hex, type TransactionReceipt } from "viem";
 import { store } from "./store.js";
 import { fmt } from "./scanner.js";
 import { mountAgentApi } from "./agentApi.js";
 import { mountMeta } from "./meta.js";
+import { reconcile } from "./reconcile.js";
 import {
   publicClient,
   RADIAN,
@@ -27,7 +28,8 @@ import {
   PACK_BURNER,
   poundVaultAbi,
   packBurnerAbi,
-  quoteMeta, VAULT, LOCKER, POOL_MANAGER, LAUNCH_ROUTER, LEGACY_ROUTERS, POF_ROUTER, EXECUTOR } from "./config.js";
+  quoteMeta, VAULT, LOCKER, POOL_MANAGER, LAUNCH_ROUTER, LEGACY_ROUTERS, POF_ROUTER, EXECUTOR,
+  FACTORY, factoryAbi, curveEventsAbi, routerEventsAbi, treasuryEventsAbi, poundEventsAbi } from "./config.js";
 import { isAddress, parseAbi, type Address } from "viem";
 
 const ZERO_ADDR = "0x0000000000000000000000000000000000000000" as Address;
@@ -288,6 +290,161 @@ export function startServer() {
     res.json({ indexed: true, ...indexMeta(), events: rows.slice(0, 200) });
   });
 
+  // One transaction, resolved here so agents and other browser tabs need no RPC of their own:
+  // pending / success / reverted / unknown, the launched token decoded from the factory's
+  // TokenLaunched log, and every curve trade, fee claim, Pound settlement and Pack burn the
+  // receipt carries (decoded with the same ABIs the scanner uses, only from the contracts that
+  // emit them). Nothing is cached while pending; a settled receipt never changes, so it may be.
+  type TxEvent = {
+    kind: "launch" | "buy" | "sell" | "claim" | "flush" | "settle" | "burn";
+    token?: Address;
+    symbol?: string;
+    curve?: Address;
+    template?: "wall" | "pof";
+    trader?: Address;
+    amounts?: { quote?: string; tokens?: string; amount?: string; asset?: string; fee?: string; tax?: string; quoteSymbol?: string; quoteDecimals?: number };
+  };
+  const FACTORY_LC = FACTORY.toLowerCase();
+  const TREASURY_LC = RADIAN.treasury.toLowerCase();
+  const POUND_LCS = new Set(HAS_POUND ? [POUND_VAULT, PACK_BURNER].map((a) => a.toLowerCase()) : []);
+  const ROUTER_LCS = new Set([LAUNCH_ROUTER, ...LEGACY_ROUTERS].map((a) => a.toLowerCase()));
+  const decodeLog = (abi: Abi, log: { topics: readonly Hex[]; data: Hex }) => {
+    try {
+      if (log.topics.length === 0) return null;
+      return decodeEventLog({ abi, topics: log.topics as [Hex, ...Hex[]], data: log.data }) as unknown as { eventName: string; args: Record<string, unknown> };
+    } catch {
+      return null;
+    }
+  };
+  // viem names its errors; the instanceof check covers the same module, the name check a duplicated one
+  const isErr = (e: unknown, cls: typeof TransactionNotFoundError | typeof TransactionReceiptNotFoundError, name: string) => e instanceof cls || (e as { name?: string })?.name === name;
+  const errText = (e: unknown) => String((e as { shortMessage?: string; message?: string })?.shortMessage ?? (e as Error)?.message ?? e);
+  const decodeReceipt = (receipt: TransactionReceipt): { events: TxEvent[]; launched: Address | null } => {
+    const events: TxEvent[] = [];
+    // curves born in this very transaction: their trades follow TokenLaunched in the same receipt
+    const bornCurves = new Map<string, { token: Address; pairToken: string }>();
+    let launched: Address | null = null;
+    const symOf = (token: string) => store.launches.get(token.toLowerCase())?.symbol;
+    const logs = [...receipt.logs].sort((a, b) => (a.logIndex ?? 0) - (b.logIndex ?? 0));
+    for (const log of logs) {
+      const addr = log.address.toLowerCase();
+      if (addr === FACTORY_LC) {
+        const ev = decodeLog(factoryAbi, log);
+        if (ev?.eventName === "TokenLaunched") {
+          const a = ev.args as { token: Address; curve: Address; pairToken: Address };
+          launched ??= a.token;
+          bornCurves.set(a.curve.toLowerCase(), { token: a.token, pairToken: a.pairToken });
+          events.push({ kind: "launch", token: a.token, curve: a.curve, symbol: symOf(a.token) });
+        }
+        continue;
+      }
+      if (ROUTER_LCS.has(addr)) {
+        const ev = decodeLog(routerEventsAbi, log);
+        if (ev?.eventName === "WallLaunched" || ev?.eventName === "PoFLaunched") {
+          const a = ev.args as { token: Address };
+          const row = events.find((e) => e.kind === "launch" && e.token?.toLowerCase() === a.token.toLowerCase());
+          if (row) row.template = ev.eventName === "WallLaunched" ? "wall" : "pof";
+        }
+        continue;
+      }
+      if (HAS_RADIAN && addr === TREASURY_LC) {
+        const ev = decodeLog(treasuryEventsAbi, log);
+        if (ev?.eventName === "FeesClaimed") {
+          const a = ev.args as { amount: bigint };
+          events.push({ kind: "claim", amounts: { amount: a.amount.toString(), asset: RADIAN_QUOTE, quoteSymbol: RADIAN_QUOTE_SYMBOL, quoteDecimals: RADIAN_QUOTE_DECIMALS } });
+        } else if (ev?.eventName === "TokenFeesClaimed") {
+          const a = ev.args as { token: Address; amount: bigint };
+          events.push({ kind: "claim", token: a.token, symbol: symOf(a.token), amounts: { amount: a.amount.toString(), asset: RADIAN_QUOTE, quoteSymbol: RADIAN_QUOTE_SYMBOL, quoteDecimals: RADIAN_QUOTE_DECIMALS } });
+        } else if (ev?.eventName === "Flushed") {
+          // quote in → $RADIAN bought and burned (the curve buy itself is listed as its own event)
+          const a = ev.args as { usdcIn: bigint; radianBurned: bigint };
+          events.push({ kind: "flush", token: RADIAN.token, symbol: symOf(RADIAN.token) ?? "RADIAN", amounts: { quote: a.usdcIn.toString(), tokens: a.radianBurned.toString(), asset: RADIAN_QUOTE, quoteSymbol: RADIAN_QUOTE_SYMBOL, quoteDecimals: RADIAN_QUOTE_DECIMALS } });
+        }
+        continue;
+      }
+      if (POUND_LCS.has(addr)) {
+        const ev = decodeLog(poundEventsAbi, log);
+        if (ev?.eventName === "ReferralClaimed") {
+          const a = ev.args as { asset: Address; referrer: Address; amount: bigint };
+          const m = quoteMeta(a.asset);
+          events.push({ kind: "claim", trader: a.referrer, amounts: { amount: a.amount.toString(), asset: a.asset, quoteSymbol: m.symbol, quoteDecimals: m.decimals } });
+        } else if (ev?.eventName === "Settled") {
+          const a = ev.args as { asset: Address; intake: bigint };
+          const m = quoteMeta(a.asset);
+          events.push({ kind: "settle", amounts: { amount: a.intake.toString(), asset: a.asset, quoteSymbol: m.symbol, quoteDecimals: m.decimals } });
+        } else if (ev?.eventName === "Burned") {
+          const a = ev.args as { token: Address; asset: Address; quoteIn: bigint; tokensOut: bigint };
+          const m = quoteMeta(a.asset);
+          events.push({ kind: "burn", token: a.token, symbol: symOf(a.token), amounts: { quote: a.quoteIn.toString(), tokens: a.tokensOut.toString(), asset: a.asset, quoteSymbol: m.symbol, quoteDecimals: m.decimals } });
+        }
+        continue;
+      }
+      // Curve trades: only from a curve the index knows or one launched in this receipt, so a
+      // foreign contract emitting the same signature can never be read as a Radian trade.
+      const known = store.hasCurve(addr);
+      const born = bornCurves.get(addr);
+      if (!known && !born) continue;
+      const token = known ? known.token : born!.token;
+      const qm = known
+        ? { symbol: known.quoteSymbol ?? quoteMeta(known.pairToken).symbol, decimals: known.quoteDecimals ?? quoteMeta(known.pairToken).decimals }
+        : quoteMeta(born!.pairToken);
+      const ev = decodeLog(curveEventsAbi, log);
+      if (ev?.eventName === "CurveBuy") {
+        const a = ev.args as { recipient: Address; quoteIn: bigint; tokensOut: bigint; fee: bigint; tax: bigint };
+        events.push({ kind: "buy", token, symbol: symOf(token), curve: getAddress(log.address), trader: a.recipient, amounts: { quote: a.quoteIn.toString(), tokens: a.tokensOut.toString(), fee: a.fee.toString(), tax: a.tax.toString(), quoteSymbol: qm.symbol, quoteDecimals: qm.decimals } });
+      } else if (ev?.eventName === "CurveSell") {
+        const a = ev.args as { recipient: Address; tokensIn: bigint; quoteOut: bigint; fee: bigint; tax: bigint };
+        events.push({ kind: "sell", token, symbol: symOf(token), curve: getAddress(log.address), trader: a.recipient, amounts: { quote: a.quoteOut.toString(), tokens: a.tokensIn.toString(), fee: a.fee.toString(), tax: a.tax.toString(), quoteSymbol: qm.symbol, quoteDecimals: qm.decimals } });
+      }
+    }
+    return { events, launched };
+  };
+
+  app.get("/tx/:hash", async (req, res) => {
+    const hash = String(req.params.hash);
+    if (!isHash(hash)) return res.status(400).json({ error: "hash" });
+    let receipt: TransactionReceipt | null = null;
+    try {
+      receipt = await publicClient.getTransactionReceipt({ hash });
+    } catch (e) {
+      if (!isErr(e, TransactionReceiptNotFoundError, "TransactionReceiptNotFoundError")) return res.status(502).json({ error: "chain-unavailable", detail: errText(e) });
+    }
+    if (!receipt) {
+      // No receipt yet: pending when the node holds the transaction, unknown when it never saw it
+      // (not propagated yet, or dropped). Neither answer may be cached.
+      res.setHeader("Cache-Control", "no-store");
+      try {
+        await publicClient.getTransaction({ hash });
+        return res.json({ hash, status: "pending", events: [] });
+      } catch (e) {
+        if (isErr(e, TransactionNotFoundError, "TransactionNotFoundError")) return res.json({ hash, status: "unknown", events: [] });
+        return res.status(502).json({ error: "chain-unavailable", detail: errText(e) });
+      }
+    }
+    let confirmations: number | undefined;
+    try {
+      const tip = await publicClient.getBlockNumber();
+      confirmations = Math.max(0, Number(tip - receipt.blockNumber + 1n));
+    } catch {
+      /* the receipt is the fact; the confirmation count is a courtesy */
+    }
+    const { events, launched } = receipt.status === "success" ? decodeReceipt(receipt) : { events: [], launched: null };
+    // The launched token, or the one token a plain trade / claim was about; absent when there is none or several.
+    const touched = [...new Set(events.map((e) => e.token?.toLowerCase()).filter((x): x is string => !!x))];
+    const primary = launched ?? (touched.length === 1 ? events.find((e) => e.token)!.token! : null);
+    const known = primary ? store.launches.get(primary.toLowerCase()) : undefined;
+    const token = primary ? { address: primary, ...(known?.symbol ? { symbol: known.symbol } : {}), ...(known?.name ? { name: known.name } : {}) } : undefined;
+    pub(res, 30);
+    res.json({
+      hash,
+      status: receipt.status === "success" ? "success" : "reverted",
+      blockNumber: receipt.blockNumber.toString(),
+      ...(confirmations != null ? { confirmations } : {}),
+      ...(token ? { token } : {}),
+      events,
+    });
+  });
+
   app.get("/stats", (req, res) => {
     pub(res, 10);
     const ls = launchView().filter((l) => !l.sunset && !isHidden(l.token));
@@ -533,6 +690,18 @@ export function startServer() {
         .sort((a, b) => b.ts - a.ts || b.logIndex - a.logIndex)
         .slice(0, 50);
       res.json({ referrer: who, assets: rows, recent });
+    } catch (e: any) {
+      res.status(500).json({ error: e?.shortMessage ?? String(e) });
+    }
+  });
+
+  // Reconciliation: what the index claims, re-derived from the chain at the index's own checkpoint block
+  // (see reconcile.ts for the checks). Computed at most once a minute; concurrent requests share one run.
+  app.get("/reconcile", async (_req, res) => {
+    try {
+      const report = await reconcile();
+      pub(res, 60);
+      res.json(report);
     } catch (e: any) {
       res.status(500).json({ error: e?.shortMessage ?? String(e) });
     }

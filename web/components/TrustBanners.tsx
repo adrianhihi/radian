@@ -46,7 +46,10 @@ export function PendingBar({ hash, onClose }: { hash: Hex | null; onClose: () =>
         {t("trust.pending")}{" "}
         <a href={`${net.explorer}/tx/${hash}`} target="_blank" rel="noreferrer" className="text-brand hover:underline">
           {t("trust.viewTx")}
-        </a>
+        </a>{" "}
+        <Link href={`/tx/${hash}`} className="text-brand hover:underline">
+          {t("trust.trackTx")}
+        </Link>
       </span>
       <button type="button" onClick={onClose} className="mono-label text-[10.5px] tracking-[.1em] text-ink-3 hover:text-ink">
         {t("trust.hide")}

@@ -3,6 +3,7 @@
 // no React except the hydration gate, so the pages only render.
 import { useSyncExternalStore } from "react";
 import { isAddress } from "viem";
+import { readLS, removeLS, writeLS } from "./ui/storage";
 import { POF_DEFAULTS, WALL_DEFAULTS, type PoFConfigInput, type WallConfigInput } from "./templates";
 
 export type TemplateId = "standard" | "wall" | "pof";
@@ -56,19 +57,17 @@ export const cleanSymbol = (s: string): string => s.toUpperCase().replace(/[^A-Z
 const str = (v: unknown, max = 400): string => (typeof v === "string" ? v.slice(0, max) : "");
 
 export function saveDraft(d: LaunchDraft): void {
-  try {
-    const has = d.name || d.symbol || d.description || d.logo || d.firstBuy;
-    if (has) localStorage.setItem(DRAFT_KEY, JSON.stringify(d));
-    else localStorage.removeItem(DRAFT_KEY);
-  } catch {
-    /* private mode / quota: the draft lives in memory for this visit */
-  }
+  // A refused write (private mode / quota) is recorded by lib/ui/storage and the Shell says so;
+  // the draft lives in memory for this visit.
+  const has = d.name || d.symbol || d.description || d.logo || d.firstBuy;
+  if (has) writeLS(DRAFT_KEY, JSON.stringify(d));
+  else removeLS(DRAFT_KEY);
 }
 
 /** Read the draft back. Anything malformed collapses to the default for that field, never to a crash. */
 export function loadDraft(): LaunchDraft | null {
   try {
-    const raw = localStorage.getItem(DRAFT_KEY);
+    const raw = readLS(DRAFT_KEY);
     if (!raw) return null;
     const p = JSON.parse(raw) as Record<string, unknown> | null;
     if (!p || typeof p !== "object") return null;

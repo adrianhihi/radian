@@ -23,6 +23,7 @@ import { useRadianWallet } from "@/lib/useRadianWallet";
 import { useTrade, readCurveQuoteState, quoteBuy, quoteSell, type CurveQuoteState } from "@/lib/useTrade";
 import { ReceiptTimeout } from "@/lib/pendingTx";
 import { fmtNum, fmtPrice } from "@/lib/ui/format";
+import { readLS, writeLS } from "@/lib/ui/storage";
 
 /** What the form needs to know about a token; the page or the launch row supplies it. */
 export type TradeToken = {
@@ -84,16 +85,12 @@ export function SwapForm({
 
   // Slippage tolerance is a per-viewer preference.
   useEffect(() => {
-    try {
-      const v = Number(window.localStorage.getItem(SLIPPAGE_KEY));
-      if (Number.isFinite(v) && (SLIPPAGE_OPTIONS as readonly number[]).includes(v)) setSlippageBps(v);
-    } catch {}
+    const v = Number(readLS(SLIPPAGE_KEY));
+    if (Number.isFinite(v) && (SLIPPAGE_OPTIONS as readonly number[]).includes(v)) setSlippageBps(v);
   }, []);
   const pickSlippage = (bps: number) => {
     setSlippageBps(bps);
-    try {
-      window.localStorage.setItem(SLIPPAGE_KEY, String(bps));
-    } catch {}
+    writeLS(SLIPPAGE_KEY, String(bps));
   };
 
   const dec = tk?.quoteDecimals ?? 18;

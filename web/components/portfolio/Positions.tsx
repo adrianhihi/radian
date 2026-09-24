@@ -223,10 +223,11 @@ function PositionList({ positions, totals, order, matches, color, hidden, m, sha
                     {hidden ? MASK : fmtNum(Number(formatUnits(h.bal, 18)), 0)}
                     {h.spot != null && <span className="block text-[11px] text-ink-3">@ {fmtPrice(h.spot)}</span>}
                   </span>
-                  <span className="tnum w-28 text-right text-sm text-ink">
+                  <span className="tnum flex-none text-right text-sm text-ink nav:w-28">
                     {m(h.value ?? 0, 4)} {sym}
+                    <span className="block text-[11px] text-muted nav:hidden">{pctText(shareOf(h))}</span>
                   </span>
-                  <span className="tnum w-14 text-right text-[12.5px] text-muted">{pctText(shareOf(h))}</span>
+                  <span className="tnum hidden w-14 text-right text-[12.5px] text-muted nav:block">{pctText(shareOf(h))}</span>
                 </li>
               ))}
             </ul>

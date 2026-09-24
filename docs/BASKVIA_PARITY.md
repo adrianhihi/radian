@@ -51,8 +51,8 @@ Effort: S ≤ half a day, M one to two days, L more. Status column is kept curre
 | 1.6 | **Cache headers + memo**: `Cache-Control` on every public GET, `no-store` on per-user/write, in-process memo of `launchView()` (it recomputes trade stats per request), `x-cache` header; web public fetches use `revalidate` instead of `no-store` | `edge-cache.ts`, every `route.ts` | `server.ts`, `web/lib/indexer.ts` | M | done 09-24 (memo + headers; web public fetches now cacheable) |
 | 1.7 | Public-GET address validation → `400 {error:"address"}`; `413` mapped to `{ok:false,error:"too-large"}` | `activity/route.ts:11`, `logo/route.ts:18` | `server.ts`, `meta.ts` | S | done 09-24 |
 | 1.8 | `{through, backfillDone}` on list responses so a cold index says "still indexing", not "no launches" | `activity/route.ts:13,22` | `server.ts`, `web` empty states | S | indexer done; web copy later |
-| 1.9 | `GET /tx/:hash` server-side status decoding the launched token from the receipt (agents and other tabs resolve without an RPC) | `baskvia.ts:747-766` | `server.ts` | S | later |
-| 1.10 | **Reconciliation**: indexed events ≤ cursor + live tail vs one multicall at block `through`; per launch reserves vs Σ trades, escrow claimable vs Σ accrued − claimed, PoundVault totals vs Σ settle; `≤` for lagging claims; Verify panel "All N checks pass / As of block N" | `server/reconcile.ts`, `verify/_components/Reconciliation.tsx` | `indexer/src/reconcile.ts`, `GET /reconcile`, `app/verify` | L | later |
+| 1.9 | `GET /tx/:hash` server-side status decoding the launched token from the receipt (agents and other tabs resolve without an RPC) | `baskvia.ts:747-766` | `server.ts` | S | done 09-24 (`GET /tx/:hash` decodes launch / buy / sell / claim / flush / settle / burn; web `/tx/[hash]` polls until settled; PendingBar links to it) |
+| 1.10 | **Reconciliation**: indexed events ≤ cursor + live tail vs one multicall at block `through`; per launch reserves vs Σ trades, escrow claimable vs Σ accrued − claimed, PoundVault totals vs Σ settle; `≤` for lagging claims; Verify panel "All N checks pass / As of block N" | `server/reconcile.ts`, `verify/_components/Reconciliation.tsx` | `indexer/src/reconcile.ts`, `GET /reconcile`, `app/verify` | L | done 09-24 (`indexer/src/reconcile.ts`, `GET /reconcile` at the checkpoint block: registry, supply, reserve (≤), Pound attributed / claimed / settled, flywheel flushed; Verify panel) |
 
 ## Wave 2 — trade form and token page
 
@@ -80,7 +80,7 @@ Effort: S ≤ half a day, M one to two days, L more. Status column is kept curre
 | 3.4 | Tab icon + OG/Twitter cards + `metadataBase`; `poweredByHeader: false` | `layout.tsx:31-55`, `next.config.ts:11` | `app/layout.tsx`, `next.config.mjs` | S | done 09-24 (no OG image yet) |
 | 3.5 | Header right group wraps on tiny phones; distinct `tabbarAria`; `Spinner` with `label → role="status"`; `Treemap` ids with `useId()`; landing hint fades with progress; `.l-line` wraps at all widths; remove the double bottom padding and dead CSS aliases | `Shell.tsx:67`, `dict.ts:36`, `primitives.tsx:298`, `Treemap.tsx:94`, `Landing.tsx:152`, `landing.css:187` | `Shell.tsx`, `dict.ts`, `rows.tsx`, `Treemap.tsx`, `Landing.tsx`, `landing.css`, `globals.css` | S | done 09-24 |
 | 3.6 | **Address fingerprint** phrase (FNV-1a over all bytes, 3 words) beside contract addresses on Verify and the token contracts panel | `lib/fingerprint.ts`, `verify/page.tsx:207-218` | `lib/ui/fingerprint.ts`, `app/verify`, `DetailBody` | S | done 09-24 |
-| 3.7 | Storage-write-failed banner (session-dismissable) fed by the localStorage writers | `Shell.tsx:212-236` | `Shell.tsx`, `lib/draft.ts`, `txLog.ts`, `pendingTx.ts` | S | later |
+| 3.7 | Storage-write-failed banner (session-dismissable) fed by the localStorage writers | `Shell.tsx:212-236` | `Shell.tsx`, `lib/draft.ts`, `txLog.ts`, `pendingTx.ts` | S | done 09-24 (`lib/ui/storage.ts` wraps every localStorage writer; Shell banner, session-dismissable) |
 
 ## Wave 4 — portfolio and activity
 
@@ -91,7 +91,7 @@ Effort: S ≤ half a day, M one to two days, L more. Status column is kept curre
 | 4.3 | Freshness pill ("Read just now / N min ago", 30 s tick, click = force refresh); `Info` (i) tooltip primitive with methodology copy | `Overview.tsx:21-28,134-141`, `Info.tsx` | `components/ui/Info.tsx`, portfolio | S | done 09-24 |
 | 4.4 | Positions: `%` column, colour dot, group proportion line, spotlight dim (opacity, not filter), small-position fold, share PNG (percentages only), CSV export, `pctText`/`amountText`, `money()` pinned to en-US | `Positions.tsx`, `shared.ts`, `shareImage.ts` | `app/portfolio/page.tsx`, `lib/ui/format.ts`, `lib/shareImage.ts` | M | done 09-24 (no spotlight / small-position fold) |
 | 4.5 | **Approvals** panel with Revoke (`approve(spender,0)`), unlimited flagged, R03 rule (read failure ≠ none), refresh at 6 s and 15 s | `Approvals.tsx`, `live-portfolio.ts:159-162` | `components/portfolio/Approvals.tsx` | M | done 09-24 |
-| 4.6 | Insights cards (dust, top-two, quote assets spanned; weeks/together/bets when daily series exist), 6 shown + "+N more" | `Insights.tsx`, `insightsMath.ts` | `components/portfolio/Insights.tsx`, `lib/insightsMath.ts` | M | later |
+| 4.6 | Insights cards (dust, top-two, quote assets spanned; weeks/together/bets when daily series exist), 6 shown + "+N more" | `Insights.tsx`, `insightsMath.ts` | `components/portfolio/Insights.tsx`, `lib/insightsMath.ts` | M | done 09-24 |
 | 4.7 | **Per-wallet activity** from the indexer merged with the local tx log ("indexing…" badge, "indexed through block N"), `amount` on `TxRecord`, lang-aware time | `LiveActivity.tsx`, `api/activity`, `tx-log.ts` | `server.ts` `GET /address/:addr/activity`, `app/activity`, `lib/txLog.ts` | L | done 09-24 |
 | 4.8 | Claims: spinner in the clicked button, `role="status"` result line; "Claim all" sequential runner "{i}/{n}" | `Claims.tsx`, `fees/page.tsx:86-103` | portfolio, `PoundEarn.tsx` | S | done 09-24 (spinner + status; no claim-all) |
 
@@ -114,9 +114,30 @@ Effort: S ≤ half a day, M one to two days, L more. Status column is kept curre
 | --- | --- | --- | --- | --- | --- |
 | 6.1 | `LegalPage` component; **Privacy** page (exact localStorage keys, third parties: Privy, Railway indexer, RPC, logo.dev, Yahoo via our API) and **Risk** page split from Terms; "See also" line; footer links | `components/LegalPage.tsx`, `content/legal.ts` | `components/LegalPage.tsx`, `lib/content/legal.ts`, `app/privacy`, `app/risk` | M | done 09-24 |
 | 6.2 | Verify grouped by purpose, deployer/owner panel (Safe + deployer with fingerprints) | `verify/page.tsx:150-264` | `app/verify/page.tsx` | S | done 09-24 |
-| 6.3 | Learn: fee numbers filled from constants with a test that no `{placeholder}` survives; Q&A anchor `aria-label` distinct from the toggle | `help/page.tsx:22-29,308` | `lib/content/learn.ts`, `app/docs` | S | anchor label done; fee fill() later |
-| 6.4 | Developer docs page: ⌘K search, sticky numbered TOC, p/note/code/table blocks, API table with cache seconds and limits, addresses from constants, gotchas | `docs/page.tsx`, `content/docs.ts` | `app/api-docs` | M | later |
+| 6.3 | Learn: fee numbers filled from constants with a test that no `{placeholder}` survives; Q&A anchor `aria-label` distinct from the toggle | `help/page.tsx:22-29,308` | `lib/content/learn.ts`, `app/docs` | S | done 09-24 (`lib/protocol.ts` is the one home for the numbers; `learnDoc(lang)` fills them; test guards placeholders both ways) |
+| 6.4 | Developer docs page: ⌘K search, sticky numbered TOC, p/note/code/table blocks, API table with cache seconds and limits, addresses from constants, gotchas | `docs/page.tsx`, `content/docs.ts` | `app/api-docs` | M | done 09-24 (`/api-docs`: `lib/content/apiDocs.ts` + parity test) |
 | 6.5 | Test harness: vitest + jsdom; EN/中 key parity; `routeNameOf` prototype guard; landing and pixel pure functions; legal content shape; secret-isolation guard | `package.json`, `*.test.ts(x)` | `web/package.json`, `web/**/*.test.ts` | L | done 09-24 (Node test runner via tsx: i18n parity, routes, fingerprint, legal, draft, txError) |
+
+## Layout parity pass (2026-09-24, second pass)
+
+The first pass compared features; this pass compared **pages**, side by side at 1400 px and at 390 px,
+baskvia in Demo mode (`baskvia-web` preview on :3050, ledger seeded) against Radian's production
+build (:3040), one route pair at a time: explore, basket/token, swap, assets/portfolio, creators,
+create, earn, help/docs, integrate/builders, verify, activity, profile, more.
+
+- **Portfolio** was the outlier and was rebuilt to baskvia's structure (`components/portfolio/*`,
+  `lib/portfolioHistory.ts`, `lib/insightsMath.ts`, `lib/ui/weightLayout.ts`): the hover-expanding
+  action rail on the left from 1320 px (Trade / Launch / Claims / composition facts), one overview card
+  (address chip, the book's value in its quote asset, freshness pill, composition bar, "Started with ·
+  past 24H/7D/30D" from the indexer's trade history with uncovered holdings named, the value chart with
+  ticks and dates, the PnL strip with per-asset chips), positions with the curve-stage scale in the slot
+  of baskvia's risk curve, list / picture views, spotlight filters, the under-1% fold, CSV and PNG
+  exports, the "manage your launches" link, insights (six shown, "+N more"), then Radian's own claims,
+  approvals, activity log and launches. On phones the value and share stack in one column and the chart
+  keeps three date labels.
+- Every other page already matched baskvia's section order and components; no change was needed.
+- Compared but not adopted: baskvia's Demo/Live toggle (Radian uses the network switcher), the issuer
+  chip per position (Radian shows the quote asset), "Sweep to cash" on the dust card (no cash leg).
 
 ## Not ported (basket-only or by decision)
 

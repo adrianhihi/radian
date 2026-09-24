@@ -1,5 +1,6 @@
 import type { Address } from "viem";
 import { getActiveNetworkKey } from "./networks";
+import { readLS, writeLS } from "./ui/storage";
 
 // Seeded launches (verified on-chain), testnet only. Mainnet discovers its own
 // via the indexer once live. Inlined (not JSON-imported) to avoid client-bundle
@@ -37,7 +38,7 @@ const LS_KEY = "radian.launches.v1";
 function readLocal(): RegistryEntry[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = window.localStorage.getItem(LS_KEY);
+    const raw = readLS(LS_KEY);
     return raw ? (JSON.parse(raw) as RegistryEntry[]) : [];
   } catch {
     return [];
@@ -49,7 +50,7 @@ export function addLocalLaunch(entry: RegistryEntry) {
   try {
     const cur = readLocal();
     if (cur.some((e) => e.token.toLowerCase() === entry.token.toLowerCase())) return;
-    window.localStorage.setItem(LS_KEY, JSON.stringify([entry, ...cur]));
+    writeLS(LS_KEY, JSON.stringify([entry, ...cur]));
   } catch {}
 }
 

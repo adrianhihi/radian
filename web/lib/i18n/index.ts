@@ -4,6 +4,7 @@
 // Default English. The chosen language is remembered in localStorage; any
 // unknown or corrupted value collapses to the default and lookups never throw.
 import { DICT, type TKey } from "./dict";
+import { readLS, writeLS } from "../ui/storage";
 
 export type { TKey } from "./dict";
 export type Lang = "en" | "zh";
@@ -20,23 +21,14 @@ function isLang(v: unknown): v is Lang {
 
 export function getLang(): Lang {
   if (_lang) return _lang;
-  let v: string = DEFAULT;
-  try {
-    v = localStorage.getItem(KEY) || DEFAULT;
-  } catch {
-    v = DEFAULT;
-  }
+  const v = readLS(KEY) || DEFAULT;
   _lang = isLang(v) ? v : DEFAULT;
   return _lang;
 }
 
 export function setLang(l: Lang | (string & {})): Lang {
   _lang = isLang(l) ? l : DEFAULT;
-  try {
-    localStorage.setItem(KEY, _lang);
-  } catch {
-    /* private mode / quota: the in-memory value still applies this session */
-  }
+  writeLS(KEY, _lang); // refused (private mode / quota): the in-memory value still applies this session, and the Shell says so
   syncHtmlLang();
   notify();
   return _lang;

@@ -237,3 +237,56 @@ export async function fetchWalletActivity(address: string): Promise<{ indexed: b
   const j = await get<{ indexed?: boolean; through?: string; events?: WalletEvent[] }>(`/address/${address}/activity`, true);
   return { indexed: !!j.indexed, through: j.through ?? "0", events: j.events ?? [] };
 }
+
+// Reconciliation (see indexer/src/reconcile.ts): the index re-derived from the chain at the index's own
+// checkpoint block, one row per family of checks. `expected` is what the index implies, `actual` what the
+// contracts returned at that block; a failed read is a failing check with the reason in `detail`.
+export type ReconcileCheck = { key: string; label: string; ok: boolean; expected: string; actual: string; detail?: string };
+export type ReconcileReport = { block: number; computedAt: number; allOk: boolean; checks: ReconcileCheck[] };
+
+export async function fetchReconcile(fresh = false): Promise<ReconcileReport> {
+  const j = await get<Partial<ReconcileReport>>("/reconcile", fresh);
+  if (typeof j.block !== "number" || !Array.isArray(j.checks)) throw new Error("indexer /reconcile: malformed report");
+  return {
+    block: j.block,
+    computedAt: typeof j.computedAt === "number" ? j.computedAt : 0,
+    allOk: !!j.allOk,
+    checks: j.checks.filter((c): c is ReconcileCheck => !!c && typeof c === "object" && typeof c.key === "string"),
+  };
+}
+
+// One transaction, resolved by the indexer's node (see /tx/:hash) so a tab or an agent needs no
+// RPC of its own: the status, the launched token decoded from the receipt, and the decoded
+// Radian events (curve trades, fee claims, Pound settlements, Pack burns). Amounts travel as
+// decimal strings in the asset's own units; `quoteDecimals` says how to read them.
+export type TxStatus = "pending" | "success" | "reverted" | "unknown";
+export type TxEvent = {
+  kind: "launch" | "buy" | "sell" | "claim" | "flush" | "settle" | "burn";
+  token?: Address;
+  symbol?: string;
+  curve?: Address;
+  template?: "wall" | "pof";
+  trader?: Address;
+  amounts?: { quote?: string; tokens?: string; amount?: string; asset?: string; fee?: string; tax?: string; quoteSymbol?: string; quoteDecimals?: number };
+};
+export type TxStatusResult = {
+  hash: string;
+  status: TxStatus;
+  blockNumber?: string;
+  confirmations?: number;
+  token?: { address: Address; symbol?: string; name?: string };
+  events: TxEvent[];
+};
+/** Throws when the indexer cannot answer (unreachable, or its node is down): the caller must not read that as "pending". */
+export async function fetchTxStatus(hash: string): Promise<TxStatusResult> {
+  const j = await get<Partial<TxStatusResult>>(`/tx/${hash}`, true);
+  const status: TxStatus = j.status === "success" || j.status === "reverted" || j.status === "pending" ? j.status : "unknown";
+  return {
+    hash: typeof j.hash === "string" ? j.hash : hash,
+    status,
+    blockNumber: typeof j.blockNumber === "string" ? j.blockNumber : undefined,
+    confirmations: typeof j.confirmations === "number" ? j.confirmations : undefined,
+    token: j.token && typeof j.token === "object" && typeof j.token.address === "string" ? j.token : undefined,
+    events: Array.isArray(j.events) ? j.events : [],
+  };
+}

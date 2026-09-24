@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { defineChain, type Address } from "viem";
+import { readLS, writeLS } from "./ui/storage";
 
 // ── Network registry ──────────────────────────────────────────────────────
 // One place that defines every chain-specific value. The active network is a
@@ -390,11 +391,9 @@ export const isTestnet = (n: NetworkConfig) => n.key.includes("testnet");
 
 export function getActiveNetworkKey(): NetworkKey {
   if (typeof window === "undefined") return DEFAULT_NETWORK;
-  try {
-    const k = window.localStorage.getItem(LS_KEY);
-    // any configured, non-hidden network is a valid choice (hidden ones are scaffolds)
-    if (k && k in NETWORKS && !NETWORKS[k as NetworkKey].hidden) return k as NetworkKey;
-  } catch {}
+  const k = readLS(LS_KEY);
+  // any configured, non-hidden network is a valid choice (hidden ones are scaffolds)
+  if (k && k in NETWORKS && !NETWORKS[k as NetworkKey].hidden) return k as NetworkKey;
   return DEFAULT_NETWORK;
 }
 
@@ -413,10 +412,10 @@ export function useNetwork(): NetworkConfig {
 }
 
 export function setActiveNetwork(key: NetworkKey) {
-  try {
-    window.localStorage.setItem(LS_KEY, key);
-  } catch {}
-  window.location.reload();
+  // The choice applies through a reload (module-level config reads it at load). A refused write
+  // is recorded by lib/ui/storage and the Shell says so; reloading then would only lose that
+  // notice and land on the default network anyway.
+  if (writeLS(LS_KEY, key)) window.location.reload();
 }
 
 export function toViemChain(n: NetworkConfig) {
