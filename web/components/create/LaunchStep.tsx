@@ -67,7 +67,7 @@ export function LaunchStep({
 
       <div className="rounded-[14px] border border-stroke bg-glass-2 p-4">
         <div className="flex items-center gap-3">
-          <AssetLogo symbol={draft.symbol || "?"} src={logoUrl} size={44} radius={22} />
+          <AssetLogo symbol={draft.symbol || "?"} src={logoUrl} seed={draft.symbol || "draft"} size={44} radius={22} />
           <span className="min-w-0">
             <b className="block truncate text-[18px] leading-tight text-ink">${draft.symbol}</b>
             <span className="block truncate text-[13px] text-ink-2">{draft.name}</span>

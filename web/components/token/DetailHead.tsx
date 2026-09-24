@@ -168,7 +168,7 @@ export function DetailHead({
             )}
 
             <span className="rounded-full ring-2 ring-night">
-              <AssetLogo symbol={st.symbol} src={/^https?:\/\//.test(st.logo) ? st.logo : null} size={48} radius={24} />
+              <AssetLogo symbol={st.symbol} src={/^https?:\/\//.test(st.logo) ? st.logo : null} seed={token} size={48} radius={24} />
             </span>
           </div>
         </div>

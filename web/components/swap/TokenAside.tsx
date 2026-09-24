@@ -23,7 +23,7 @@ export function TokenAside({ row }: { row: LaunchRow }) {
   return (
     <aside className="glass-panel rounded-2xl p-5">
       <div className="mb-4 flex items-center gap-2.5">
-        <AssetLogo symbol={row.symbol} src={/^https?:\/\//.test(row.logo) ? row.logo : null} size={34} radius={10} />
+        <AssetLogo symbol={row.symbol} src={/^https?:\/\//.test(row.logo) ? row.logo : null} seed={row.token} size={34} radius={10} />
         <span className="min-w-0 leading-tight">
           <span className="block truncate text-[15px] font-semibold text-ink">{row.name}</span>
           <span className="mono-label block text-[11px] text-muted">${row.symbol}</span>

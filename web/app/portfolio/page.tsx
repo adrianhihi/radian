@@ -24,6 +24,7 @@ import { useIdentity } from "@/lib/identity";
 import { waitReceipt, ReceiptTimeout, usePendingResume } from "@/lib/pendingTx";
 import { fmtNum, fmtPrice, shortAddr } from "@/lib/ui/format";
 import { assetColors } from "@/lib/ui/tokens";
+import { recordTx, useTxLog, type TxKind } from "@/lib/txLog";
 
 type Holding = { row: LaunchRow; bal: bigint; spot: number | null; value: number | null };
 type Claim = { kind: "fees" | "referral"; asset: { symbol: string; decimals: number; address: Address }; amount: bigint; accrued?: bigint };
@@ -124,6 +125,7 @@ export default function PortfolioPage() {
             ? await wc.client.writeContract({ account: wc.account, chain: arcTestnet, address: RADIAN.escrow, abi: escrowAbi, functionName: "claim" })
             : await wc.client.writeContract({ account: wc.account, chain: arcTestnet, address: RADIAN.escrow, abi: escrowAbi, functionName: "claimToken", args: [c.asset.address] });
       await waitReceipt(hash, "claim");
+      recordTx(address, { hash, kind: c.kind === "referral" ? "referralClaim" : "claim", time: Date.now() });
       setToast(t("portfolio.claimed", { sym: c.asset.symbol }));
       await load();
     } catch (e: unknown) {
@@ -273,7 +275,7 @@ export default function PortfolioPage() {
                         .sort((a, b) => (b.value ?? 0) - (a.value ?? 0))
                         .map((h) => (
                           <li key={h.row.token} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 py-3">
-                            <AssetLogo symbol={h.row.symbol} src={/^https?:\/\//.test(h.row.logo) ? h.row.logo : null} size={34} radius={17} />
+                            <AssetLogo symbol={h.row.symbol} src={/^https?:\/\//.test(h.row.logo) ? h.row.logo : null} seed={h.row.token} size={34} radius={17} />
                             <span className="min-w-0">
                               <Link href={`/token/${h.row.token}`} className="block truncate text-[14px] font-semibold text-ink hover:text-brand">
                                 {h.row.name} <span className="mono-label text-[11px] font-normal text-ink-3">${h.row.symbol}</span>
@@ -297,6 +299,8 @@ export default function PortfolioPage() {
                     </ul>
                   )}
                 </Panel>
+
+                <TxLogPanel address={address} rows={rows} />
 
                 <section>
                   <SectionHead title={t("portfolio.launches")} aside={created.length ? <Link href={`/profile/${address}`} className="hover:text-brand">{t("portfolio.allLaunches")}</Link> : undefined} />
@@ -328,5 +332,50 @@ export default function PortfolioPage() {
         </button>
       )}
     </Shell>
+  );
+}
+
+/** Transactions this browser sent for the wallet (lib/txLog). A full history needs the indexer's event scan. */
+function TxLogPanel({ address, rows }: { address: Address; rows: LaunchRow[] }) {
+  const t = useT();
+  const net = useNetwork();
+  const log = useTxLog(address);
+  const sym = new Map(rows.map((r) => [r.token.toLowerCase(), r.symbol]));
+  const KIND: Record<TxKind, string> = {
+    buy: t("tx.buy"), sell: t("tx.sell"), launch: t("tx.launch"), claim: t("tx.claim"), stake: t("tx.stake"), unstake: t("tx.unstake"),
+    deposit: t("tx.deposit"), withdraw: t("tx.withdraw"), cancel: t("tx.cancel"), wallClaim: t("tx.wallClaim"), pofClaim: t("tx.pofClaim"), referralClaim: t("tx.referralClaim"),
+  };
+  return (
+    <Panel>
+      <SectionHead title={t("tx.title")} aside={String(log.length)} />
+      <p className="-mt-3 mb-3 text-[12.5px] leading-[1.7] text-muted">{t("tx.scope")}</p>
+      {log.length === 0 ? (
+        <Empty>{t("tx.none")}</Empty>
+      ) : (
+        <ul className="divide-y divide-stroke rounded-xl border border-stroke">
+          {log.slice(0, 30).map((r) => {
+            const code = r.token ? sym.get(r.token.toLowerCase()) : undefined;
+            return (
+              <li key={r.hash} className="flex flex-wrap items-center gap-3 px-3.5 py-2.5 text-[13px]">
+                <span className="w-28 flex-none font-semibold text-ink">{KIND[r.kind] ?? r.kind}</span>
+                <span className="min-w-0 flex-1 text-ink-2">
+                  {r.token ? (
+                    <Link href={`/token/${r.token}`} className="hover:text-brand">
+                      {code ? `$${code}` : shortAddr(r.token)}
+                    </Link>
+                  ) : (
+                    "—"
+                  )}
+                </span>
+                <span className="tnum text-[11.5px] text-ink-3">{new Date(r.time).toLocaleString()}</span>
+                <a href={`${net.explorer}/tx/${r.hash}`} target="_blank" rel="noreferrer" className="text-[12px] text-brand hover:underline">
+                  {t("trust.viewTx")}
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </Panel>
   );
 }

@@ -89,7 +89,7 @@ export function Showcase({ rows }: { rows: LaunchRow[] }) {
         <div className="mt-5 grid grid-cols-1 gap-5 nav:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
           <div className="min-w-0">
             <div className="flex items-center gap-3">
-              <AssetLogo symbol={r.symbol} src={/^https?:\/\//.test(r.logo) ? r.logo : null} size={44} radius={12} />
+              <AssetLogo symbol={r.symbol} src={/^https?:\/\//.test(r.logo) ? r.logo : null} seed={r.token} size={44} radius={12} />
               <h3 className="truncate text-[clamp(34px,5vw,52px)] font-bold leading-none tracking-[-1px] text-ink">${r.symbol}</h3>
             </div>
             <p className="mono-label mt-2 truncate text-[13px] text-muted">{r.name}</p>

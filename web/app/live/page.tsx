@@ -69,7 +69,7 @@ export default function LivePage() {
                       <tr key={r.token}>
                         <td className={TD}>
                           <Link href={`/token/${r.token}`} className="flex items-center gap-2.5 hover:text-brand">
-                            <AssetLogo symbol={r.symbol} src={/^https?:\/\//.test(r.logo) ? r.logo : null} size={26} radius={13} />
+                            <AssetLogo symbol={r.symbol} src={/^https?:\/\//.test(r.logo) ? r.logo : null} seed={r.token} size={26} radius={13} />
                             <span className="min-w-0">
                               <b className="block truncate text-[13.5px] text-ink">{r.name}</b>
                               <span className="mono-label text-[10.5px] text-ink-3">${r.symbol}</span>

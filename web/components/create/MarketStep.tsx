@@ -9,7 +9,7 @@ import { Panel, SectionHead } from "@/components/ui/primitives";
 import { recipientOk, taxOk, type FeeMode, type LaunchDraft, type TemplateId } from "@/lib/draft";
 import type { NetworkConfig } from "@/lib/networks";
 import type { QuoteAsset } from "@/lib/radian";
-import { fmtUsd, useStockPrice } from "@/lib/stockPrice";
+import { StockRef } from "@/components/StockRef";
 import { POF_BOUNDS, WALL_BOUNDS, type PoFConfigInput, type WallConfigInput } from "@/lib/templates";
 import { fmtNum } from "@/lib/ui/format";
 import { ChoiceCard, Field, INPUT_CLASS } from "./Field";
@@ -71,7 +71,11 @@ export function MarketStep({
             </ChoiceCard>
           ))}
         </div>
-        {quote.stock && <StockLine asset={quote} />}
+        {quote.stock && (
+          <div className="mt-4">
+            <StockRef asset={quote} />
+          </div>
+        )}
       </Panel>
 
       <Panel className="mb-6">
@@ -174,35 +178,5 @@ export function MarketStep({
         </div>
       </Panel>
     </>
-  );
-}
-
-/** Delayed real-world quote for a stock-denominated market: a sanity check only, never read by the curve. */
-function StockLine({ asset }: { asset: QuoteAsset }) {
-  const t = useT();
-  const { quote, error } = useStockPrice(asset.stock?.refSymbol);
-  if (!asset.stock) return null;
-  const change = quote && quote.prevClose ? ((quote.price - quote.prevClose) / quote.prevClose) * 100 : null;
-  return (
-    <div className="mt-4 rounded-[14px] border border-stroke bg-glass-2 px-4 py-3">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <span className="mono-label text-[10.5px] tracking-[.14em] text-ink-3">
-          <b className="text-ink">{asset.stock.refSymbol}</b> · {t("create.refPrice")}
-        </span>
-        <span className="tnum text-[15px] text-ink">
-          {quote ? (
-            <>
-              {fmtUsd(quote.price)}
-              {change != null && <span className={`ml-2 text-[12px] ${change >= 0 ? "text-pos" : "text-neg"}`}>{change >= 0 ? "▲" : "▼"} {Math.abs(change).toFixed(2)}%</span>}
-            </>
-          ) : error ? (
-            <span className="text-ink-3">{t("create.refUnavailable")}</span>
-          ) : (
-            <span className="text-ink-3">{t("create.refLoading")}</span>
-          )}
-        </span>
-      </div>
-      <p className="mt-1.5 text-[11.5px] leading-[1.6] text-ink-3">{t("create.refNote", { sym: asset.symbol, src: quote?.source ?? "Yahoo Finance" })}</p>
-    </div>
   );
 }

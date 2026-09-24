@@ -37,7 +37,7 @@ export function NameStep({
 
       {/* how it will read on Explore */}
       <div className="mb-5 flex items-center gap-3 rounded-[14px] border border-stroke bg-glass-2 p-4">
-        <AssetLogo symbol={draft.symbol || "?"} src={logoUrl} size={48} radius={24} />
+        <AssetLogo symbol={draft.symbol || "?"} src={logoUrl} seed={draft.symbol || "draft"} size={48} radius={24} />
         <span className="min-w-0">
           <b className={`block truncate text-[20px] leading-tight ${draft.symbol ? "text-ink" : "text-ink-3"}`}>${draft.symbol || t("create.previewSym")}</b>
           <span className={`block truncate text-[13px] ${draft.name ? "text-ink-2" : "text-ink-3"}`}>{draft.name || t("create.previewName")}</span>

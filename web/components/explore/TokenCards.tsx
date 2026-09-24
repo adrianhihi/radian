@@ -154,7 +154,7 @@ export function TokenCard({ row, view = "curve", badge = false }: { row: LaunchR
       </div>
 
       <div className="mt-4 flex items-center gap-2.5">
-        <AssetLogo symbol={row.symbol} src={/^https?:\/\//.test(row.logo) ? row.logo : null} size={30} radius={9} />
+        <AssetLogo symbol={row.symbol} src={/^https?:\/\//.test(row.logo) ? row.logo : null} seed={row.token} size={30} radius={9} />
         <h3 className="min-w-0 truncate text-[19px] font-bold tracking-[-.2px] text-ink">
           ${row.symbol} <span className="mono-label text-[12.5px] font-normal tracking-normal text-muted">{row.name}</span>
         </h3>

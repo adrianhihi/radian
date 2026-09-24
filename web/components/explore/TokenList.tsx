@@ -56,7 +56,7 @@ function Row({ row: r, rank, open, onToggle }: { row: LaunchRow; rank: number; o
           ›
         </span>
         <span className="tnum w-5 flex-none text-center text-xs text-ink-3">{rank}</span>
-        <AssetLogo symbol={r.symbol} src={/^https?:\/\//.test(r.logo) ? r.logo : null} size={36} radius={10} />
+        <AssetLogo symbol={r.symbol} src={/^https?:\/\//.test(r.logo) ? r.logo : null} seed={r.token} size={36} radius={10} />
         <span className="min-w-0 flex-1 truncate">
           <b className="text-[15px] font-bold text-ink nav:text-base">${r.symbol}</b> <span className="mono-label hidden text-[12.5px] text-muted nav:inline">{r.name}</span>
         </span>

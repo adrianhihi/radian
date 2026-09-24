@@ -117,7 +117,7 @@ export default function StatsPage() {
                           <td className={`${TD} text-ink-3`}>{i + 1}</td>
                           <td className={TD}>
                             <Link href={`/token/${r.token}`} className="flex items-center gap-2.5 hover:text-brand">
-                              <AssetLogo symbol={r.symbol || "?"} size={24} radius={12} />
+                              <AssetLogo symbol={r.symbol || "?"} seed={r.token} size={24} radius={12} />
                               <span className="min-w-0">
                                 <b className="block truncate text-[13.5px] text-ink">{r.name || "—"}</b>
                                 <span className="mono-label text-[10.5px] text-ink-3">${r.symbol}</span>

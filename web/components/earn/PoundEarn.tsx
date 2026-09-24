@@ -20,6 +20,7 @@ import { waitReceipt, ReceiptTimeout, usePendingResume } from "@/lib/pendingTx";
 import { poundVaultAbi, fetchPound, fetchReferral, type PoundView, type ReferralView } from "@/lib/pound";
 import { referralLink } from "@/lib/referral";
 import { fmtNum, shortAddr } from "@/lib/ui/format";
+import { recordTx } from "@/lib/txLog";
 
 const ZERO = "0x0000000000000000000000000000000000000000";
 const fmt = (v: string | bigint | undefined, dec: number, max = 4) => (v === undefined ? "—" : fmtNum(Number(formatUnits(typeof v === "string" ? BigInt(v) : v, dec)), max));
@@ -97,6 +98,7 @@ export function PoundEarn({ net }: { net: NetworkConfig }) {
       setToast(t("portfolio.confirmClaim", { sym: assetMeta(asset).symbol }));
       const hash = await wc.client.writeContract({ account: wc.account, chain: arcTestnet, address: pound.vault, abi: poundVaultAbi, functionName: "claimReferral", args: [asset] });
       await waitReceipt(hash, "claim");
+      recordTx(wc.account, { hash, kind: "referralClaim", time: Date.now() });
       setToast(t("portfolio.claimed", { sym: assetMeta(asset).symbol }));
       await refresh();
     } catch (e: unknown) {

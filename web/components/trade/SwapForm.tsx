@@ -15,7 +15,7 @@ import { formatUnits, parseEther, parseUnits, type Address, type Hex } from "vie
 import { useT } from "@/components/LangProvider";
 import { PrimaryButton } from "@/components/ui/primitives";
 import { FlipButton, PayCard, QuoteLine, ReceiveCard, TokenPill } from "./SwapCards";
-import { publicClient, erc20Abi, explorer, hasPound, type LaunchTemplate } from "@/lib/radian";
+import { publicClient, erc20Abi, explorer, hasPound, activeNetwork, type LaunchTemplate } from "@/lib/radian";
 import { useRadianWallet } from "@/lib/useRadianWallet";
 import { useTrade, readCurveQuoteState, quoteBuy, quoteSell, type CurveQuoteState } from "@/lib/useTrade";
 import { ReceiptTimeout } from "@/lib/pendingTx";
@@ -70,6 +70,7 @@ export function SwapForm({
   const [cs, setCs] = useState<CurveQuoteState | null>(null);
   const [quoteBal, setQuoteBal] = useState<bigint | null>(null);
   const [tokenBal, setTokenBal] = useState<bigint | null>(null);
+  const [gasBal, setGasBal] = useState<bigint | null>(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -105,15 +106,18 @@ export function SwapForm({
       return;
     }
     try {
-      const [qb, tb] = await Promise.all([
+      const [qb, tb, gb] = await Promise.all([
         tk.native ? publicClient.getBalance({ address }) : (publicClient.readContract({ address: tk.pairToken, abi: erc20Abi, functionName: "balanceOf", args: [address] }) as Promise<bigint>),
         publicClient.readContract({ address: tk.token, abi: erc20Abi, functionName: "balanceOf", args: [address] }) as Promise<bigint>,
+        tk.native ? Promise.resolve<bigint | null>(null) : publicClient.getBalance({ address }),
       ]);
       setQuoteBal(qb);
       setTokenBal(tb);
+      setGasBal(tk.native ? qb : gb);
     } catch {
       setQuoteBal(null);
       setTokenBal(null);
+      setGasBal(null);
     }
   }, [tk?.curve, tk?.token, tk?.pairToken, tk?.native, address]);
 
@@ -167,7 +171,9 @@ export function SwapForm({
     onAmount(formatUnits(v, side === "buy" ? dec : 18));
   };
 
-  const shownError = !amount ? "" : over ? t("trade.tooMuch") : !q && cs ? t("trade.needAmount") : "";
+  // a wallet with no gas coin at all cannot send anything: say so before the wallet does
+  const noGas = authenticated && gasBal !== null && gasBal === 0n;
+  const shownError = noGas ? t("trade.noGas", { sym: activeNetwork.nativeSymbol ?? "USDC" }) : !amount ? "" : over ? t("trade.tooMuch") : !q && cs ? t("trade.needAmount") : "";
   const invalid = !q || over || busy || !identityOk;
 
   const submit = async (e: React.FormEvent) => {

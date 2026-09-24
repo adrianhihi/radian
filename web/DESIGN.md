@@ -64,6 +64,20 @@ NameStep,MarketStep,LaunchStep,FeeSplitPreview,Field} on lib/draft.ts + lib/feeS
 the creator board, the token head and the wallet menu's "My launches") · 4 portfolio, fees, earn, activity feed, learn, integrate, verify, rules, risk (done 2026-09-24: `/portfolio`, `/earn` =
 components/earn/{PoundEarn,FlywheelEarn}, `/live`, `/stats`, `/docs` (Learn, copy in lib/content/learn.ts), `/builders`
 (Integrate, lib/content/integrate.ts), `/verify`, `/terms` (lib/content/legal.ts), `/factory` (lib/content/factory.ts);
-primitives DataTable + NotLive; the legacy CSS block now only maps the per-launch panels (Wall / PoF / auto-buy), the
-Arc flywheel and StockRef onto the tokens). Remaining: rewrite those three panels on the design system and delete the
-legacy block.
+primitives DataTable + NotLive) · 5 the per-launch panels (done 2026-09-24: components/{WallPanels,PoFPanel,
+AutoBuyPanel}.tsx, components/earn/FlywheelEarn.tsx and components/StockRef.tsx rewritten on the design system with
+bilingual copy under wall.* / pof.* / auto.* / fly.*; shared bits in components/ui/rows.tsx; the LEGACY block in
+globals.css is gone — no page or component uses the old class names any more).
+
+## Parity with baskvia (checked 2026-09-24 against baskvia@c502fa6)
+
+baskvia is the UX reference, not a source of truth for features: it sells stock baskets on BNB Chain with a NAV, we
+sell bonding-curve launches with a fee waterfall. Carried over: pixel-person address avatars (AddressAvatar, the same
+face everywhere for one address), a pixel mark for a launch token without an image (AssetLogo `seed`), the spinner in
+the wallet pill while Privy mounts, a "no gas coin" hint in the trade form, a local log of the transactions this
+browser sent (lib/txLog.ts, shown on /portfolio; the indexer's event scan is still the real history), creator tools on
+the owner's profile (fee recipient shown and transferable through the factory). Not carried over, on purpose: NAV /
+holdings composition (no NAV here), redeem in kind (nothing to redeem: the curve is the market), the Demo/Live data
+mode (we have networks), a KV-backed holder wall and post-launch logo upload (our logo is on-chain and immutable;
+both need a signed-message server the indexer could host — proposed, not built), a CSP proxy (we run on Vercel
+without headers today; proposed with the go-live checklist).

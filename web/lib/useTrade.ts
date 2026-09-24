@@ -14,6 +14,7 @@ import { getReferrer } from "./referral";
 import { useRadianWallet } from "./useRadianWallet";
 import { useIdentity } from "./identity";
 import { waitReceipt } from "./pendingTx";
+import { recordTx } from "./txLog";
 
 export type TradeTarget = {
   token: Address;
@@ -53,6 +54,7 @@ export function useTrade() {
         const hash = await send(inWei);
         onStatus?.("sent");
         await waitReceipt(hash, "buy", { token: t.token });
+        recordTx(account, { hash, kind: "buy", token: t.token, time: Date.now() });
         return hash;
       }
       onStatus?.("approve");
@@ -65,6 +67,7 @@ export function useTrade() {
       const hash = await send(undefined);
       onStatus?.("sent");
       await waitReceipt(hash, "buy", { token: t.token });
+      recordTx(account, { hash, kind: "buy", token: t.token, time: Date.now() });
       return hash;
     },
     [getWalletClient],
@@ -88,6 +91,7 @@ export function useTrade() {
         : await client.writeContract({ account, chain: arcTestnet, address: t.curve, abi: curveAbi, functionName: "sell", args: [inTok, minOut, account] });
       onStatus?.("sent");
       await waitReceipt(hash, "sell", { token: t.token });
+      recordTx(account, { hash, kind: "sell", token: t.token, time: Date.now() });
       return hash;
     },
     [getWalletClient],

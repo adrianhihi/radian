@@ -8,7 +8,7 @@ import { Copy } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
-import { isAddress, type Address } from "viem";
+import { isAddress, type Address, type Hex } from "viem";
 import { Shell } from "@/components/shell/Shell";
 import { useT } from "@/components/LangProvider";
 import { AddressAvatar } from "@/components/ui/AddressAvatar";
@@ -16,6 +16,8 @@ import { DitherChart } from "@/components/ui/DitherChart";
 import { Empty, Footer, HeroLink, Panel, SectionHead } from "@/components/ui/primitives";
 import { TokenCard, PeriodChips } from "@/components/explore/TokenCards";
 import { SwapForm, type TradeToken } from "@/components/trade/SwapForm";
+import { CreatorTools } from "@/components/profile/CreatorTools";
+import { PendingBar } from "@/components/TrustBanners";
 import { filterSortLaunches, sparkValues, type Period } from "@/lib/explore";
 import { useNetwork } from "@/lib/networks";
 import { explorer, quoteByAddress, type LaunchRow } from "@/lib/radian";
@@ -47,6 +49,7 @@ export default function ProfilePage() {
   const [period, setPeriod] = useState<Period>("7D");
   const [buy, setBuy] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [pendingHash, setPendingHash] = useState<Hex | null>(null);
 
   const raw = params?.addr;
   const addr = String(Array.isArray(raw) ? (raw[0] ?? "") : (raw ?? ""));
@@ -127,6 +130,13 @@ export default function ProfilePage() {
             <div className="tnum mt-2 text-[30px] font-light text-ink">{graduated}</div>
           </Panel>
         </div>
+
+        {isMe && mine.length > 0 && (
+          <section className="mt-10">
+            <PendingBar hash={pendingHash} onClose={() => setPendingHash(null)} />
+            <CreatorTools mine={mine} onPending={setPendingHash} />
+          </section>
+        )}
 
         {mine.length > 0 && (
           <>

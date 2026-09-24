@@ -28,6 +28,7 @@ import { INDEXER_URL, hasIndexer } from "@/lib/indexer";
 import { useIdentity } from "@/lib/identity";
 import { waitReceipt, ReceiptTimeout, usePendingResume } from "@/lib/pendingTx";
 import { buildWallConfig, buildPoFConfig, type PoFConfigInput, type WallConfigInput } from "@/lib/templates";
+import { recordTx } from "@/lib/txLog";
 
 const ZERO_ADDR = "0x0000000000000000000000000000000000000000" as Address;
 const ZERO_HASH = "0x0000000000000000000000000000000000000000000000000000000000000000" as Hex;
@@ -301,6 +302,7 @@ export default function CreatePage() {
       const curveAddr = found?.curve ?? null;
       const gthr = found?.gthr ?? parseUnits(String(quote.gradGoal), quote.decimals).toString();
       if (tokenAddr && curveAddr) addLocalLaunch({ token: tokenAddr, curve: curveAddr, deployer: account, graduationThreshold: gthr });
+      recordTx(account, { hash, kind: "launch", token: tokenAddr ?? undefined, time: Date.now() });
 
       // No router: the creator's first buy is a second transaction on the new curve
       // (untaxed — the creator is snipe-tax-exempt).

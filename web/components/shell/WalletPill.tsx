@@ -3,7 +3,7 @@
 // Wallet pill + menu, on Privy. Three states: loading (Privy mounts client-side,
 // so the first frame is never "connected"), signed out, signed in (address with
 // copy / explorer / sign out).
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRadianWallet } from "@/lib/useRadianWallet";
@@ -41,6 +41,7 @@ export function WalletPill() {
   if (!ready) {
     return (
       <span className={`${BASE} border-stroke-2 bg-glass-2 text-ink-3`} aria-busy="true">
+        <Loader2 size={12} className="mr-1.5 inline-block animate-spin align-[-2px]" aria-hidden="true" />
         {t("wallet.loading")}
       </span>
     );

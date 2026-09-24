@@ -1,6 +1,16 @@
 "use client";
+
+// Auto-buy through RadianExecutor, on the design system. The user deposits
+// quote (and the gas coin for gas when the quote is an ERC-20), signs an
+// EIP-712 BuyAuth off-chain and posts it to the indexer, whose keeper executes
+// the buys on schedule. Tokens always land in the user's wallet. Withdraw and
+// cancel are plain transactions that need nobody's cooperation.
 import { useCallback, useEffect, useState } from "react";
-import { formatUnits, parseUnits, type Address } from "viem";
+import { formatUnits, parseUnits, type Address, type Hex } from "viem";
+import { useT } from "@/components/LangProvider";
+import { OutlineButton, Panel, PrimaryButton } from "@/components/ui/primitives";
+import { ChipGroup, Note, PanelHead, Row, SignInButton, Spinner } from "@/components/ui/rows";
+import { INPUT_CLASS } from "@/components/create/Field";
 import { publicClient, arcTestnet, erc20Abi, curveAbi, explorer, RADIAN, NATIVE_QUOTE, type QuoteAsset, activeNetwork } from "@/lib/radian";
 import { executorAbi, executorDomain, BUY_AUTH_TYPES, EXECUTOR_FEE_BPS, EXECUTOR_GAS_STIPEND, EXECUTOR_V2 } from "@/lib/executor";
 import { fetchAuths, postAuth, hasIndexer, type AuthRecord } from "@/lib/indexer";
@@ -8,31 +18,22 @@ import { fmtAmount, fmtDuration } from "@/lib/templates";
 import { useRadianWallet } from "@/lib/useRadianWallet";
 import type { IdentityResult } from "@/lib/identity";
 import { waitReceipt, ReceiptTimeout } from "@/lib/pendingTx";
-
-// Auto-buy through RadianExecutor. The user deposits quote (and native USDC
-// for gas when the quote is an ERC-20), signs an EIP-712 BuyAuth off-chain
-// and posts it to the indexer, whose keeper executes the buys on schedule.
-// Tokens always land in the user's wallet. Withdraw and cancel are plain
-// transactions that need nobody's cooperation.
+import { recordTx } from "@/lib/txLog";
 
 const INTERVALS = [
   { label: "1h", secs: 3600 },
   { label: "6h", secs: 21600 },
   { label: "24h", secs: 86400 },
-  { label: "custom", secs: 0 },
 ] as const;
-const VALID_FOR = [
-  { label: "7 days", secs: 7 * 86400 },
-  { label: "30 days", secs: 30 * 86400 },
-] as const;
+const CUSTOM = 0;
 const GWEI = 1_000_000_000n;
 // executor v2: the signed price floor, as "stop if the price is above N× today's"
 const PRICE_CAPS = [
   { label: "1.5×", mult: 150 },
   { label: "2×", mult: 200 },
   { label: "3×", mult: 300 },
-  { label: "no cap", mult: 0 },
 ] as const;
+const NO_CAP = 0;
 
 type Props = {
   token: Address;
@@ -41,25 +42,28 @@ type Props = {
   quote: QuoteAsset;
   identity: IdentityResult;
   onToast: (m: string) => void;
-  onPending: (h: `0x${string}`) => void;
+  onPending: (h: Hex) => void;
   refreshKey: number;
 };
 
 type Data = Partial<{ quoteBal: bigint; nativeBal: bigint; nonce: bigint; feeBps: bigint; stipend: bigint; gasPrice: bigint; reserves: readonly [bigint, bigint] }>;
+type Which = "quote" | "gas";
 
 export function AutoBuyPanel({ token, curve, symbol, quote, identity, onToast, onPending, refreshKey }: Props) {
+  const t = useT();
   const { authenticated, login, address: account, getWalletClient } = useRadianWallet();
   const executor = RADIAN.executor;
   const quoteAddr: Address = quote.native ? NATIVE_QUOTE : quote.address;
+  const gasSym = activeNetwork.nativeSymbol ?? "USDC";
   const [d, setD] = useState<Data>({});
   const [auths, setAuths] = useState<AuthRecord[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(0);
 
   // deposit / withdraw forms
-  const [depAsset, setDepAsset] = useState<"quote" | "gas">("quote");
+  const [depAsset, setDepAsset] = useState<Which>("quote");
   const [depAmount, setDepAmount] = useState("");
-  const [wdAsset, setWdAsset] = useState<"quote" | "gas">("quote");
+  const [wdAsset, setWdAsset] = useState<Which>("quote");
   const [wdAmount, setWdAmount] = useState("");
   // schedule form
   const [perBuy, setPerBuy] = useState("");
@@ -103,13 +107,13 @@ export function AutoBuyPanel({ token, curve, symbol, quote, identity, onToast, o
 
   useEffect(() => {
     load();
-    const t = setInterval(load, 15000);
-    return () => clearInterval(t);
+    const iv = setInterval(load, 15000);
+    return () => clearInterval(iv);
   }, [load, refreshKey]);
   useEffect(() => {
     setNow(Math.floor(Date.now() / 1000));
-    const t = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 15000);
-    return () => clearInterval(t);
+    const iv = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 15000);
+    return () => clearInterval(iv);
   }, []);
 
   const blocked = identity.checked && !identity.ok;
@@ -119,15 +123,14 @@ export function AutoBuyPanel({ token, curve, symbol, quote, identity, onToast, o
   const maxGasPrice = d.gasPrice !== undefined ? (d.gasPrice * 3n > GWEI ? d.gasPrice * 3n : GWEI) : undefined;
   const stipendCap = maxGasPrice !== undefined ? stipend * maxGasPrice : undefined; // native, per buy
   // v2 price floor: tokens per quote unit (1e18-scaled) the keeper must still get, = today's spot / cap.
-  // The contract checks tokensOut * 1e18 >= spent * minTokensPerQuote on every execution.
   const priceFloor = (): bigint => {
     if (!EXECUTOR_V2 || capMult === 0 || !d.reserves) return 0n;
-    const [q, t] = d.reserves;
+    const [q, tk] = d.reserves;
     if (q === 0n) return 0n;
-    return (((t * 10n ** 18n) / q) * 100n) / BigInt(capMult);
+    return (((tk * 10n ** 18n) / q) * 100n) / BigInt(capMult);
   };
 
-  const effInterval = intervalSecs === 0 ? Math.round(Number(customSecs) || 0) : intervalSecs;
+  const effInterval = intervalSecs === CUSTOM ? Math.round(Number(customSecs) || 0) : intervalSecs;
   const nCount = Math.max(0, Math.floor(Number(count) || 0));
   let perBuyWei = 0n;
   try {
@@ -141,98 +144,99 @@ export function AutoBuyPanel({ token, curve, symbol, quote, identity, onToast, o
 
   async function withWallet(fn: (client: any, acct: Address) => Promise<void>) {
     if (!authenticated) return login();
-    if (blocked) return onToast("Disabled: a platform contract's live code does not match its pinned hash.");
+    if (blocked) return onToast(t("quick.identity"));
     setBusy(true);
     try {
       const wc = await getWalletClient();
-      if (!wc) return onToast("No wallet available. Sign in again.");
+      if (!wc) return onToast(t("create.noWallet"));
       await fn(wc.client, wc.account);
       await load();
-    } catch (e: any) {
+    } catch (e: unknown) {
       if (e instanceof ReceiptTimeout) {
         onPending(e.hash);
-        onToast("Submitted, but not confirmed yet. This page keeps checking and never resends.");
-      } else onToast(e?.shortMessage ?? e?.message ?? "Failed.");
+        onToast(t("trade.pending"));
+      } else {
+        const err = e as { shortMessage?: string; message?: string };
+        onToast(err?.shortMessage ?? err?.message ?? t("create.failed"));
+      }
     } finally {
       setBusy(false);
     }
   }
 
-  const assetOf = (which: "quote" | "gas") => (which === "gas" || quote.native ? NATIVE_QUOTE : quote.address);
-  const decimalsOf = (which: "quote" | "gas") => (which === "gas" ? 18 : quote.decimals);
-  const symbolOf = (which: "quote" | "gas") => (which === "gas" ? "USDC" : quote.symbol);
+  const assetOf = (which: Which) => (which === "gas" || quote.native ? NATIVE_QUOTE : quote.address);
+  const decimalsOf = (which: Which) => (which === "gas" ? 18 : quote.decimals);
+  const symbolOf = (which: Which) => (which === "gas" ? gasSym : quote.symbol);
+  const wdWhich: Which = quote.native ? "quote" : wdAsset;
+  const wdBal = wdWhich === "gas" || quote.native ? d.nativeBal : d.quoteBal;
 
   const deposit = () =>
     withWallet(async (client, acct) => {
       const dec = decimalsOf(depAsset);
       const amt = parseUnits(depAmount || "0", dec);
-      if (amt <= 0n) return onToast("Enter an amount to deposit.");
+      if (amt <= 0n) return onToast(t("auto.enterDeposit"));
       const asset = assetOf(depAsset);
       if (asset === NATIVE_QUOTE) {
-        onToast("Confirm the deposit…");
+        onToast(t("auto.confirmDeposit"));
         const h = await client.writeContract({ account: acct, chain: arcTestnet, address: executor, abi: executorAbi, functionName: "deposit", value: amt });
         await waitReceipt(h, "deposit", { token });
+        recordTx(acct, { hash: h, kind: "deposit", token, time: Date.now() });
       } else {
         const allowance = (await publicClient.readContract({ address: asset, abi: erc20Abi, functionName: "allowance", args: [acct, executor] })) as bigint;
         if (allowance < amt) {
-          onToast(`Approve ${quote.symbol}…`);
+          onToast(t("trade.approve", { sym: quote.symbol }));
           const ah = await client.writeContract({ account: acct, chain: arcTestnet, address: asset, abi: erc20Abi, functionName: "approve", args: [executor, amt] });
           await waitReceipt(ah, "approve");
-          // The wallet may have edited the amount: re-read before spending on it.
           const after = (await publicClient.readContract({ address: asset, abi: erc20Abi, functionName: "allowance", args: [acct, executor] })) as bigint;
-          if (after < amt) throw new Error("Your wallet approved a smaller amount, so nothing was deposited. Approve the full amount to continue.");
+          if (after < amt) throw new Error(t("auto.approveShort"));
         }
-        onToast("Confirm the deposit…");
+        onToast(t("auto.confirmDeposit"));
         const h = await client.writeContract({ account: acct, chain: arcTestnet, address: executor, abi: executorAbi, functionName: "depositToken", args: [asset, amt] });
         await waitReceipt(h, "deposit", { token });
+        recordTx(acct, { hash: h, kind: "deposit", token, time: Date.now() });
       }
-      onToast("Deposited ✓");
+      onToast(t("auto.depositDone"));
       setDepAmount("");
     });
 
   const withdraw = () =>
     withWallet(async (client, acct) => {
-      const amt = parseUnits(wdAmount || "0", decimalsOf(wdAsset));
-      if (amt <= 0n) return onToast("Enter an amount to withdraw.");
-      onToast("Confirm the withdrawal…");
-      const h = await client.writeContract({
-        account: acct, chain: arcTestnet, address: executor, abi: executorAbi, functionName: "withdraw", args: [assetOf(wdAsset), amt, acct],
-      });
+      const amt = parseUnits(wdAmount || "0", decimalsOf(wdWhich));
+      if (amt <= 0n) return onToast(t("auto.enterWithdraw"));
+      onToast(t("auto.confirmWithdraw"));
+      const h = await client.writeContract({ account: acct, chain: arcTestnet, address: executor, abi: executorAbi, functionName: "withdraw", args: [assetOf(wdWhich), amt, acct] });
       await waitReceipt(h, "withdraw", { token });
-      onToast("Withdrawn to your wallet ✓");
+      recordTx(acct, { hash: h, kind: "withdraw", token, time: Date.now() });
+      onToast(t("auto.withdrawn"));
       setWdAmount("");
     });
 
   const cancelAll = () =>
     withWallet(async (client, acct) => {
-      onToast("Confirm — this voids every schedule you have signed…");
+      onToast(t("auto.confirmCancel"));
       const h = await client.writeContract({ account: acct, chain: arcTestnet, address: executor, abi: executorAbi, functionName: "cancelAuth" });
       await waitReceipt(h, "cancel", { token });
-      onToast("All schedules cancelled ✓");
+      recordTx(acct, { hash: h, kind: "cancel", token, time: Date.now() });
+      onToast(t("auto.cancelled"));
     });
 
   const schedule = () =>
     withWallet(async (client, acct) => {
-      if (!hasIndexer()) return onToast("Scheduling needs the indexer (it runs the keeper), which is not configured on this network.");
-      if (perBuyWei <= 0n) return onToast("Enter an amount per buy.");
-      if (effInterval < 60) return onToast("Interval must be at least 60 seconds.");
-      if (nCount < 1 || nCount > 4_000_000_000) return onToast("Enter how many buys to run.");
-      if (maxGasPrice === undefined) return onToast("Could not read the network gas price; try again.");
+      if (!hasIndexer()) return onToast(t("auto.needsIndexer"));
+      if (perBuyWei <= 0n) return onToast(t("auto.enterPerBuy"));
+      if (effInterval < 60) return onToast(t("auto.intervalMin"));
+      if (nCount < 1 || nCount > 4_000_000_000) return onToast(t("auto.enterCount"));
+      if (maxGasPrice === undefined) return onToast(t("auto.noGasPrice"));
       const nonce = (await publicClient.readContract({ address: executor, abi: executorAbi, functionName: "nonces", args: [acct] })) as bigint;
       const deadline = BigInt(Math.floor(Date.now() / 1000) + validSecs);
       const floor = priceFloor();
-      if (EXECUTOR_V2 && capMult !== 0 && floor === 0n) return onToast("Could not read the curve price for the price cap; try again.");
+      if (EXECUTOR_V2 && capMult !== 0 && floor === 0n) return onToast(t("auto.noPrice"));
       const message = EXECUTOR_V2
-        ? {
-            user: acct, token, asset: quoteAddr, perBuyMax: perBuyWei, minPerBuy: perBuyWei, minTokensPerQuote: floor,
-            maxGasPrice, totalCount: nCount, minInterval: effInterval, deadline, nonce,
-          }
+        ? { user: acct, token, asset: quoteAddr, perBuyMax: perBuyWei, minPerBuy: perBuyWei, minTokensPerQuote: floor, maxGasPrice, totalCount: nCount, minInterval: effInterval, deadline, nonce }
         : { user: acct, token, perBuyMax: perBuyWei, maxGasPrice, totalCount: nCount, minInterval: effInterval, deadline, nonce };
-      onToast("Sign the schedule in your wallet (no gas)…");
+      onToast(t("auto.signSchedule"));
       // the types object follows the executor generation, so viem's literal typing is per-version: cast
-      const signature = (await client.signTypedData({
-        account: acct, domain: executorDomain(), types: BUY_AUTH_TYPES, primaryType: "BuyAuth", message,
-      } as never)) as `0x${string}`;
+      const signature = (await client.signTypedData({ account: acct, domain: executorDomain(), types: BUY_AUTH_TYPES, primaryType: "BuyAuth", message } as never)) as Hex;
       await postAuth(
         {
           user: acct, token,
@@ -242,168 +246,138 @@ export function AutoBuyPanel({ token, curve, symbol, quote, identity, onToast, o
         },
         signature,
       );
-      onToast("Scheduled ✓ — the keeper runs it from here.");
+      onToast(t("auto.scheduled"));
       setPerBuy("");
     });
 
-  const ago = (ts: number) => (ts > 0 && now > 0 ? `${fmtDuration(Math.max(0, now - ts))} ago` : "never");
+  const ago = (ts: number) => (ts > 0 && now > 0 ? t("wall.ago", { v: fmtDuration(Math.max(0, now - ts)) }) : t("wall.never"));
   const active = (auths ?? []).filter((a) => a.status === "active");
-  const gasSym = activeNetwork.nativeSymbol ?? "USDC";
+  const label = "block text-[12px] text-muted";
+  const sub = "mt-4 mb-2 mono-label text-[10.5px] tracking-[.14em] text-ink-3";
 
   return (
-    <div className="panel" style={{ marginTop: 16 }}>
-      <div className="prog-row" style={{ marginBottom: 6 }}>
-        <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16, color: "var(--fg)" }}>Auto-buy</span>
-        <a href={explorer.address(executor)} target="_blank" rel="noreferrer" className="mono" style={{ color: "var(--radian-2)" }}>executor ↗</a>
-      </div>
-      <p className="hint" style={{ marginTop: 0, marginBottom: 10 }}>
-        Schedule buys of {symbol} that a keeper executes for you. You deposit into the executor, sign one message, and every buy lands in your wallet.
-        Fee: {(Number(feeBps) / 100).toFixed(2)}% of {quote.symbol} spent, plus a gas stipend per buy ({stipend.toString()} gas × the gas price, capped by your signature), paid in {gasSym} from your deposit.
-        Withdraw or cancel any time — neither needs the keeper.
-      </p>
+    <Panel>
+      <PanelHead title={t("auto.title")} address={executor} explorer={explorer.address} label={t("auto.executor")} />
+      <Note className="mb-3">{t("auto.body", { sym: symbol, q: quote.symbol, fee: (Number(feeBps) / 100).toFixed(2), gas: stipend.toString(), gasSym })}</Note>
 
       {!authenticated ? (
-        <button className="btn btn-ghost" style={{ width: "100%", justifyContent: "center" }} onClick={login}>Sign in to use auto-buy</button>
+        <SignInButton onClick={login} label={t("auto.signIn")} />
       ) : (
         <>
-          <div className="kv"><span>Deposited {quote.symbol}</span><span className="v">{fmtAmount(d.quoteBal, quote.decimals)} {quote.symbol}</span></div>
-          {!quote.native && <div className="kv"><span>Deposited {gasSym} (gas)</span><span className="v">{fmtAmount(d.nativeBal, 18, 6)} {gasSym}</span></div>}
+          <Row label={t("auto.deposited", { sym: quote.symbol })} value={`${fmtAmount(d.quoteBal, quote.decimals)} ${quote.symbol}`} />
+          {!quote.native && <Row label={t("auto.depositedGas", { sym: gasSym })} value={`${fmtAmount(d.nativeBal, 18, 6)} ${gasSym}`} />}
 
           {/* deposit */}
-          <div className="field" style={{ marginTop: 12 }}>
-            <label>Deposit</label>
-            <div style={{ display: "grid", gridTemplateColumns: quote.native ? "1fr auto" : "1fr 1fr auto", gap: 8 }}>
-              {!quote.native && (
-                <select className="select" value={depAsset} onChange={(e) => setDepAsset(e.target.value as "quote" | "gas")}>
-                  <option value="quote">{quote.symbol}</option>
-                  <option value="gas">{gasSym} (gas)</option>
-                </select>
-              )}
-              <input className="input" type="number" min="0" value={depAmount} onChange={(e) => setDepAmount(e.target.value)} placeholder={`0 ${symbolOf(quote.native ? "quote" : depAsset)}`} />
-              <button className="btn btn-ghost" onClick={deposit} disabled={busy || blocked}>{busy ? <span className="spinner" /> : "Deposit"}</button>
-            </div>
-            {!quote.native && depAsset === "quote" && <p className="hint">ERC-20 quote: the wallet shows an approval first, then the deposit.</p>}
+          <div className={sub}>{t("auto.deposit")}</div>
+          <div className={`grid gap-2 ${quote.native ? "grid-cols-[1fr_auto]" : "grid-cols-[auto_1fr_auto]"}`}>
+            {!quote.native && <ChipGroup label={t("auto.assetAria")} value={depAsset} onChange={setDepAsset} options={[{ value: "quote", label: quote.symbol }, { value: "gas", label: `${gasSym} · gas` }]} />}
+            <input type="text" inputMode="decimal" autoComplete="off" value={depAmount} onChange={(e) => setDepAmount(e.target.value)} placeholder={`0 ${symbolOf(quote.native ? "quote" : depAsset)}`} aria-label={t("auto.deposit")} className={`${INPUT_CLASS} tnum py-2`} />
+            <OutlineButton type="button" onClick={deposit} disabled={busy || blocked}>
+              {busy ? <Spinner /> : t("auto.depositBtn")}
+            </OutlineButton>
           </div>
+          {!quote.native && depAsset === "quote" && <Note className="mt-1.5">{t("auto.erc20Note")}</Note>}
 
           {/* schedule */}
-          <div className="field">
-            <label>Schedule</label>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              <div>
-                <label style={{ fontSize: 12 }}>Per buy ({quote.symbol})</label>
-                <input className="input" type="number" min="0" value={perBuy} onChange={(e) => setPerBuy(e.target.value)} placeholder="0" />
-              </div>
-              <div>
-                <label style={{ fontSize: 12 }}>Number of buys</label>
-                <input className="input" type="number" min="1" step="1" value={count} onChange={(e) => setCount(e.target.value)} />
-              </div>
-              <div>
-                <label style={{ fontSize: 12 }}>Every</label>
-                <div className="seg">
-                  {INTERVALS.map((iv) => (
-                    <button key={iv.label} type="button" className={intervalSecs === iv.secs ? "on-buy" : ""} onClick={() => setIntervalSecs(iv.secs)}>{iv.label}</button>
-                  ))}
-                </div>
-                {intervalSecs === 0 && (
-                  <input className="input" style={{ marginTop: 6 }} type="number" min="60" step="1" value={customSecs} onChange={(e) => setCustomSecs(e.target.value)} placeholder="seconds (≥ 60)" />
-                )}
-              </div>
-              <div>
-                <label style={{ fontSize: 12 }}>Valid for</label>
-                <div className="seg">
-                  {VALID_FOR.map((v) => (
-                    <button key={v.label} type="button" className={validSecs === v.secs ? "on-buy" : ""} onClick={() => setValidSecs(v.secs)}>{v.label}</button>
-                  ))}
-                </div>
-              </div>
-              {EXECUTOR_V2 && (
-                <div style={{ gridColumn: "1 / -1" }}>
-                  <label style={{ fontSize: 12 }}>Skip buys if the price is above (× today&apos;s)</label>
-                  <div className="seg">
-                    {PRICE_CAPS.map((c) => (
-                      <button key={c.label} type="button" className={capMult === c.mult ? "on-buy" : ""} onClick={() => setCapMult(c.mult)}>{c.label}</button>
-                    ))}
-                  </div>
-                  <p className="hint" style={{ marginTop: 4 }}>Signed into the authorization: an execution that would fill above this price reverts on-chain. The keeper also cannot run buys during a launch&apos;s snipe-tax window.</p>
-                </div>
-              )}
+          <div className={sub}>{t("auto.schedule")}</div>
+          <div className="grid gap-3 min-[520px]:grid-cols-2">
+            <div>
+              <label htmlFor={`ab-per-${token.slice(2, 8)}`} className={label}>
+                {t("auto.perBuy", { sym: quote.symbol })}
+              </label>
+              <input id={`ab-per-${token.slice(2, 8)}`} type="text" inputMode="decimal" autoComplete="off" value={perBuy} onChange={(e) => setPerBuy(e.target.value)} placeholder="0" className={`${INPUT_CLASS} tnum mt-1 py-2`} />
             </div>
-            {perBuyWei > 0n && nCount > 0 && (
-              <div style={{ marginTop: 8 }}>
-                <div className="kv" style={{ fontSize: 12.5 }}>
-                  <span>Needed for {nCount} buy{nCount === 1 ? "" : "s"} (incl. fee)</span>
-                  <span className="v" style={{ fontWeight: 500, color: shortQuote ? "var(--down)" : undefined }}>{fmtAmount(quoteNeeded, quote.decimals)} {quote.symbol}</span>
+            <div>
+              <label htmlFor={`ab-n-${token.slice(2, 8)}`} className={label}>
+                {t("auto.count")}
+              </label>
+              <input id={`ab-n-${token.slice(2, 8)}`} type="number" min="1" step="1" value={count} onChange={(e) => setCount(e.target.value)} className={`${INPUT_CLASS} tnum mt-1 py-2`} />
+            </div>
+            <div>
+              <span className={label}>{t("auto.every")}</span>
+              <div className="mt-1">
+                <ChipGroup label={t("auto.every")} value={intervalSecs} onChange={setIntervalSecs} options={[...INTERVALS.map((iv) => ({ value: iv.secs, label: iv.label })), { value: CUSTOM, label: t("auto.custom") }]} />
+              </div>
+              {intervalSecs === CUSTOM && <input type="number" min="60" step="1" value={customSecs} onChange={(e) => setCustomSecs(e.target.value)} placeholder={t("auto.secondsPh")} aria-label={t("auto.every")} className={`${INPUT_CLASS} tnum mt-2 py-2`} />}
+            </div>
+            <div>
+              <span className={label}>{t("auto.validFor")}</span>
+              <div className="mt-1">
+                <ChipGroup label={t("auto.validFor")} value={validSecs} onChange={setValidSecs} options={[{ value: 7 * 86400, label: t("auto.days", { n: 7 }) }, { value: 30 * 86400, label: t("auto.days", { n: 30 }) }]} />
+              </div>
+            </div>
+            {EXECUTOR_V2 && (
+              <div className="min-[520px]:col-span-2">
+                <span className={label}>{t("auto.priceCap")}</span>
+                <div className="mt-1">
+                  <ChipGroup label={t("auto.priceCap")} value={capMult} onChange={setCapMult} options={[...PRICE_CAPS.map((c) => ({ value: c.mult, label: c.label })), { value: NO_CAP, label: t("auto.noCap") }]} />
                 </div>
-                <div className="kv" style={{ fontSize: 12.5 }}>
-                  <span>Gas stipend cap{quote.native ? " (on top, same deposit)" : ""}</span>
-                  <span className="v" style={{ fontWeight: 500, color: shortNative ? "var(--down)" : undefined }}>{gasNeeded === undefined ? "—" : `${fmtAmount(gasNeeded, 18, 6)} ${gasSym}`}</span>
-                </div>
-                <div className="kv" style={{ fontSize: 12.5 }}>
-                  <span>Max gas price signed</span>
-                  <span className="v" style={{ fontWeight: 500 }}>{maxGasPrice === undefined ? "—" : `${Number(formatUnits(maxGasPrice, 9)).toLocaleString(undefined, { maximumFractionDigits: 3 })} gwei`}</span>
-                </div>
-                {(shortQuote || shortNative) && (
-                  <p className="hint" style={{ color: "var(--down)" }}>Your deposit does not cover the whole schedule; buys stop when it runs out. Deposit more or shorten the schedule.</p>
-                )}
+                <Note className="mt-1.5">{t("auto.priceCapNote")}</Note>
               </div>
             )}
-            <button className="btn btn-primary" style={{ width: "100%", justifyContent: "center", marginTop: 10 }} onClick={schedule} disabled={busy || blocked || perBuyWei <= 0n || nCount < 1}>
-              {busy ? <span className="spinner" /> : "Sign & schedule"}
-            </button>
-            <p className="hint" style={{ textAlign: "center" }}>Signing is free (EIP-712, no transaction). The keeper never touches funds outside this schedule&apos;s caps.</p>
           </div>
+          {perBuyWei > 0n && nCount > 0 && (
+            <div className="mt-3">
+              <Row small label={t("auto.needed", { n: nCount })} value={`${fmtAmount(quoteNeeded, quote.decimals)} ${quote.symbol}`} tone={shortQuote ? "neg" : "muted"} />
+              <Row small label={quote.native ? t("auto.stipendSame") : t("auto.stipend")} value={gasNeeded === undefined ? "—" : `${fmtAmount(gasNeeded, 18, 6)} ${gasSym}`} tone={shortNative ? "neg" : "muted"} />
+              <Row small label={t("auto.maxGas")} value={maxGasPrice === undefined ? "—" : `${Number(formatUnits(maxGasPrice, 9)).toLocaleString(undefined, { maximumFractionDigits: 3 })} gwei`} tone="muted" />
+              {(shortQuote || shortNative) && <Note tone="neg" className="mt-1.5">{t("auto.shortNote")}</Note>}
+            </div>
+          )}
+          <PrimaryButton type="button" className="mt-3" onClick={schedule} disabled={busy || blocked || perBuyWei <= 0n || nCount < 1}>
+            {busy ? <Spinner /> : t("auto.signBtn")}
+          </PrimaryButton>
+          <Note className="mt-2 text-center">{t("auto.signNote")}</Note>
 
           {/* active schedules */}
-          <div className="field">
-            <label>Active schedules</label>
-            {auths === null ? (
-              <p className="hint">{hasIndexer() ? "Loading…" : "No indexer on this network — schedules cannot be listed."}</p>
-            ) : active.length === 0 ? (
-              <p className="hint">None. {auths.length > 0 ? `${auths.length} past schedule${auths.length === 1 ? "" : "s"}.` : ""}</p>
-            ) : (
-              active.map((a) => {
+          <div className={sub}>{t("auto.active")}</div>
+          {auths === null ? (
+            <Note>{hasIndexer() ? t("wall.loading") : t("auto.noIndexer")}</Note>
+          ) : active.length === 0 ? (
+            <Note>{t("auto.none")} {auths.length > 0 ? t("auto.past", { n: auths.length }) : ""}</Note>
+          ) : (
+            <ul className="divide-y divide-stroke rounded-xl border border-stroke">
+              {active.map((a) => {
                 const mine = a.auth.token.toLowerCase() === token.toLowerCase();
                 return (
-                  <div key={a.authId} className="kv" style={{ alignItems: "flex-start", gap: 12 }}>
-                    <span>
-                      {mine ? symbol : <span className="mono">{a.auth.token.slice(0, 6)}…{a.auth.token.slice(-4)}</span>}
-                      <span className="hint" style={{ display: "block", marginTop: 2 }}>
-                        every {fmtDuration(Number(a.auth.minInterval))} · up to {mine ? `${fmtAmount(BigInt(a.auth.perBuyMax), quote.decimals)} ${quote.symbol}` : `${a.auth.perBuyMax} raw`}{a.auth.minTokensPerQuote && a.auth.minTokensPerQuote !== "0" ? " · price-capped" : ""} · last run {ago(a.lastAt)}
+                  <li key={a.authId} className="flex items-start justify-between gap-3 px-3.5 py-2.5 text-[13px]">
+                    <span className="min-w-0">
+                      <span className="text-ink">{mine ? symbol : <span className="font-mono text-[12px]">{a.auth.token.slice(0, 6)}…{a.auth.token.slice(-4)}</span>}</span>
+                      <span className="block text-[11.5px] text-ink-3">
+                        {t("auto.everyLine", { v: fmtDuration(Number(a.auth.minInterval)) })} · {t("auto.upTo", { v: mine ? `${fmtAmount(BigInt(a.auth.perBuyMax), quote.decimals)} ${quote.symbol}` : `${a.auth.perBuyMax} raw` })}
+                        {a.auth.minTokensPerQuote && a.auth.minTokensPerQuote !== "0" ? ` · ${t("auto.capped")}` : ""} · {t("auto.lastRun", { v: ago(a.lastAt) })}
                       </span>
                     </span>
-                    <span className="v" style={{ whiteSpace: "nowrap" }}>{a.count} / {a.auth.totalCount}</span>
-                  </div>
+                    <span className="tnum whitespace-nowrap text-ink">
+                      {a.count} / {a.auth.totalCount}
+                    </span>
+                  </li>
                 );
-              })
-            )}
-            <button className="btn btn-ghost" style={{ width: "100%", justifyContent: "center", marginTop: 8 }} onClick={cancelAll} disabled={busy || blocked}>
-              Cancel all
-            </button>
-            <p className="hint" style={{ textAlign: "center" }}>One transaction voids every schedule you have signed (bumps your nonce).</p>
-          </div>
+              })}
+            </ul>
+          )}
+          <OutlineButton type="button" className="mt-2 w-full" onClick={cancelAll} disabled={busy || blocked}>
+            {t("auto.cancelAll")}
+          </OutlineButton>
+          <Note className="mt-1.5 text-center">{t("auto.cancelNote")}</Note>
 
           {/* withdraw */}
-          <div className="field" style={{ marginBottom: 0 }}>
-            <label>Withdraw to your wallet</label>
-            <div style={{ display: "grid", gridTemplateColumns: quote.native ? "1fr auto" : "1fr 1fr auto", gap: 8 }}>
-              {!quote.native && (
-                <select className="select" value={wdAsset} onChange={(e) => setWdAsset(e.target.value as "quote" | "gas")}>
-                  <option value="quote">{quote.symbol}</option>
-                  <option value="gas">{gasSym} (gas)</option>
-                </select>
-              )}
-              <input className="input" type="number" min="0" value={wdAmount} onChange={(e) => setWdAmount(e.target.value)} placeholder={`0 ${symbolOf(quote.native ? "quote" : wdAsset)}`} />
-              <button className="btn btn-ghost" onClick={withdraw} disabled={busy || blocked}>{busy ? <span className="spinner" /> : "Withdraw"}</button>
-            </div>
-            <p className="hint" style={{ cursor: "pointer" }} onClick={() => {
-              const bal = wdAsset === "gas" || quote.native ? d.nativeBal : d.quoteBal;
-              if (bal !== undefined) setWdAmount(formatUnits(bal, decimalsOf(quote.native ? "quote" : wdAsset)));
-            }}>
-              Available: {fmtAmount(wdAsset === "gas" || quote.native ? d.nativeBal : d.quoteBal, decimalsOf(quote.native ? "quote" : wdAsset), 6)} {symbolOf(quote.native ? "quote" : wdAsset)} — max
-            </p>
+          <div className={sub}>{t("auto.withdraw")}</div>
+          <div className={`grid gap-2 ${quote.native ? "grid-cols-[1fr_auto]" : "grid-cols-[auto_1fr_auto]"}`}>
+            {!quote.native && <ChipGroup label={t("auto.assetAria")} value={wdAsset} onChange={setWdAsset} options={[{ value: "quote", label: quote.symbol }, { value: "gas", label: `${gasSym} · gas` }]} />}
+            <input type="text" inputMode="decimal" autoComplete="off" value={wdAmount} onChange={(e) => setWdAmount(e.target.value)} placeholder={`0 ${symbolOf(wdWhich)}`} aria-label={t("auto.withdraw")} className={`${INPUT_CLASS} tnum py-2`} />
+            <OutlineButton type="button" onClick={withdraw} disabled={busy || blocked}>
+              {busy ? <Spinner /> : t("auto.withdrawBtn")}
+            </OutlineButton>
           </div>
+          <Note className="mt-1.5">
+            {t("auto.available")}{" "}
+            <button type="button" className="text-brand hover:underline" onClick={() => wdBal !== undefined && setWdAmount(formatUnits(wdBal, decimalsOf(wdWhich)))}>
+              {fmtAmount(wdBal, decimalsOf(wdWhich), 6)} {symbolOf(wdWhich)}
+            </button>
+          </Note>
         </>
       )}
-    </div>
+    </Panel>
   );
 }
