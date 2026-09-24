@@ -16,6 +16,7 @@ import { useT } from "@/components/LangProvider";
 import { PrimaryButton } from "@/components/ui/primitives";
 import { Spinner } from "@/components/ui/rows";
 import { txErrorText } from "@/lib/txError";
+import { recordTx } from "@/lib/txLog";
 import { FlipButton, PayCard, QuoteLine, ReceiveCard, TokenPill } from "./SwapCards";
 import { publicClient, erc20Abi, explorer, hasPound, activeNetwork, type LaunchTemplate } from "@/lib/radian";
 import { useRadianWallet } from "@/lib/useRadianWallet";
@@ -228,6 +229,7 @@ export function SwapForm({
     const est = fmtOut(q.out);
     try {
       const hash = side === "buy" ? await buy(target, inWei, q.minOut, onStatus) : await sell(target, inWei, q.minOut, onStatus);
+      if (address) recordTx(address, { hash, kind: side, token: tk.token, amount: `${fmtNum(Number(formatUnits(inWei, side === "buy" ? dec : 18)), side === "buy" ? 4 : 0)} ${inSym}`, time: Date.now() });
       setMsg({ ok: true, text: side === "buy" ? t("trade.doneBuy", { v: est, sym: tk.symbol }) : t("trade.doneSell", { v: est, sym: tk.quoteSymbol }), hash });
       setAmount("");
       onTraded?.();

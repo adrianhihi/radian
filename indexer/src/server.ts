@@ -263,6 +263,31 @@ export function startServer() {
     res.json({ trades });
   });
 
+  // Everything one wallet did here, newest first: its curve trades, its launches and its
+  // referral claims, with `through` so a client can say how far the index reaches.
+  app.get("/address/:addr/activity", (req, res) => {
+    if (!isAddress(req.params.addr)) return res.status(400).json({ error: "address" });
+    res.setHeader("Cache-Control", "no-store");
+    const who = req.params.addr.toLowerCase();
+    const byToken = new Map(launchView().map((l) => [l.token.toLowerCase(), l]));
+    type Row = { kind: "buy" | "sell" | "launch" | "referralClaim"; ts: number; block: string; txHash?: string; token?: string; symbol?: string; quote?: string; tokens?: string; amount?: string; asset?: string; quoteSymbol?: string; quoteDecimals?: number };
+    const rows: Row[] = [];
+    for (const t of store.trades) {
+      if (t.trader.toLowerCase() !== who) continue;
+      const l = byToken.get(t.token.toLowerCase());
+      rows.push({ kind: t.side, ts: t.ts, block: t.block, txHash: t.txHash, token: t.token, symbol: l?.symbol ?? "", quote: t.quote, tokens: t.tokens, quoteSymbol: l?.quoteSymbol ?? "", quoteDecimals: l?.quoteDecimals ?? 18 });
+    }
+    for (const l of store.launches.values()) {
+      if (l.deployer.toLowerCase() !== who || !l.createdAt) continue;
+      rows.push({ kind: "launch", ts: l.createdAt, block: l.createdBlock ?? "0", token: l.token, symbol: l.symbol ?? "" });
+    }
+    for (const e of store.pound) {
+      if (e.kind === "referralClaim" && (e.referrer ?? "").toLowerCase() === who) rows.push({ kind: "referralClaim", ts: e.ts, block: e.block, txHash: e.txHash, amount: e.amount, asset: e.asset });
+    }
+    rows.sort((a, b) => b.ts - a.ts);
+    res.json({ indexed: true, ...indexMeta(), events: rows.slice(0, 200) });
+  });
+
   app.get("/stats", (req, res) => {
     pub(res, 10);
     const ls = launchView().filter((l) => !l.sunset && !isHidden(l.token));

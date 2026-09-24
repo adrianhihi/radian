@@ -217,3 +217,23 @@ export type ProtocolStats = {
 export async function fetchStats(window: "24h" | "all"): Promise<ProtocolStats> {
   return get<ProtocolStats>(`/stats?window=${window}`);
 }
+
+// One wallet's activity from the indexer's scan (see /address/:addr/activity).
+export type WalletEvent = {
+  kind: "buy" | "sell" | "launch" | "referralClaim";
+  ts: number;
+  block: string;
+  txHash?: string;
+  token?: string;
+  symbol?: string;
+  quote?: string;
+  tokens?: string;
+  amount?: string;
+  asset?: string;
+  quoteSymbol?: string;
+  quoteDecimals?: number;
+};
+export async function fetchWalletActivity(address: string): Promise<{ indexed: boolean; through: string; events: WalletEvent[] }> {
+  const j = await get<{ indexed?: boolean; through?: string; events?: WalletEvent[] }>(`/address/${address}/activity`, true);
+  return { indexed: !!j.indexed, through: j.through ?? "0", events: j.events ?? [] };
+}

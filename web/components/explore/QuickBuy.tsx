@@ -9,6 +9,7 @@ import { formatUnits, parseUnits, type Hex } from "viem";
 import { useT } from "@/components/LangProvider";
 import { publicClient, erc20Abi, quoteByAddress, explorer, activeNetwork, type LaunchRow } from "@/lib/radian";
 import { txErrorText } from "@/lib/txError";
+import { recordTx } from "@/lib/txLog";
 import { useRadianWallet } from "@/lib/useRadianWallet";
 import { useTrade, readCurveQuoteState, quoteBuy, type CurveQuoteState } from "@/lib/useTrade";
 import { ReceiptTimeout } from "@/lib/pendingTx";
@@ -90,6 +91,7 @@ export function QuickBuy({ rows, token, onToken }: { rows: LaunchRow[]; token: s
       const hash = await buy({ token: row.token, curve: row.curve, pairToken: row.pairToken, native, template: row.template }, inWei, q.minOut, (s) => {
         setStatus(s === "approve" ? t("quick.approve", { sym: row.quoteSymbol }) : s === "confirm" ? t("quick.confirm") : s === "sent" ? t("quick.sent") : null);
       });
+      if (address) recordTx(address, { hash, kind: "buy", token: row.token, amount: `${amount} ${row.quoteSymbol}`, time: Date.now() });
       setMsg({ ok: true, text: t("quick.bought", { v: est ?? "", sym: row.symbol }), hash });
       setAmount("");
     } catch (err: unknown) {

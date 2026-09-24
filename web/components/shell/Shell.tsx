@@ -12,6 +12,7 @@ import { isTestnet, useNetwork } from "@/lib/networks";
 import { BrandMark } from "./BrandMark";
 import { NavIcon } from "./NavIcon";
 import { NavMore } from "./NavMore";
+import { NavPortfolioValue } from "./NavPortfolioValue";
 import { NetworkPill } from "./NetworkPill";
 import { WalletPill } from "./WalletPill";
 
@@ -54,6 +55,7 @@ export function Chrome({ crumbSuffix }: { crumbSuffix?: string }) {
               }`}
             >
               {td(`nav.${n.name}`)}
+              {n.name === "portfolio" && <NavPortfolioValue />}
             </Link>
           ))}
           <NavMore active={active === MORE_NAME} />

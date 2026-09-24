@@ -45,6 +45,7 @@ export const MORE_NAME = "more";
 /** Routes that are not nav items → the top-level item to highlight ("none" = nothing). */
 const SUB: Record<string, string> = {
   token: "explore",
+  activity: "portfolio",
   r: "explore",
   live: "explore",
   stats: "explore",

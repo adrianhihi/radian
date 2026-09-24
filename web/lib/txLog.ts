@@ -14,6 +14,8 @@ export interface TxRecord {
   kind: TxKind;
   /** the launch token the transaction was about, when there is one */
   token?: string;
+  /** what moved, already formatted for display ("12.5 USDGx", "1,000 RDOG") */
+  amount?: string;
   time: number;
 }
 
