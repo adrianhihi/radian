@@ -1,73 +1,61 @@
 "use client";
-import Link from "next/link";
-import { Nav } from "@/components/Nav";
-import { useNetwork, isTestnet } from "@/lib/networks";
 
-// Plain-language terms and risk disclosure. Facts only; nothing here is a promise.
+// Terms & risks, on baskvia's legal page layout: back · LEGAL · title ·
+// "not advice" · intro · sections · network note · links.
+import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
+import { Shell } from "@/components/shell/Shell";
+import { useLang, useT } from "@/components/LangProvider";
+import { Footer } from "@/components/ui/primitives";
+import { TERMS } from "@/lib/content/legal";
+import { isTestnet, useNetwork } from "@/lib/networks";
+
 export default function TermsPage() {
+  const t = useT();
+  const { lang } = useLang();
   const net = useNetwork();
-  const sections: { h: string; p: string[] }[] = [
-    {
-      h: "What Radian is",
-      p: [
-        "Radian is a website that lets you interact with smart contracts on public blockchains: a token factory, bonding curves, Uniswap V4 pools and a few optional add-on contracts. Your wallet signs every transaction. Radian never holds your funds and cannot reverse a transaction.",
-        "The contracts are listed with their addresses and pinned code hashes on the Verify and Factory pages. The site refuses to launch or trade if the live code does not match those hashes.",
-      ],
-    },
-    {
-      h: "Not audited",
-      p: [
-        "The trading engine is a source-identical port of a verified upstream launchpad. The Radian-specific contracts (launch router, launch templates, delegated buys, The Pound's vault and burner) have been reviewed internally but have not been audited by an external firm. Bugs can exist. Do not put in money you cannot afford to lose.",
-      ],
-    },
-    {
-      h: "Risks you take",
-      p: [
-        "Tokens launched here can lose all their value. Most will. Nothing on this site is a recommendation to buy or sell anything.",
-        "A token's quote asset is another on-chain asset (a stablecoin, the gas coin, or a tokenized stock). If that asset's issuer pauses, upgrades or restricts it, curves priced in it can stop working until the issuer acts. Tokenized stocks are subject to their issuer's own rules and regional restrictions; you are responsible for being allowed to hold them where you live.",
-        "Prices on a bonding curve move with every trade. Early buys pay a snipe tax that decays over seconds. Graduation into a Uniswap V4 pool changes how price is set. A creator can add a fee on trades; it is shown before you trade.",
-        "Wallet security is yours. Radian cannot recover a lost key or a signed transaction.",
-      ],
-    },
-    {
-      h: "Fees",
-      p: [
-        "A fixed launch fee and a percentage fee on every curve trade are charged by the contracts and shown on the Factory page for the current network. Part of the trade fee goes to the protocol, the rest to the token's creator or to the template the creator chose.",
-      ],
-    },
-    {
-      h: "No warranty, your responsibility",
-      p: [
-        "The site and contracts are provided as they are, without warranties of any kind. You use them at your own risk and you are responsible for complying with the laws that apply to you, including tax and securities rules. If you are not allowed to use a service like this where you live, do not use it.",
-        "Radian is not affiliated with Circle, Robinhood, Uniswap or Pons-Labs. Their trademarks belong to them.",
-      ],
-    },
-  ];
+  const d = TERMS[lang] ?? TERMS.en;
   return (
-    <>
-      <Nav />
-      <main className="wrap" style={{ padding: "48px 24px 60px", maxWidth: 820 }}>
-        <span className="eyebrow">◆ Terms &amp; risks</span>
-        <h1 style={{ fontSize: 34, marginTop: 14 }}>Read this before you trade.</h1>
-        <p style={{ color: "var(--fg-dim)", marginTop: 10 }}>
-          Network: <strong>{net.label}</strong>.{" "}
-          {isTestnet(net)
-            ? "This is a testnet: no real money, and the stock quote assets are stand-ins."
-            : "This is a live network with real assets."}
+    <Shell>
+      <div className="screen-in mx-auto max-w-[760px]">
+        <Link href="/" className="mono-label inline-flex items-center gap-1.5 text-[10.5px] tracking-[.16em] text-ink-3 hover:text-brand">
+          <ArrowLeft size={12} strokeWidth={1.8} aria-hidden="true" /> {t("legal.back")}
+        </Link>
+        <p className="mono-label mt-8 text-[10.5px] tracking-[.2em] text-ink-3">{t("legal.eyebrow")}</p>
+        <h1 className="mt-2 text-[clamp(34px,5vw,54px)] font-bold uppercase leading-none tracking-[-1px] text-ink">{d.title}</h1>
+        <p className="mono-label mt-4 text-[10.5px] tracking-[.14em] text-ink-3">{t("legal.notAdvice")}</p>
+        <p className="mt-5 text-[16px] leading-[1.75] text-ink-2">{d.intro}</p>
+        <p className="mt-3 rounded-[12px] border border-stroke bg-glass-2 px-4 py-3 text-[13px] leading-[1.7] text-muted">
+          <b className="text-ink">{net.label}</b> · {isTestnet(net) ? t("legal.netTest") : t("legal.netLive")}
         </p>
-        {sections.map((sct) => (
-          <section key={sct.h} className="panel" style={{ marginTop: 18 }}>
-            <h3 style={{ fontSize: 18, marginBottom: 8 }}>{sct.h}</h3>
-            {sct.p.map((t, i) => (
-              <p key={i} style={{ color: "var(--fg-dim)", marginTop: 8, lineHeight: 1.6 }}>{t}</p>
-            ))}
-          </section>
-        ))}
-        <p className="hint" style={{ marginTop: 18 }}>
-          Contract addresses and live checks: <Link href="/verify" style={{ color: "var(--radian-2)" }}>Verify</Link> ·{" "}
-          <Link href="/factory" style={{ color: "var(--radian-2)" }}>Factory</Link>
+        <div className="mt-8 grid gap-7">
+          {d.sections.map((s) => (
+            <section key={s.h}>
+              <h2 className="text-[18px] font-semibold text-ink">{s.h}</h2>
+              {s.p.map((x, i) => (
+                <p key={i} className="mt-2 text-[14.5px] leading-[1.8] text-muted">
+                  {x}
+                </p>
+              ))}
+            </section>
+          ))}
+        </div>
+        <p className="mt-8 text-[13px] text-ink-3">
+          {t("legal.seeAlso")}{" "}
+          <Link href="/verify" className="text-brand hover:underline">
+            {t("nav.verify")}
+          </Link>{" "}
+          ·{" "}
+          <Link href="/factory" className="text-brand hover:underline">
+            {t("nav.factory")}
+          </Link>{" "}
+          ·{" "}
+          <Link href="/docs" className="text-brand hover:underline">
+            {t("nav.learn")}
+          </Link>
         </p>
-      </main>
-    </>
+        <Footer />
+      </div>
+    </Shell>
   );
 }

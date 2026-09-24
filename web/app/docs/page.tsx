@@ -1,270 +1,263 @@
 "use client";
+
+// Learn, on baskvia's /learn skeleton: head · this page's contents · the four
+// steps · launching · the details (searchable, tag-filtered accordion) · Q&A
+// with anchors · the contracts for this network · bottom links. Copy lives in
+// lib/content/learn.ts; live numbers and addresses come from the network.
+import { ArrowRight, ChevronDown, Search } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { Nav } from "@/components/Nav";
-import { RADIAN } from "@/lib/radian";
+import { useState } from "react";
+import { Shell } from "@/components/shell/Shell";
+import { useLang, useT } from "@/components/LangProvider";
+import { Footer } from "@/components/ui/primitives";
+import { LEARN, type DetailItem, type LearnTag } from "@/lib/content/learn";
+import type { TKey } from "@/lib/i18n";
 import { useNetwork } from "@/lib/networks";
 
-
-
-const SECTIONS = [
-  { id: "overview", label: "Overview" },
-  { id: "architecture", label: "Architecture" },
-  { id: "launch-flow", label: "Launch flow" },
-  { id: "inputs", label: "Required inputs" },
-  { id: "fee-modes", label: "Fee modes" },
-  { id: "templates", label: "Templates" },
-  { id: "auto-buy", label: "Auto-buy" },
-  { id: "anti-snipe", label: "Anti-snipe" },
-  { id: "fees", label: "Fees & buyback" },
-  { id: "contracts", label: "Contracts" },
+const STEPS: [TKey, TKey][] = [
+  ["learn.step1Title", "learn.step1Body"],
+  ["learn.step2Title", "learn.step2Body"],
+  ["learn.step3Title", "learn.step3Body"],
+  ["learn.step4Title", "learn.step4Body"],
 ];
+const ZERO = "0x0000000000000000000000000000000000000000";
+const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9一-龥]+/g, "-").replace(/^-|-$/g, "");
 
-function Table({ rows, head }: { rows: [string, string][]; head: [string, string] }) {
+function Eyebrow({ children }: { children: React.ReactNode }) {
+  return <span className="mono-label inline-block rounded-full border border-stroke-2 px-3 py-1 text-[10px] tracking-[.16em] text-ink-3">{children}</span>;
+}
+
+function TwoLine({ id, a, b }: { id?: string; a: string; b: string }) {
   return (
-    <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
-      <div className="kv" style={{ padding: "11px 20px", color: "var(--fg-faint)", fontSize: 12, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-        <span>{head[0]}</span><span>{head[1]}</span>
-      </div>
-      {rows.map(([k, v]) => (
-        <div key={k} className="kv" style={{ padding: "13px 20px", alignItems: "flex-start", gap: 20 }}>
-          <span style={{ fontWeight: 600, flexShrink: 0, minWidth: 130 }}>{k}</span>
-          <span style={{ color: "var(--fg-dim)", textAlign: "right" }}>{v}</span>
-        </div>
-      ))}
-    </div>
+    <h2 id={id} className="mt-4 text-[clamp(28px,4vw,46px)] font-bold leading-[1.08] tracking-[-1px] text-ink">
+      {a}
+      <br />
+      <span className="bg-[image:var(--brand-grad)] bg-clip-text text-transparent">{b}</span>
+    </h2>
   );
 }
 
-export default function DocsPage() {
+export default function LearnPage() {
+  const t = useT();
+  const { lang } = useLang();
   const net = useNetwork();
-  const addr = (a: string) => `${net.explorer}/address/${a}`;
-  const [active, setActive] = useState("overview");
-  useEffect(() => {
-    const obs = new IntersectionObserver(
-      (entries) => entries.forEach((e) => e.isIntersecting && setActive(e.target.id)),
-      { rootMargin: "-20% 0px -70% 0px" }
-    );
-    SECTIONS.forEach((s) => {
-      const el = document.getElementById(s.id);
-      if (el) obs.observe(el);
-    });
-    return () => obs.disconnect();
-  }, []);
+  const c = LEARN[lang] ?? LEARN.en;
+  const pound = !!net.pound;
+  const [q, setQ] = useState("");
+  const [tag, setTag] = useState<LearnTag | "all">("all");
+  const [open, setOpen] = useState<Set<string>>(new Set());
+  const query = q.trim().toLowerCase();
+  const all = c.detail.items.filter((it) => !it.when || (it.when === "pound") === pound);
+  const items = all.filter((it) => (tag === "all" || it.tag === tag) && (!query || [it.kicker, it.title, ...it.body].join(" ").toLowerCase().includes(query)));
+  const toggle = (k: string) => setOpen((s) => (s.has(k) ? new Set([...s].filter((x) => x !== k)) : new Set([...s, k])));
+
+  const contracts: [string, string][] = [
+    ["LaunchFactory", net.contracts.factory],
+    ["MemeHook (Uniswap V4)", net.contracts.hook],
+    ["BuybackVault", net.contracts.vault],
+    ["LaunchLocker", net.contracts.locker],
+    ["FeeEscrow", net.contracts.escrow],
+    ["PoolManager (Uniswap V4)", net.contracts.poolManager],
+    ["LaunchRouter", net.contracts.router],
+    ["PoFRouter", net.contracts.pofRouter],
+    ["RadianExecutor", net.contracts.executor],
+    ...(net.pound ? ([["PoundVault", net.pound.vault], ["PackBurner", net.pound.burner]] as [string, string][]) : []),
+  ].filter(([, a]) => a && a !== ZERO) as [string, string][];
 
   return (
-    <>
-      <Nav />
-      <main className="wrap docs-layout">
-        <aside className="docs-toc">
-          <div className="docs-toc-inner">
-            <div style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--fg-faint)", marginBottom: 12 }}>
-              Documentation
-            </div>
-            {SECTIONS.map((s) => (
-              <a key={s.id} href={`#${s.id}`} className={`docs-toc-link${active === s.id ? " on" : ""}`}>
-                {s.label}
-              </a>
+    <Shell>
+      <div className="screen-in">
+        <header className="pt-8 text-center">
+          <Eyebrow>{c.eyebrow}</Eyebrow>
+          <h1 className="mt-6 text-[clamp(38px,6.4vw,76px)] font-bold leading-[1.02] tracking-[-2px] text-ink">
+            {c.title[0]}
+            <br />
+            <span className="bg-[image:var(--brand-grad)] bg-clip-text text-transparent">{c.title[1]}</span>
+          </h1>
+          <p className="mx-auto mt-6 max-w-[44ch] text-[16px] leading-[1.7] text-ink-2">{c.sub}</p>
+          <div className="mt-8 flex flex-wrap justify-center gap-3">
+            {(["/explore", "/create", "/earn"] as const).map((href, i) => (
+              <Link key={href} href={href} className="mono-label inline-flex items-center gap-2 rounded-full border border-stroke-2 bg-glass-2 px-5 py-2.5 text-[11px] tracking-[.14em] text-ink hover:border-brand hover:text-brand">
+                {c.ctas[i]} <ArrowRight size={12} strokeWidth={1.8} aria-hidden="true" />
+              </Link>
             ))}
           </div>
-        </aside>
+        </header>
 
-        <div className="docs-content">
-          <section id="overview">
-            <h1 style={{ fontSize: 34 }}>How Radian works</h1>
-            <p style={{ color: "var(--fg-dim)", marginTop: 12, fontSize: 16 }}>
-              Radian is a permissionless token launchpad on Circle&apos;s Arc chain. Every token is
-              born on a constant-product bonding curve quoted in the asset its creator chose —
-              <strong>native USDC</strong> by default, EURC, or (on testnet) a stock stand-in — then
-              graduates into a permanently locked Uniswap V4 pool. Radian is non-custodial — your
-              wallet signs every transaction; Radian never holds your funds. The trading engine is a
-              faithful port of Pons V2, diffable byte-for-byte against the verified upstream on Sourcify.
-            </p>
-          </section>
+        <nav aria-label={c.toc} className="glass-panel mx-auto mt-12 max-w-[760px] rounded-2xl px-5 py-4">
+          <div className="mono-label text-[10px] tracking-[.16em] text-ink-3">{c.toc}</div>
+          <ul className="mt-3 grid grid-cols-1 gap-x-8 gap-y-2 text-[13.5px] min-[520px]:grid-cols-2">
+            {c.tocItems.map(([id, label]) => (
+              <li key={id}>
+                <a href={`#${id}`} className="text-ink-2 hover:text-brand">
+                  {label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
 
-          <section id="architecture">
-            <h2>Architecture</h2>
-            <Table
-              head={["Component", "Role"]}
-              rows={[
-                ["LaunchFactory", "Atomically deploys the token + curve and snapshots fee terms"],
-                ["LaunchToken", "Fixed 1B-supply ERC-20 minted entirely to its curve; no owner, no mint"],
-                ["BondingCurve", "Constant-product curve in the launch's quote asset; buy/sell enforce an on-chain minimum-received (slippage) bound — there is no deadline parameter"],
-                ["MemeHook (V4)", "Singleton Uniswap V4 hook on graduated pools — keeps charging the fee"],
-                ["LaunchLocker", "Holds the graduated V4 position forever — no withdrawal path exists"],
-                ["BuybackVault", "Fee-funded buybacks locked on a 5-year linear vest (locked, never burned)"],
-                ["FeeEscrow", "Claimable ledger for creator and protocol fee balances"],
-              ]}
-            />
-          </section>
+        <section id="how" aria-labelledby="h-how" className="mt-20 scroll-mt-24">
+          <Eyebrow>{c.how.eyebrow}</Eyebrow>
+          <TwoLine id="h-how" a={c.how.title[0]} b={c.how.title[1]} />
+          <ol className="mt-8 grid gap-4 min-[620px]:grid-cols-2 nav:grid-cols-4">
+            {STEPS.map(([h, p], i) => (
+              <li key={h} className="glass-panel flex flex-col rounded-2xl p-5">
+                <span className="mono-label text-[10px] text-ink-3">0{i + 1}</span>
+                <h3 className="mt-3 text-[14px] font-bold uppercase tracking-[.04em] text-ink">{t(h)}</h3>
+                <p className="mt-2 text-[12.5px] leading-[1.7] text-muted">{t(p)}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
 
-          <section id="launch-flow">
-            <h2>Launch flow</h2>
-            {[
-              { h: "1 · Create", b: "One transaction deploys the token + curve and mints the full 1B supply to the curve. Launch fee is 1 USDC (msg.value), plus gas." },
-              { h: "2 · Optional first buy", b: "Add a first buy and it rides the same transaction: the launch router deploys the curve and fills your buy in the launch block, before any other wallet can see it. As the creator you're snipe-tax-exempt, so it settles untaxed and sets the opening price." },
-              { h: "3 · Trade", b: "Anyone buys and sells on the curve from block one. Price rises as supply is bought — fair discovery, no presale. A 1% fee is charged on the quote-asset leg." },
-              { h: "4 · Graduate", b: "When the curve's real USDC reserve crosses the threshold, it drains into a full-range Uniswap V4 position that is locked forever. Trading continues on the V4 pool via the hook." },
-            ].map((s) => (
-              <div className="panel" key={s.h} style={{ marginTop: 12 }}>
-                <h3 style={{ fontSize: 16, marginBottom: 6 }}>{s.h}</h3>
-                <p style={{ color: "var(--fg-dim)", margin: 0 }}>{s.b}</p>
+        <section id="launching" aria-labelledby="h-launch" className="mt-20 scroll-mt-24">
+          <Eyebrow>{c.launch.eyebrow}</Eyebrow>
+          <TwoLine id="h-launch" a={c.launch.title[0]} b={c.launch.title[1]} />
+          <p className="mt-4 max-w-[62ch] text-[15px] leading-[1.7] text-muted">{c.launch.body}</p>
+          <div className="mt-8 grid gap-4 nav:grid-cols-3">
+            {c.launch.cards.map(([h, p]) => (
+              <article key={h} className="glass-panel rounded-2xl p-6">
+                <span className="block h-0.5 w-12 rounded bg-brand/70" aria-hidden="true" />
+                <h3 className="mt-5 text-[16px] font-bold uppercase leading-[1.35] text-ink">{h}</h3>
+                <p className="mt-3 text-[13.5px] leading-[1.7] text-muted">{p}</p>
+              </article>
+            ))}
+          </div>
+          <Link href="/create" className="mono-label mt-6 inline-flex items-center gap-2 rounded-full border border-stroke-2 px-5 py-2.5 text-[11px] tracking-[.14em] text-ink hover:border-brand hover:text-brand">
+            {c.launch.cta} <ArrowRight size={12} strokeWidth={1.8} aria-hidden="true" />
+          </Link>
+        </section>
+
+        <section id="detail" aria-labelledby="h-detail" className="mx-auto mt-24 max-w-[780px] scroll-mt-24">
+          <Eyebrow>{c.detail.eyebrow}</Eyebrow>
+          <h2 id="h-detail" className="mt-4 text-[clamp(26px,3.4vw,38px)] font-bold tracking-[-.5px] text-ink">
+            {c.detail.title}
+          </h2>
+          <p className="mt-3 text-[14px] leading-[1.7] text-muted">{c.detail.body}</p>
+          <label className="mt-6 flex items-center gap-2 rounded-[12px] border border-stroke-2 bg-glass-2 px-3 py-2.5">
+            <Search size={15} strokeWidth={1.8} aria-hidden="true" className="text-ink-3" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={c.detail.search} aria-label={c.detail.search} className="min-w-0 flex-1 bg-transparent text-[14px] text-ink outline-none" />
+          </label>
+          <div className="mt-3 flex flex-wrap gap-1.5" role="group">
+            {(Object.keys(c.detail.tags) as (LearnTag | "all")[])
+              .filter((k) => k !== "pound" || pound)
+              .map((k) => (
+                <button key={k} type="button" aria-pressed={tag === k} onClick={() => setTag(k)} className={`mono-label rounded-full border px-3 py-1 text-[10px] tracking-[.12em] ${tag === k ? "border-brand text-brand" : "border-stroke text-ink-3 hover:text-ink-2"}`}>
+                  {c.detail.tags[k]}
+                </button>
+              ))}
+          </div>
+          <div className="glass-panel mt-4 divide-y divide-stroke rounded-2xl px-5">
+            {items.length === 0 && <p className="py-6 text-center text-[13.5px] text-muted">{c.detail.noMatch.replace("{q}", q)}</p>}
+            {items.map((it: DetailItem) => {
+              const i = all.indexOf(it);
+              const k = `d${i}`;
+              const isOpen = open.has(k) || !!query;
+              return (
+                <div key={k}>
+                  <button type="button" aria-expanded={isOpen} onClick={() => toggle(k)} className="flex w-full items-center gap-3 py-4 text-left">
+                    <span className="mono-label flex-none text-[9.5px] tracking-[.14em] text-ink-3">
+                      {String(i + 1).padStart(2, "0")} · {it.kicker}
+                    </span>
+                    <span className="min-w-0 flex-1 text-[15.5px] font-semibold text-ink">{it.title}</span>
+                    <span className="grid size-7 flex-none place-items-center rounded-full border border-stroke-2 text-ink-3">
+                      <ChevronDown size={13} strokeWidth={1.8} aria-hidden="true" className={`transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                    </span>
+                  </button>
+                  {isOpen && (
+                    <div className="pb-5">
+                      {it.body.map((p, j) => (
+                        <p key={j} className="mt-2 text-[14px] leading-[1.75] text-muted first:mt-0">
+                          {p}
+                        </p>
+                      ))}
+                      {it.link && (
+                        <Link href={it.link.href} className="mono-label mt-3 inline-flex items-center gap-1.5 text-[10.5px] tracking-[.14em] text-brand hover:underline">
+                          {it.link.label} <ArrowRight size={11} strokeWidth={1.8} aria-hidden="true" />
+                        </Link>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        <section id="qa" aria-labelledby="h-qa" className="mx-auto mt-20 max-w-[780px] scroll-mt-24">
+          <Eyebrow>{c.qa.eyebrow}</Eyebrow>
+          <h2 id="h-qa" className="mt-4 text-[clamp(26px,3.4vw,38px)] font-bold tracking-[-.5px] text-ink">
+            {c.qa.title}
+          </h2>
+          <p className="mt-3 text-[14px] leading-[1.7] text-muted">
+            {c.qa.body}{" "}
+            <Link href="/terms" className="text-brand hover:underline">
+              {t("nav.terms")} →
+            </Link>
+          </p>
+          <div className="mt-6 grid gap-6">
+            {c.qa.groups.map((g) => (
+              <div key={g.name}>
+                <h3 className="mono-label flex items-center gap-2 text-[10.5px] tracking-[.16em] text-ink-3">
+                  {g.name} <span className="rounded-full bg-glass-2 px-1.5 text-ink-2">{g.items.length}</span>
+                </h3>
+                <div className="glass-panel mt-2 divide-y divide-stroke rounded-2xl px-5">
+                  {g.items.map((it) => {
+                    const id = `q-${slug(it.q)}`;
+                    const isOpen = open.has(id);
+                    return (
+                      <div key={id} id={id} className="scroll-mt-24">
+                        <div className="flex items-center gap-3">
+                          <button type="button" aria-expanded={isOpen} onClick={() => toggle(id)} className="flex min-w-0 flex-1 items-center gap-3 py-3.5 text-left">
+                            <span className="min-w-0 flex-1 text-[14.5px] text-ink">{it.q}</span>
+                            <ChevronDown size={13} strokeWidth={1.8} aria-hidden="true" className={`flex-none text-ink-3 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                          </button>
+                          <a href={`#${id}`} aria-label={it.q} className="text-[12px] text-ink-3 hover:text-brand">
+                            #
+                          </a>
+                        </div>
+                        {isOpen && <p className="pb-4 text-[13.5px] leading-[1.75] text-muted">{it.a}</p>}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             ))}
-          </section>
+          </div>
+        </section>
 
-          <section id="inputs">
-            <h2>Required inputs</h2>
-            <Table
-              head={["Field", "Description"]}
-              rows={[
-                ["Name", "Full token name, e.g. \"Arc Doge\""],
-                ["Symbol", "Ticker, up to 10 characters"],
-                ["Token image", "PNG/JPG/WebP/GIF uploaded and linked in the token's on-chain logo field"],
-                ["Description / Socials", "Optional — written into token metadata (website, X)"],
-                ["Fee mode", "How the quote-asset fee is used (see below)"],
-                ["First buy", "Optional creator buy on the new curve, in the chosen quote asset (0 to skip)"],
-              ]}
-            />
-          </section>
+        <section id="contracts" aria-labelledby="h-contracts" className="mx-auto mt-20 max-w-[780px] scroll-mt-24">
+          <Eyebrow>{net.chainName}</Eyebrow>
+          <h2 id="h-contracts" className="mt-4 text-[clamp(26px,3.4vw,38px)] font-bold tracking-[-.5px] text-ink">
+            {c.contracts.title}
+          </h2>
+          <p className="mt-3 text-[14px] leading-[1.7] text-muted">{c.contracts.body}</p>
+          <ul className="glass-panel mt-4 divide-y divide-stroke rounded-2xl px-5">
+            {contracts.map(([label, a]) => (
+              <li key={label} className="flex flex-wrap items-center justify-between gap-2 py-3 text-[13px]">
+                <span className="text-ink-2">{label}</span>
+                <a href={`${net.explorer}/address/${a}`} target="_blank" rel="noreferrer" className="font-mono text-[12px] text-brand hover:underline">
+                  {a.slice(0, 10)}…{a.slice(-8)}
+                </a>
+              </li>
+            ))}
+          </ul>
+          <Link href="/verify" className="mono-label mt-4 inline-flex items-center gap-1.5 text-[10.5px] tracking-[.14em] text-brand hover:underline">
+            {c.contracts.verify} <ArrowRight size={11} strokeWidth={1.8} aria-hidden="true" />
+          </Link>
+        </section>
 
-          <section id="fee-modes">
-            <h2>Fee modes</h2>
-            <p style={{ color: "var(--fg-dim)", marginTop: 6 }}>
-              Chosen at launch and snapshotted on-chain. Two modes are live; two need a contract upgrade.
-            </p>
-            <Table
-              head={["Mode", "Behavior"]}
-              rows={[
-                ["Buyback & Lock", "The buyback share of fees buys the token on its own curve and locks it in the 5-year vault"],
-                ["Creator Fees", "The creator fee (plus an optional creator tax up to 10%) goes to a wallet you choose"],
-                ["Holder Rewards", "Distribute fees to holders — planned, needs a contract upgrade"],
-                ["Fee Sharing", "Split fees across up to five wallets — planned, needs a contract upgrade"],
-              ]}
-            />
-          </section>
+        <nav className="mt-16 flex flex-wrap justify-center gap-3">
+          {c.footer.map(([href, label]) => (
+            <Link key={href} href={href} className="mono-label inline-flex items-center gap-2 rounded-full border border-stroke-2 px-5 py-2.5 text-[11px] tracking-[.14em] text-ink-2 hover:border-brand hover:text-brand">
+              {label} <ArrowRight size={12} strokeWidth={1.8} aria-hidden="true" />
+            </Link>
+          ))}
+        </nav>
 
-          <section id="templates">
-            <h2>Templates</h2>
-            <p style={{ color: "var(--fg-dim)", marginTop: 6 }}>
-              A template decides what the creator-fee share of every trade does. It is chosen at launch and written on-chain by the
-              launch router, which sets creator-fee mode with a per-launch contract as the only recipient — no wallet can be
-              substituted later. Fee mode does not apply to templated launches.
-            </p>
-            <Table
-              head={["Template", "What fees do"]}
-              rows={[
-                ["Standard", "The fee mode above applies: buyback & lock, or creator fees to a wallet you choose."],
-                ["Stock Treasury — The Wall", "Needs a stock as the paired market. Creator fees are claimed (by anyone) into a treasury that holds the stock and never sells it. A configured share of each claim (default 30%) streams to stakers of the token over 7 days, paid in the stock. The rest is a standing bid under book value: while the token is on its curve, a keeper may buy and burn when spot trades under book value × (1 + margin), within a daily budget. Book value = pile ÷ circulating supply, both read on-chain."],
-                ["Proof-of-Fee", "Creator fees buy the token back on its own curve. Each round (1 minute to 24 hours), the buyback is paid to the traders whose fees funded it, by share of quote spent through the official PoF router (\"Work\"). Direct curve buys and all sells earn no Work. Under-subscribed rounds pay out pro-rata and the rest rolls forward. Nothing is minted."],
-              ]}
-            />
-            <div className="panel" style={{ marginTop: 12 }}>
-              <h3 style={{ fontSize: 16, marginBottom: 6 }}>What is and is not promised</h3>
-              <p style={{ color: "var(--fg-dim)", margin: 0 }}>
-                The Wall is a bid funded by fees, not a guarantee: it can only spend what fees have put in the pile, at most the
-                daily budget, and only while the token is on its curve. Book value is not a price floor. Proof-of-Fee rewards can
-                never exceed what fees actually bought back; a round with no fees pays nothing. Staking rewards are fees actually
-                collected; the rate changes with every claim and is not an APY. On testnet the stock assets are stand-ins with no
-                redemption. Everything on a token page is read from that launch&apos;s own contracts, and a dash means unknown, never zero.
-              </p>
-            </div>
-          </section>
-
-          <section id="auto-buy">
-            <h2>Auto-buy</h2>
-            <div className="panel">
-              <p style={{ color: "var(--fg-dim)", margin: 0 }}>
-                Any curve token&apos;s page can schedule buys through the <strong>RadianExecutor</strong>. You deposit the quote asset
-                (and native USDC for gas when the quote is an ERC-20) into the executor, then sign one EIP-712 message that caps
-                the amount per buy, the interval, the number of buys, the maximum gas price and an expiry. A keeper run by the
-                indexer executes the buys on that schedule; tokens always land in your wallet. The fee is 0.5% of quote actually
-                spent (a contract constant) plus a gas stipend of 300,000 gas × min(gas price, your cap) per buy, both taken from
-                your deposit. Withdrawing your deposit and cancelling every schedule are plain transactions that need nobody&apos;s
-                cooperation. The keeper cannot exceed the caps you signed, and it cannot move funds anywhere but into a buy of the
-                token you named.
-              </p>
-            </div>
-          </section>
-
-          <section id="anti-snipe">
-            <h2>Anti-snipe</h2>
-            <div className="panel">
-              <p style={{ color: "var(--fg-dim)", margin: 0 }}>
-                For the first ~15 seconds after launch, a decaying tax (99% → 0%) applies to non-exempt
-                buyers on the quote leg, so a launch can&apos;t be sniped in its opening block. The
-                creator and their declared wallets are exempt; the tax lifts automatically.
-              </p>
-            </div>
-          </section>
-
-          <section id="fees">
-            <h2>Fees &amp; The Pound</h2>
-            <Table
-              head={["Leg", "Where it goes"]}
-              rows={
-                net.pound
-                  ? [
-                      ["Trade fee", "1% of every swap, on the quote-asset leg, before and after graduation"],
-                      ["Creator", "50% of the fee — to the fee escrow, claimable anytime (25% when Buyback & Lock is on)"],
-                      ["Buyback", "In Buyback & Lock mode, the other 25% buys the token back when the platform sweeps fees and vests it over 5 years"],
-                      ["Protocol → The Pound", "50% of the fee — swept into the PoundVault, which settles it in this order:"],
-                      ["1. Referrals", "5.55% of the fee to whoever referred the buyer, 5.55% to whoever referred the token's creator (referral tags travel with router trades; self-referrals are dropped)"],
-                      ["2. Pack burn", "70% of what remains buys the next Pack coin (native coins of this chain with a V4 pool, curated by the Safe) and sends it to 0x…dEaD, at most once a day, within 5% of spot"],
-                      ["3. Treasury", "the remainder"],
-                      ["Creator tax", "Optional, up to 10%, paid 100% to the creator on top of the base fee"],
-                    ]
-                  : [
-                      ["Trade fee", "1% of every swap, on the quote-asset leg, before and after graduation"],
-                      ["Protocol", "30% of the fee — to the protocol recipient via escrow"],
-                      ["Creator", "70% of the fee — to the fee escrow, claimable anytime (35% when Buyback & Lock is on)"],
-                      ["Buyback", "In Buyback & Lock mode, the other 35% buys the token back when the platform sweeps fees and vests it over 5 years (70% creator / 30% protocol)"],
-                      ["Creator tax", "Optional, up to 10%, paid 100% to the creator on top of the base fee"],
-                    ]
-              }
-            />
-            {net.pound && (
-              <p style={{ color: "var(--fg-dim)", marginTop: 10 }}>
-                Launches from before The Pound keep the fee policy they were created with and carry no referral tags. The live split,
-                the Pack and every settlement are on <Link href="/earn">/earn</Link>; the roles behind it are on <Link href="/factory">/factory</Link>.
-              </p>
-            )}
-          </section>
-
-          <section id="contracts">
-            <h2>Contracts</h2>
-            <p style={{ color: "var(--fg-dim)", marginTop: 6, marginBottom: 12 }}>
-              Addresses below are for {net.chainName} (chain {net.chainId}); switch network to see another chain.
-              Runtime code hashes are pinned and re-checked on every visit (see Verify). Verification proves
-              source = bytecode; it is not an audit.
-            </p>
-            <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
-              {[
-                ["LaunchFactory", RADIAN.factory],
-                ["MemeHook (Uniswap V4)", RADIAN.hook],
-                ["BuybackVault", RADIAN.vault],
-                ["LaunchLocker", RADIAN.locker],
-                ["FeeEscrow", RADIAN.escrow],
-                ["PoolManager (Uniswap V4)", RADIAN.poolManager],
-                ["LaunchRouter (templates)", RADIAN.router],
-                ["PoFRouter", RADIAN.pofRouter],
-                ["RadianExecutor (auto-buy)", RADIAN.executor],
-                ...(net.pound ? [["PoundVault (fee waterfall)", net.pound.vault], ["PackBurner (Pack buy-and-burn)", net.pound.burner]] : []),
-              ].map(([label, a]) => (
-                <div key={a} className="kv" style={{ padding: "13px 20px" }}>
-                  <span>{label}</span>
-                  <a className="v mono" href={addr(a)} target="_blank" rel="noreferrer" style={{ color: "var(--radian-2)" }}>
-                    {a.slice(0, 10)}…{a.slice(-8)}
-                  </a>
-                </div>
-              ))}
-            </div>
-            <p className="hint" style={{ marginTop: 12, marginBottom: 60 }}>
-              Native gas token is USDC (18-decimal msg.value). Not affiliated with Circle, Robinhood, or Pons-Labs.
-            </p>
-          </section>
-        </div>
-      </main>
-    </>
+        <Footer />
+      </div>
+    </Shell>
   );
 }

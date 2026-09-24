@@ -61,5 +61,9 @@ components/swap/TokenAside; one trade form components/trade/SwapForm on useTrade
 Launch under More) · 3 create wizard, creators, creator profile (done 2026-09-24: `/create` = components/create/{Stepper,
 NameStep,MarketStep,LaunchStep,FeeSplitPreview,Field} on lib/draft.ts + lib/feeSplit.ts, `/launch` redirects there;
 `/creators` = components/creators/{QuickStart,Sections}; `/profile/[addr]` = the creator page, linked from creator chips,
-the creator board, the token head and the wallet menu's "My launches") · 4 portfolio, fees, earn, activity feed, learn, integrate,
-verify, rules, risk.
+the creator board, the token head and the wallet menu's "My launches") · 4 portfolio, fees, earn, activity feed, learn, integrate, verify, rules, risk (done 2026-09-24: `/portfolio`, `/earn` =
+components/earn/{PoundEarn,FlywheelEarn}, `/live`, `/stats`, `/docs` (Learn, copy in lib/content/learn.ts), `/builders`
+(Integrate, lib/content/integrate.ts), `/verify`, `/terms` (lib/content/legal.ts), `/factory` (lib/content/factory.ts);
+primitives DataTable + NotLive; the legacy CSS block now only maps the per-launch panels (Wall / PoF / auto-buy), the
+Arc flywheel and StockRef onto the tokens). Remaining: rewrite those three panels on the design system and delete the
+legacy block.

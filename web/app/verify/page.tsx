@@ -1,19 +1,23 @@
 "use client";
-import { Nav } from "@/components/Nav";
-import { useReveal } from "@/lib/useReveal";
+
+// Verify, on baskvia's /verify skeleton: everything a careful person needs to
+// check that this site talks to the contracts it claims to, without trusting
+// the site. Full addresses (same-named fakes exist), pinned runtime code hashes
+// with the live re-check, the other addresses, how to reproduce the bytecode,
+// and the numbers that must not be combined.
+import { Check, ExternalLink, X } from "lucide-react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { Shell } from "@/components/shell/Shell";
+import { useT } from "@/components/LangProvider";
+import { Footer, Panel } from "@/components/ui/primitives";
 import { useNetwork } from "@/lib/networks";
 import { useIdentity, pinnedContracts } from "@/lib/identity";
-import { useEffect, useState } from "react";
-
-// Everything a careful user needs to check that this site is talking to the
-// contracts it claims to, without trusting the site. Full addresses (never
-// truncated: same-named fakes exist), pinned runtime code hashes with a live
-// re-check, and the build recipe that reproduces the bytecode from source.
 
 const CODE_HASH_CMD = "cast keccak $(cast code <address> --rpc-url <rpc>)";
 
 export default function VerifyPage() {
-  useReveal();
+  const t = useT();
   const net = useNetwork();
   const identity = useIdentity();
   const [pinned, setPinned] = useState<ReturnType<typeof pinnedContracts>>([]);
@@ -21,109 +25,114 @@ export default function VerifyPage() {
   const byName = new Map(identity.results.map((r) => [r.name, r]));
 
   const others: { name: string; address: string; note: string }[] = [
-    { name: "$RADIAN token", address: net.radian.token, note: "a normal launch token; its curve is the buyback venue" },
-    { name: "$RADIAN curve", address: net.radian.curve, note: "per-launch contract, so no single hash to pin — verify it through the factory registry" },
-    ...net.quoteAssets.filter((q) => !q.native).map((q) => ({ name: `${q.symbol} (quote asset)`, address: q.address, note: q.stock?.standIn ? "clearly labeled testnet stand-in, not a real security" : q.blurb })),
+    ...(net.radian.token !== "0x0000000000000000000000000000000000000000" ? [{ name: t("verify.radianToken"), address: net.radian.token, note: t("verify.radianTokenNote") }, { name: t("verify.radianCurve"), address: net.radian.curve, note: t("verify.radianCurveNote") }] : []),
+    ...net.quoteAssets.filter((q) => !q.native).map((q) => ({ name: t("verify.quoteAsset", { sym: q.symbol }), address: q.address, note: q.stock?.standIn ? t("verify.standIn") : q.blurb })),
   ];
+  const overall = !identity.checked ? "unverified" : identity.results.every((r) => r.ok) ? "match" : "mismatch";
 
   return (
-    <>
-      <Nav />
-      <main className="wrap" style={{ padding: "48px 24px 60px", maxWidth: 900 }}>
-        <div className="reveal">
-          <span className="eyebrow">◆ Verify it yourself</span>
-          <h1 style={{ fontSize: 34, marginTop: 14 }}>Don&apos;t trust this page. Check it.</h1>
-          <p style={{ color: "var(--fg-dim)", marginTop: 10 }}>
-            Network: <strong>{net.label}</strong> (chain {net.chainId}). Addresses are printed in full because same-named fakes
-            exist. Each platform contract&apos;s runtime code hash was recorded at deploy; the site re-hashes the live code
-            before it lets you launch or trade, and this table shows that check.
-          </p>
-        </div>
+    <Shell>
+      <div className="screen-in mx-auto max-w-[900px]">
+        <p className="mono-label mt-6 text-[10.5px] tracking-[.2em] text-ink-3">{t("verify.eyebrow")}</p>
+        <h1 className="mt-2 text-[clamp(30px,4.6vw,46px)] font-bold leading-[1.1] tracking-[-1px] text-ink">{t("verify.title")}</h1>
+        <p className="mt-4 max-w-[70ch] text-[14.5px] leading-[1.75] text-muted">{t("verify.intro", { chain: net.label, id: net.chainId })}</p>
 
-        <div className="panel reveal" style={{ marginTop: 24, overflowX: "auto" }}>
-          <h3 style={{ fontSize: 18, marginBottom: 10 }}>Pinned contracts · live check</h3>
-          {pinned.length === 0 ? (
-            <p className="hint">Nothing pinned on this network yet (contracts not deployed).</p>
-          ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead>
-                <tr style={{ textAlign: "left", color: "var(--fg-dim)" }}>
-                  <th style={{ padding: "6px 8px" }}>Contract</th>
-                  <th style={{ padding: "6px 8px" }}>Address</th>
-                  <th style={{ padding: "6px 8px" }}>Runtime code hash (pinned)</th>
-                  <th style={{ padding: "6px 8px" }}>Live</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pinned.map((e) => {
-                  const r = byName.get(e.name);
-                  const status = !identity.checked ? "unverified" : r?.ok ? "match" : "MISMATCH";
-                  const color = status === "match" ? "var(--up)" : status === "MISMATCH" ? "var(--down)" : "var(--fg-dim)";
-                  return (
-                    <tr key={e.name} style={{ borderTop: "1px solid var(--border-soft)" }}>
-                      <td style={{ padding: "8px", whiteSpace: "nowrap" }}>{e.name}</td>
-                      <td style={{ padding: "8px", fontFamily: "var(--mono, monospace)", wordBreak: "break-all" }}>
-                        <a href={`${net.explorer}/address/${e.address}`} target="_blank" rel="noreferrer" style={{ color: "var(--radian-2)" }}>{e.address}</a>
-                      </td>
-                      <td style={{ padding: "8px", fontFamily: "var(--mono, monospace)", wordBreak: "break-all", fontSize: 12 }}>{e.expected}</td>
-                      <td style={{ padding: "8px", color, fontWeight: 600, whiteSpace: "nowrap" }}>{status}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-          {identity.error && <p className="hint" style={{ marginTop: 8 }}>Live check failed: {identity.error}. Reload, or run the command below yourself.</p>}
-          <p className="hint" style={{ marginTop: 10 }}>
-            Reproduce a hash yourself: <code>{CODE_HASH_CMD}</code>. RPC: <code>{net.rpc}</code>.
-          </p>
-        </div>
-
-        <div className="panel reveal" style={{ marginTop: 16 }}>
-          <h3 style={{ fontSize: 18, marginBottom: 10 }}>Other addresses</h3>
-          {others.map((o) => (
-            <div key={o.name} className="kv" style={{ alignItems: "flex-start" }}>
-              <span style={{ minWidth: 160 }}>{o.name}</span>
-              <span className="v" style={{ fontFamily: "var(--mono, monospace)", wordBreak: "break-all", textAlign: "right" }}>
-                <a href={`${net.explorer}/address/${o.address}`} target="_blank" rel="noreferrer" style={{ color: "var(--radian-2)" }}>{o.address}</a>
-                <div className="hint" style={{ marginTop: 2 }}>{o.note}</div>
+        <div className="mt-8 grid gap-5">
+          <Panel>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-[20px] font-bold text-ink">{t("verify.pinnedTitle")}</h2>
+              <span className={`mono-label inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] tracking-[.12em] ${overall === "match" ? "border-pos/50 text-pos" : overall === "mismatch" ? "border-neg/60 text-neg" : "border-stroke text-ink-3"}`}>
+                {overall === "match" ? <Check size={11} strokeWidth={2.2} aria-hidden="true" /> : overall === "mismatch" ? <X size={11} strokeWidth={2.2} aria-hidden="true" /> : null}
+                {overall === "match" ? t("verify.allMatch") : overall === "mismatch" ? t("verify.someMismatch") : t("verify.checking")}
               </span>
             </div>
-          ))}
-          <p className="hint" style={{ marginTop: 8 }}>
-            Any token&apos;s curve is authoritative only if the factory says so: call <code>getLaunchedToken(token)</code> on the
-            factory and compare the <code>curve</code> field with what this site shows.
-          </p>
-        </div>
+            <p className="mt-1 text-[12.5px] leading-[1.6] text-ink-3">{t("verify.pinnedSub")}</p>
+            {pinned.length === 0 ? (
+              <p className="mt-4 text-[13px] text-muted">{t("verify.nothingPinned")}</p>
+            ) : (
+              <ul className="mt-4 divide-y divide-stroke">
+                {pinned.map((e) => {
+                  const r = byName.get(e.name);
+                  const status = !identity.checked ? "unverified" : r?.ok ? "match" : "mismatch";
+                  return (
+                    <li key={e.name} className="grid gap-2 py-3.5 min-[720px]:grid-cols-[200px_minmax(0,1fr)] min-[720px]:items-start">
+                      <div>
+                        <div className="mono-label text-[10.5px] tracking-[.14em] text-ink-2">{e.name}</div>
+                        <span className={`mono-label mt-1.5 inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[9.5px] tracking-[.12em] ${status === "match" ? "border-pos/40 text-pos" : status === "mismatch" ? "border-neg/60 text-neg" : "border-stroke text-ink-3"}`}>
+                          {status === "match" && <Check size={11} strokeWidth={2.2} aria-hidden="true" />}
+                          {status === "mismatch" && <X size={11} strokeWidth={2.2} aria-hidden="true" />}
+                          {status === "match" ? t("verify.match") : status === "mismatch" ? t("verify.mismatch") : t("verify.unverified")}
+                        </span>
+                      </div>
+                      <div className="min-w-0">
+                        <a href={`${net.explorer}/address/${e.address}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 break-all font-mono text-[12px] text-ink-2 hover:text-brand">
+                          {e.address} <ExternalLink size={11} strokeWidth={1.8} aria-hidden="true" className="flex-none" />
+                        </a>
+                        <div className="mt-1 break-all font-mono text-[11px] text-ink-3">{e.expected}</div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            {identity.error && <p className="mt-3 text-[12.5px] text-neg">{t("verify.liveFailed", { err: identity.error })}</p>}
+            <p className="mt-4 text-[12.5px] leading-[1.7] text-ink-3">
+              {t("verify.reproduceHash")} <code className="rounded border border-stroke-2 bg-glass-2 px-1.5 py-px font-mono text-[11px] text-ink-2">{CODE_HASH_CMD}</code> · RPC <code className="rounded border border-stroke-2 bg-glass-2 px-1.5 py-px font-mono text-[11px] text-ink-2">{net.rpc}</code>
+            </p>
+          </Panel>
 
-        <div className="panel reveal" style={{ marginTop: 16 }}>
-          <h3 style={{ fontSize: 18, marginBottom: 10 }}>Reproduce the bytecode from source</h3>
-          <p className="hint">
-            The trading engine is a byte-for-byte port of Pons V2 (Robinhood Chain, chain 4663, factory <code>0x7eD598…EC7e</code>,
-            verified on Sourcify). Sources keep the original <code>PonsV2*</code> names and MIT headers so you can diff them
-            against the upstream. Builds are reproducible: submodules are pinned to exact commits and metadata is stripped
-            (<code>bytecode_hash = &quot;none&quot;</code>, <code>cbor_metadata = false</code>), so a fresh clone produces identical bytecode.
-          </p>
-          <pre style={{ marginTop: 10, padding: 12, background: "var(--bg-elev, rgba(127,127,127,.08))", borderRadius: 8, overflowX: "auto", fontSize: 12 }}>{`git clone --recurse-submodules https://github.com/adrianhihi/radian && cd radian
+          <Panel>
+            <h2 className="text-[20px] font-bold text-ink">{t("verify.othersTitle")}</h2>
+            <p className="mt-1 text-[12.5px] leading-[1.6] text-ink-3">{t("verify.othersSub")}</p>
+            <ul className="mt-4 divide-y divide-stroke">
+              {others.map((o) => (
+                <li key={o.name + o.address} className="grid gap-2 py-3.5 min-[720px]:grid-cols-[200px_minmax(0,1fr)]">
+                  <div>
+                    <div className="mono-label text-[10.5px] tracking-[.14em] text-ink-2">{o.name}</div>
+                    <div className="mt-1 text-[11.5px] text-ink-3">{o.note}</div>
+                  </div>
+                  <a href={`${net.explorer}/address/${o.address}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 break-all font-mono text-[12px] text-ink-2 hover:text-brand">
+                    {o.address} <ExternalLink size={11} strokeWidth={1.8} aria-hidden="true" className="flex-none" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-4 text-[12.5px] leading-[1.7] text-ink-3">{t("verify.curveNote")}</p>
+          </Panel>
+
+          <Panel>
+            <h2 className="text-[20px] font-bold text-ink">{t("verify.reproduceTitle")}</h2>
+            <p className="mt-2 text-[13px] leading-[1.7] text-muted">{t("verify.reproduceBody")}</p>
+            <pre className="mt-3 overflow-x-auto rounded-[12px] border border-stroke bg-[rgba(0,0,0,.25)] p-3 font-mono text-[12px] leading-[1.7] text-ink-2">{`git clone --recurse-submodules https://github.com/adrianhihi/radian && cd radian
 forge build
 # runtime code of a contract as compiled:
 jq -r .deployedBytecode.object out/PonsV2LaunchFactory.sol/PonsV2LaunchFactory.json | cut -c1-80
 # compare against what the chain runs (constructor immutables are embedded, so compare
 # after deploy with the pinned hash above, or diff the code sections yourself):
 cast code ${net.contracts.factory} --rpc-url ${net.rpc} | cut -c1-80`}</pre>
-        </div>
+          </Panel>
 
-        <div className="panel reveal" style={{ marginTop: 16 }}>
-          <h3 style={{ fontSize: 18, marginBottom: 10 }}>Numbers that must not be combined</h3>
-          <ul className="hint" style={{ paddingLeft: 18, lineHeight: 1.7 }}>
-            <li>A curve&apos;s <em>quote reserve</em> includes the phantom reserve that shapes the price. It is not cash held; <em>tracked quote</em> is.</li>
-            <li>Tokens in the 5-year buyback vault are <em>locked</em>, not burned. Burned $RADIAN lowers total supply; it does not move the curve price, which only sees reserves.</li>
-            <li>Staking APR is computed from the current reward rate and the current $RADIAN price. It changes whenever either does and is not a promise.</li>
-            <li>Indexer counts (trades, volume) can lag the chain by a few blocks and exclude retired or test launches. A dash means unknown, never zero.</li>
-            <li>Stock stand-ins on testnet track a reference price for display only. They are not securities and have no redemption.</li>
-          </ul>
+          <Panel>
+            <h2 className="text-[20px] font-bold text-ink">{t("verify.numbersTitle")}</h2>
+            <ul className="mt-3 grid gap-2 text-[13px] leading-[1.7] text-muted">
+              {(["verify.num1", "verify.num2", "verify.num3", "verify.num4", "verify.num5"] as const).map((k) => (
+                <li key={k} className="flex gap-2">
+                  <span aria-hidden="true" className="mt-2 size-1.5 flex-none rounded-full bg-brand" />
+                  {t(k)}
+                </li>
+              ))}
+            </ul>
+          </Panel>
+
+          <p className="rounded-2xl border border-brand/40 bg-[rgba(232,148,76,.05)] px-5 py-4 text-[13.5px] leading-[1.75] text-ink-2">
+            {t("verify.warn")}{" "}
+            <Link href="/terms" className="text-brand hover:underline">
+              {t("nav.terms")} →
+            </Link>
+          </p>
         </div>
-      </main>
-    </>
+        <Footer />
+      </div>
+    </Shell>
   );
 }

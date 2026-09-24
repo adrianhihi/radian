@@ -55,8 +55,14 @@ export default function StatsPage() {
 
   const launches = s?.launches ?? chain.launches;
   const graduated = s?.graduated ?? chain.graduated;
-  const tvl = s?.curveTvl ?? chain.curveTvl;
   const buyback = s?.buybackLocked ?? chain.buybackLocked;
+  // what sits in the live curves, per quote asset (a stock-priced curve is not dollars)
+  const inCurves = Object.entries(
+    chain.rows.filter((r) => !r.graduated).reduce<Record<string, number>>((m, r) => {
+      m[r.quoteSymbol] = (m[r.quoteSymbol] ?? 0) + Number(r.trackedQuote) / 10 ** r.quoteDecimals;
+      return m;
+    }, {}),
+  );
   const winLabel = win === "24h" ? t("stats.win24") : t("stats.winAll");
 
   return (
@@ -133,7 +139,7 @@ export default function StatsPage() {
               <SectionHead title={t("stats.buybackTitle")} aside={t("stats.buybackSub")} />
               <CondGrid>
                 <CondCell label={t("stats.lockedTokens")} value={<Big value={buyback} />} />
-                <CondCell label={t("stats.inCurves")} value={`$${fmtNum(tvl, 2)}`} />
+                <CondCell label={t("stats.inCurves")} value={inCurves.length ? inCurves.map(([sym, v]) => `${fmtNum(v, 2)} ${sym}`).join(" · ") : "0"} small />
               </CondGrid>
             </Panel>
           </div>
