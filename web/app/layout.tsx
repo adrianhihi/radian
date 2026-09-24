@@ -21,6 +21,13 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover" };
 
+// Every route renders per request: the CSP (middleware.ts) is nonce-based, and a
+// prerendered page would ship hydration scripts stamped with no nonce at all,
+// which the browser then refuses (verified: every chunk blocked on a static
+// page). The pages are client components over a thin server shell, so the
+// on-demand render costs a few milliseconds, not a data fetch.
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${sora.variable} ${jbmono.variable}`}>

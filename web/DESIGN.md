@@ -78,7 +78,19 @@ the wallet pill while Privy mounts, a "no gas coin" hint in the trade form, a lo
 browser sent (lib/txLog.ts, shown on /portfolio; the indexer's event scan is still the real history), creator tools on
 the owner's profile (fee recipient shown and transferable through the factory). Not carried over, on purpose: NAV /
 holdings composition (no NAV here), redeem in kind (nothing to redeem: the curve is the market), the Demo/Live data
-mode (we have networks), a CSP proxy (we run on Vercel without headers today; proposed with the go-live checklist).
+mode (we have networks).
+
+Security headers (2026-09-24, `web/middleware.ts`): a nonce-based Content-Security-Policy on every page
+(`script-src 'nonce' 'strict-dynamic'`, so only Next's own scripts and what they load run; connect-src limited to
+the RPC nodes and indexers in lib/networks.ts plus Privy and the Coinbase Wallet SDK; frame-src Privy's embedded
+wallet + Coinbase; img-src any https host because a launch's logo is whatever URL its creator put on chain;
+frame-ancestors none), plus nosniff / DENY / referrer / permissions headers. A nonce only reaches a page rendered
+for the request, so the root layout is `force-dynamic` (a prerendered page shipped nonce-less scripts and every chunk
+was blocked; verified locally). WalletConnect is not allowed: `components/Providers.tsx` limits Privy's wallet list
+to injected wallets + Coinbase and answers Privy's unconditional fetch of WalletConnect's wallet directory with an
+empty list so the blocked request never surfaces. Verified with `next build && next start`: explore, token page,
+portfolio, the Privy login modal (embedded-wallet iframe from auth.privy.io) and the wallet picker load with zero
+console errors. Coinbase's hosts come from the SDK source, not captured traffic.
 
 Carried over on 2026-09-24 as signed messages the indexer verifies (no gas, nothing on chain): the holder wall on the
 token page (`components/token/HolderWall.tsx`, `lib/wall.ts`; a wallet signs `Radian wall / token / time / text`, the
