@@ -18,7 +18,7 @@ const ZERO = "0x0000000000000000000000000000000000000000";
 function CodeBlock({ code, label }: { code: string; label: string }) {
   const [done, setDone] = useState(false);
   return (
-    <div className="mt-3 overflow-hidden rounded-[12px] border border-stroke bg-[rgba(0,0,0,.25)]">
+    <div className="mt-3 min-w-0 max-w-full overflow-hidden rounded-[12px] border border-stroke bg-[rgba(0,0,0,.25)]">
       <div className="flex items-center justify-between border-b border-stroke px-3 py-1.5">
         <span className="mono-label text-[9.5px] tracking-[.14em] text-ink-3">{label}</span>
         <button
@@ -129,7 +129,7 @@ GET  ${api}/v1/auth/<user>   // the user's active authorizations and how many bu
           <p className="mono-label mt-2 text-[10.5px] tracking-[.14em] text-brand">{c.stepsSub}</p>
           <ol className="mt-6 grid gap-4">
             {c.step.map((s, i) => (
-              <li key={s.h} className="glass-panel rounded-2xl p-5">
+              <li key={s.h} className="glass-panel min-w-0 rounded-2xl p-5">
                 <div className="flex items-center gap-3">
                   <span className="grid size-8 place-items-center rounded-full border border-brand/60 text-[13px] text-brand">{i + 1}</span>
                   <h3 className="text-[18px] font-bold uppercase text-ink">{s.h}</h3>
@@ -147,7 +147,7 @@ GET  ${api}/v1/auth/<user>   // the user's active authorizations and how many bu
           </h2>
           <div className="mt-4 grid gap-4 nav:grid-cols-2">
             {c.plans.map((s, i) => (
-              <div key={s.h} className="glass-panel rounded-2xl p-5">
+              <div key={s.h} className="glass-panel min-w-0 rounded-2xl p-5">
                 <h3 className="text-[15px] font-semibold text-ink">{s.h}</h3>
                 <p className="mt-1.5 text-[13px] leading-[1.7] text-muted">{s.body}</p>
                 <CodeBlock code={PLAN[i]} label={s.label} />
