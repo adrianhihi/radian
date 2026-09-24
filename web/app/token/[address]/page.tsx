@@ -14,6 +14,7 @@ import { useT } from "@/components/LangProvider";
 import { Empty, Footer, OutlineLink } from "@/components/ui/primitives";
 import { DetailHead } from "@/components/token/DetailHead";
 import { ChartTrade, CurveSection, FeesContracts, StatsRow, TradesSection, sparkOf, statsOf } from "@/components/token/DetailBody";
+import { HolderWall } from "@/components/token/HolderWall";
 import { ZERO_ADDR, type TokenState } from "@/components/token/types";
 import type { TradeToken } from "@/components/trade/SwapForm";
 import { StockRef } from "@/components/StockRef";
@@ -279,6 +280,7 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
               </div>
             )}
             {hasIndexer() && <TradesSection trades={trades} loaded={tradesLoaded} quoteSymbol={st.quoteSymbol} />}
+            {hasIndexer() && <HolderWall token={token} symbol={st.symbol} myTokens={myTokens} />}
             <FeesContracts token={token} st={st} template={template} />
           </div>
 

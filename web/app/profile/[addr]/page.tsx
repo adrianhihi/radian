@@ -45,7 +45,7 @@ export default function ProfilePage() {
   const net = useNetwork();
   const params = useParams();
   const { address: me } = useRadianWallet();
-  const { rows, loading } = useLaunches();
+  const { rows, loading, refresh } = useLaunches();
   const [period, setPeriod] = useState<Period>("7D");
   const [buy, setBuy] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -134,7 +134,7 @@ export default function ProfilePage() {
         {isMe && mine.length > 0 && (
           <section className="mt-10">
             <PendingBar hash={pendingHash} onClose={() => setPendingHash(null)} />
-            <CreatorTools mine={mine} onPending={setPendingHash} />
+            <CreatorTools mine={mine} onPending={setPendingHash} onChanged={refresh} />
           </section>
         )}
 

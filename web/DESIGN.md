@@ -78,6 +78,13 @@ the wallet pill while Privy mounts, a "no gas coin" hint in the trade form, a lo
 browser sent (lib/txLog.ts, shown on /portfolio; the indexer's event scan is still the real history), creator tools on
 the owner's profile (fee recipient shown and transferable through the factory). Not carried over, on purpose: NAV /
 holdings composition (no NAV here), redeem in kind (nothing to redeem: the curve is the market), the Demo/Live data
-mode (we have networks), a KV-backed holder wall and post-launch logo upload (our logo is on-chain and immutable;
-both need a signed-message server the indexer could host — proposed, not built), a CSP proxy (we run on Vercel
-without headers today; proposed with the go-live checklist).
+mode (we have networks), a CSP proxy (we run on Vercel without headers today; proposed with the go-live checklist).
+
+Carried over on 2026-09-24 as signed messages the indexer verifies (no gas, nothing on chain): the holder wall on the
+token page (`components/token/HolderWall.tsx`, `lib/wall.ts`; a wallet signs `Radian wall / token / time / text`, the
+indexer checks the signature and that the signer holds the token right now, one line per wallet, newest first) and a
+post-launch logo (the creator picks an image in the profile's creator tools, the browser resizes it to 128×128 PNG,
+the wallet signs its sha256, the indexer checks the signer is the launch's deployer and serves that image in place of
+the on-chain one in every launch row — the on-chain `logo()` string is untouched). Indexer routes: `GET
+/token/:addr/wall`, `POST /token/:addr/wall`, `POST /token/:addr/logo` (indexer/src/meta.ts); both message formats
+live in web/lib/wall.ts and indexer/src/meta.ts and must change together.

@@ -6,6 +6,7 @@ import { formatUnits } from "viem";
 import { store } from "./store.js";
 import { fmt } from "./scanner.js";
 import { mountAgentApi } from "./agentApi.js";
+import { mountMeta } from "./meta.js";
 import {
   publicClient,
   RADIAN,
@@ -101,6 +102,9 @@ export function startServer() {
     res.end(readFileSync(path));
   });
 
+  // Holder wall + creator-signed logos (signed messages, verified on chain, stored in the snapshot).
+  mountMeta(app, { uploadDir: UPLOAD_DIR, publicUrl: PUBLIC_URL, sniff, hasRoom: (n) => uploadDirBytes() + n <= UPLOAD_QUOTA_BYTES });
+
   const decOf = (token: string) => store.launches.get(token.toLowerCase())?.quoteDecimals ?? 18;
 
   // Per-token price facts from the trade log, for the explore lists: a spark
@@ -165,7 +169,7 @@ export function startServer() {
           deployer: l.deployer,
           name: l.name ?? "",
           symbol: l.symbol ?? "",
-          logo: l.logo ?? "",
+          logo: store.logos.get(l.token.toLowerCase()) ?? l.logo ?? "", // a creator-signed logo replaces the on-chain one
           description: l.description ?? "",
           graduated: !!l.graduated,
           quoteReserve: l.quoteReserve ?? "0",

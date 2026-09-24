@@ -92,3 +92,13 @@ test("templates attach to known launches and auths persist across a snapshot", (
   assert.equal(fresh.auths.get("0xauth")?.count, 1);
   assert.ok(fresh.rescansDone.has("1-2"));
 });
+
+test("wall entries and creator logos persist across a snapshot, keyed by lower-cased token", () => {
+  store.wall.set("0xt0ken", [{ address: "0xAbC" as never, text: "diamond hands", time: 5000, balance: "10" }]);
+  store.logos.set("0xt0ken", "https://img.example/abc.png");
+  store.save();
+  const fresh = new (Object.getPrototypeOf(store).constructor)();
+  fresh.load();
+  assert.deepEqual(fresh.wall.get("0xt0ken"), [{ address: "0xAbC", text: "diamond hands", time: 5000, balance: "10" }]);
+  assert.equal(fresh.logos.get("0xt0ken"), "https://img.example/abc.png");
+});

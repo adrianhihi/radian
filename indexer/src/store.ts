@@ -91,6 +91,9 @@ export type FlywheelEvent = {
 
 export type Identity = { checked: boolean; ok: boolean; mismatches: string[]; checkedAt?: number };
 
+// A holder's signed line on a token's wall (server-verified: signature + balanceOf > 0 at post time).
+export type WallEntry = { address: Address; text: string; time: number; balance?: string };
+
 type Snapshot = {
   checkpoint: string; // live cursor: last block scanned at the head
   backfillFrom?: string; // history is complete once backfillCursor reaches this (the block the live cursor started from)
@@ -102,6 +105,8 @@ type Snapshot = {
   referrers?: ReferrerAgg[];
   auths?: StoredAuth[];
   rescansDone?: string[];
+  wall?: Record<string, WallEntry[]>; // token → entries
+  logos?: Record<string, string>; // token → creator-signed logo URL (overrides the on-chain logo in views)
 };
 
 const SNAPSHOT = process.env.SNAPSHOT_PATH ?? "./radian-index.json";
@@ -123,6 +128,8 @@ class Store {
   private poundKeys = new Set<string>();
   auths = new Map<string, StoredAuth>();
   rescansDone = new Set<string>();
+  wall = new Map<string, WallEntry[]>();
+  logos = new Map<string, string>();
   identity: Identity = { checked: false, ok: true, mismatches: [] };
   private flywheelKeys = new Set<string>();
   private curveIndex = new Map<string, Launch>();
@@ -151,6 +158,8 @@ class Store {
         for (const e of s.pound ?? []) this.addPound(e, false);
         for (const a of s.auths ?? []) this.auths.set(a.authId.toLowerCase(), a);
         for (const r of s.rescansDone ?? []) this.rescansDone.add(r);
+        for (const [k, v] of Object.entries(s.wall ?? {})) this.wall.set(k.toLowerCase(), v);
+        for (const [k, v] of Object.entries(s.logos ?? {})) this.logos.set(k.toLowerCase(), v);
         console.log(
           `[store] loaded ${path === BACKUP ? "BACKUP " : ""}snapshot: ${this.launches.size} launches, ${this.trades.length} trades (${(s.trades ?? []).length} rows), checkpoint ${this.checkpoint}, backfill ${this.backfillCursor}/${this.backfillFrom}`,
         );
@@ -174,6 +183,8 @@ class Store {
       referrers: [...this.referrers.values()],
       auths: [...this.auths.values()],
       rescansDone: [...this.rescansDone],
+      wall: Object.fromEntries(this.wall),
+      logos: Object.fromEntries(this.logos),
     };
     const tmp = `${SNAPSHOT}.tmp`;
     try {
