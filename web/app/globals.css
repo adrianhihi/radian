@@ -1,45 +1,353 @@
-:root {
-  /* Radian identity — Circle/Arc lineage: deep navy ground, radian blue accent */
-  --bg: #0a0e1a;
-  --bg-soft: #10152400;
-  --panel: #121a2e;
-  --panel-2: #172038;
-  --border: #22304f;
-  --border-soft: #1a2540;
-  --fg: #eef2fb;
-  --fg-dim: #9aa8c7;
-  --fg-faint: #61708f;
-  --radian: #4f7cff;
-  --radian-2: #6f9bff;
-  --arc-a: #4f7cff;
-  --arc-b: #22d3ee;
-  --up: #34d399;
-  --down: #fb7185;
-  --grad: #f5b942;
+@import "tailwindcss";
 
-  --font-display: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+/* ============================================================================
+   Radian / The Pound design system — "Ember" skin
+   Structure follows baskvia's three-layer scheme (2026-09-24 decision: same
+   geometry and layering, different hue so the two products read as one family
+   without being mistaken for each other):
+     1. @theme inline  — registers tokens as Tailwind utilities (text-ink, bg-glass,
+        border-stroke…). `inline` so utilities emit var(--ink) at runtime and a
+        data-theme switch takes effect without a rebuild.
+     2. :root          — dark values (default).
+     3. :root[data-theme="light"] — light values, same variables.
+
+   Semantics:
+     --brand / --brand-2 / --brand-3  ember amber, the product colour (buttons,
+        active nav, links, the mark's three blocks).
+     --signal / --signal-2  the ONE cold colour on a warm ground: pending states,
+        "graduated", testnet badges, warnings that must not read as brand.
+     --pos / --neg  up/down; green/red semantics never follow the brand.
+     --ground  the page ground. Named `ground`, not `bg`, because the legacy
+        stylesheet below still owns `--bg`; Tailwind's `bg-bg` maps to --ground.
+     --brand-grad  the brand gradient (legacy `--grad` is a plain colour).
+   ========================================================================= */
+
+@theme inline {
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-muted: var(--muted);
+
+  --color-brand: var(--brand);
+  --color-brand-2: var(--brand-2);
+  --color-brand-3: var(--brand-3);
+  --color-signal: var(--signal);
+  --color-signal-2: var(--signal-2);
+
+  --color-bg: var(--ground);
+  --color-bg-2: var(--bg-2);
+  --color-surface: var(--surface);
+  --color-night: var(--night);
+  --color-glass: var(--glass);
+  --color-glass-2: var(--glass-2);
+  --color-glass-hi: var(--glass-hi);
+
+  --color-line: var(--line);
+  --color-stroke: var(--stroke);
+  --color-stroke-2: var(--stroke-2);
+
+  --color-pos: var(--pos);
+  --color-neg: var(--neg);
+
+  /* Sora for everything, JetBrains Mono for labels/codes/numbers; both self-hosted
+     via next/font/local (variables injected on <html> in app/layout.tsx). */
+  --font-sans: var(--font-sora), "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: var(--font-jbmono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --radius-panel: 20px;
+  --radius-lg: 24px;
+
+  /* 900px: the nav bar wraps, hero columns stack, side rails collapse.
+     Tailwind's md (768px) drives the bottom tab bar. */
+  --breakpoint-nav: 900px;
+
+  --shadow-glow: var(--glow);
+  --shadow-panel: var(--shadow);
+}
+
+:root {
+  /* dark (default). ink-3 / muted checked against --ground: 5.2 / 6.9, both AA */
+  --ink: #fdefe2;
+  --ink-2: #d9bda6;
+  --ink-3: #a2816a;
+  --muted: #b89a85;
+  --line: rgba(228, 170, 108, 0.16);
+
+  --brand: #e8944c;
+  --brand-2: #cf6d45;
+  --brand-3: #f6c489;
+  --signal: #6ad0e0;
+  --signal-2: #3fb2c6;
+
+  --ground: #140f0a;
+  --bg-2: rgba(255, 238, 220, 0.03);
+  --surface: rgba(255, 238, 220, 0.05);
+  --night: #16100a;
+  --glass: rgba(255, 238, 220, 0.05);
+  --glass-2: rgba(255, 238, 220, 0.085);
+  --glass-hi: rgba(255, 238, 220, 0.13);
+
+  --stroke: rgba(228, 170, 108, 0.16);
+  --stroke-2: rgba(224, 155, 95, 0.32);
+
+  --pos: #6cc79a;
+  --neg: #f0665a;
+
+  --brand-grad: linear-gradient(115deg, #f4c06a 0%, #e8944c 48%, #c76a45 100%);
+  --grad-soft: linear-gradient(115deg, rgba(244, 192, 106, 0.16), rgba(232, 148, 76, 0.13) 50%, rgba(199, 106, 69, 0.12));
+
+  --glow: 0 0 0 1px rgba(232, 148, 76, 0.26), 0 18px 44px -16px rgba(207, 109, 69, 0.45);
+  --shadow: 0 24px 58px -26px rgba(0, 0, 0, 0.72), 0 6px 18px -10px rgba(0, 0, 0, 0.5);
+
+  --blur: 18px;
+  --grid: rgba(228, 170, 108, 0.05);
+
+  --streak-a: linear-gradient(180deg, #f4c06a, #e8944c 38%, #c76a45 68%, #8a5cff);
+  --streak-b: linear-gradient(180deg, #e8a15a, #cf6d45 42%, #b5583f 72%, #7c5cff);
+  --streak-opacity: 0.5;
+
+  color-scheme: dark;
+
+  /* ---- legacy aliases ----------------------------------------------------
+     The pre-migration pages and their stylesheet (further down) still read
+     these names. They now resolve to the Ember palette so the whole site
+     changes skin at once; each page drops them when it is rebuilt. */
+  --bg: var(--ground);
+  --bg-soft: #10152400;
+  --panel: #1d1610;
+  --panel-2: #261d15;
+  --border: var(--stroke);
+  --border-soft: rgba(228, 170, 108, 0.1);
+  --fg: var(--ink);
+  --fg-dim: var(--ink-2);
+  --fg-faint: var(--ink-3);
+  --radian: var(--brand);
+  --radian-2: var(--brand-3);
+  --arc-a: var(--brand);
+  --arc-b: var(--brand-2);
+  --up: var(--pos);
+  --down: var(--neg);
+  --grad: var(--brand-3);
+  --font-display: var(--font-sans);
+  --font-body: var(--font-sans);
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+:root[data-theme="light"] {
+  --ink: #2a2016;
+  --ink-2: #5c4a38;
+  --ink-3: #7d6a55;
+  --muted: #6e5c48;
+  --line: rgba(150, 110, 70, 0.2);
+
+  --brand: #c0692c;
+  --brand-2: #b0532e;
+  --brand-3: #d9852f;
+  --signal: #0f7f95;
+  --signal-2: #0b6273;
+
+  --ground: #f3ede3;
+  --bg-2: rgba(255, 251, 244, 0.5);
+  --surface: rgba(255, 251, 244, 0.7);
+  --night: #efe7db;
+  --glass: rgba(255, 251, 244, 0.72);
+  --glass-2: rgba(255, 251, 244, 0.9);
+  --glass-hi: #ffffff;
+
+  --stroke: rgba(150, 110, 70, 0.2);
+  --stroke-2: rgba(192, 105, 44, 0.34);
+
+  --pos: #1b7a4c;
+  --neg: #c33f31;
+
+  --brand-grad: linear-gradient(115deg, #d9852f 0%, #c0692c 48%, #a8482a 100%);
+  --grad-soft: linear-gradient(115deg, rgba(217, 133, 47, 0.14), rgba(192, 105, 44, 0.12) 50%, rgba(168, 72, 42, 0.1));
+
+  --glow: 0 0 0 1px rgba(192, 105, 44, 0.2), 0 16px 40px -18px rgba(192, 105, 44, 0.3);
+  --shadow: 0 20px 46px -26px rgba(90, 50, 20, 0.28), 0 5px 14px -10px rgba(90, 50, 20, 0.16);
+
+  --grid: rgba(150, 110, 70, 0.07);
+  --streak-opacity: 0.3;
+
+  --panel: #fbf6ee;
+  --panel-2: #ffffff;
+  --border-soft: rgba(150, 110, 70, 0.12);
+
+  color-scheme: light;
+}
+
+/* ---------------------------------------------------------------------------
+   base
+   ------------------------------------------------------------------------ */
+
+body {
+  margin: 0;
+  background-color: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.6;
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  /* grid ground */
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 46px 46px;
+  background-position: center top;
+}
+
+/* room for the fixed bottom tab bar on phones */
+@media (max-width: 767px) {
+  body {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* two blurred aurora streaks at the page edges */
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  top: -8%;
+  width: 170px;
+  height: 118%;
+  z-index: 0;
+  pointer-events: none;
+  filter: blur(58px);
+  opacity: var(--streak-opacity);
+}
+body::before {
+  left: -32px;
+  background: var(--streak-a);
+  animation: streak-a 16s ease-in-out infinite;
+}
+body::after {
+  right: -32px;
+  background: var(--streak-b);
+  animation: streak-b 19s ease-in-out infinite;
+}
+:root[data-theme="light"] body::before,
+:root[data-theme="light"] body::after {
+  animation: none;
+}
+@keyframes streak-a {
+  0%, 100% { transform: translateY(0) scaleY(1); }
+  50% { transform: translateY(28px) scaleY(1.08); }
+}
+@keyframes streak-b {
+  0%, 100% { transform: translateY(0) scaleY(1); }
+  50% { transform: translateY(-28px) scaleY(1.06); }
+}
+
+/* page content sits above the streaks */
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+@layer base {
+  svg {
+    display: block;
+  }
+}
+
+:focus-visible {
+  outline: 3px solid var(--brand);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   composite utilities (only recipes used 15+ times; everything else is
+   plain Tailwind in JSX)
+   ------------------------------------------------------------------------ */
+
+/** glass card: panels, token cards, feature cards */
+@utility glass-panel {
+  background: var(--glass);
+  border: 1px solid var(--stroke);
+  backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(var(--blur));
+  box-shadow: var(--shadow);
+}
+
+/** brand gradient fill: primary buttons, active nav, badges */
+@utility grad-fill {
+  background: var(--brand-grad);
+  color: #fff;
+  box-shadow: var(--glow);
+}
+
+/** soft brand tint: selected chips, connected-wallet pill */
+@utility grad-soft-fill {
+  background: var(--grad-soft);
+  border-color: var(--stroke-2);
+  color: var(--brand-3);
+}
+
+/** tabular digits for amounts */
+@utility tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/** mono labels: codes, eyebrows, crumbs */
+@utility mono-label {
+  font-family: var(--font-mono);
+  letter-spacing: 0.12em;
+}
+
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+.card-in {
+  animation: card-in 0.45s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+@keyframes screen-in {
+  from { opacity: 0.4; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+.screen-in {
+  animation: screen-in 0.22s ease;
+}
+
+/* theme button: both icons are in the DOM; CSS decides which one shows */
+.theme-btn svg {
+  grid-area: 1 / 1;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.theme-btn .theme-icon-light,
+:root[data-theme="light"] .theme-btn .theme-icon-dark {
+  opacity: 0;
+  transform: rotate(-90deg) scale(0.6);
+  pointer-events: none;
+}
+:root[data-theme="light"] .theme-btn .theme-icon-light {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+/* ===========================================================================
+   LEGACY — the pre-migration pages' stylesheet. Shrinks page by page as each
+   route is rebuilt on the design system above; do not add to it.
+   ======================================================================== */
 * { box-sizing: border-box; }
 
 html {
   scroll-behavior: smooth;
   scrollbar-gutter: stable;
-}
-
-body {
-  margin: 0;
-  background:
-    radial-gradient(1200px 700px at 78% -10%, rgba(79, 124, 255, 0.14), transparent 60%),
-    radial-gradient(900px 600px at 8% 8%, rgba(34, 211, 238, 0.08), transparent 55%),
-    var(--bg);
-  color: var(--fg);
-  font-family: var(--font-body);
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
-  min-height: 100vh;
 }
 
 h1, h2, h3 {
@@ -68,26 +376,14 @@ a { color: inherit; text-decoration: none; }
 /* ---- layout ---- */
 .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
 
-.nav {
-  position: sticky; top: 0; z-index: 40;
-  backdrop-filter: blur(14px);
-  background: rgba(10, 14, 26, 0.72);
-  border-bottom: 1px solid var(--border-soft);
-}
-.nav-inner { display: flex; align-items: center; justify-content: space-between; height: 64px; }
-.brand { display: flex; align-items: center; gap: 11px; font-family: var(--font-display); font-weight: 800; font-size: 19px; letter-spacing: -0.02em; }
-.brand-mark { width: 26px; height: 26px; }
-.nav-links { display: flex; align-items: center; gap: 26px; font-size: 14.5px; color: var(--fg-dim); font-weight: 500; }
-.nav-links a:hover { color: var(--fg); }
-
 /* ---- hero ---- */
 .hero { padding: 92px 0 40px; text-align: center; }
 .eyebrow {
   display: inline-flex; align-items: center; gap: 8px;
   font-size: 12.5px; font-weight: 600; letter-spacing: 0.02em;
   color: var(--radian-2);
-  background: rgba(79, 124, 255, 0.1);
-  border: 1px solid rgba(79, 124, 255, 0.28);
+  background: rgba(232,148,76, 0.1);
+  border: 1px solid rgba(232,148,76, 0.28);
   padding: 6px 13px; border-radius: 999px;
 }
 .hero h1 { font-size: clamp(38px, 6vw, 68px); margin: 22px 0 0; }
@@ -107,7 +403,7 @@ a { color: inherit; text-decoration: none; }
 .btn:hover { transform: translateY(-1px); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 .btn-primary { background: linear-gradient(100deg, var(--arc-a), var(--radian-2)); color: white; }
-.btn-primary:hover { box-shadow: 0 8px 26px -8px rgba(79, 124, 255, 0.6); }
+.btn-primary:hover { box-shadow: 0 8px 26px -8px rgba(232,148,76, 0.6); }
 .btn-ghost { background: var(--panel); border-color: var(--border); color: var(--fg); }
 .btn-ghost:hover { border-color: var(--radian); }
 
@@ -143,8 +439,8 @@ a { color: inherit; text-decoration: none; }
 .card-sym { font-size: 12.5px; color: var(--fg-faint); }
 .card-desc { font-size: 13.5px; color: var(--fg-dim); min-height: 40px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .badge { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; letter-spacing: 0.03em; text-transform: uppercase; }
-.badge-live { background: rgba(52, 211, 153, 0.12); color: var(--up); border: 1px solid rgba(52, 211, 153, 0.3); }
-.badge-grad { background: rgba(245, 185, 66, 0.12); color: var(--grad); border: 1px solid rgba(245, 185, 66, 0.3); }
+.badge-live { background: rgba(108,199,154, 0.12); color: var(--up); border: 1px solid rgba(108,199,154, 0.3); }
+.badge-grad { background: rgba(246,196,137, 0.12); color: var(--grad); border: 1px solid rgba(246,196,137, 0.3); }
 
 /* ---- progress ---- */
 .prog { height: 8px; border-radius: 999px; background: var(--panel-2); overflow: hidden; border: 1px solid var(--border-soft); }
@@ -154,7 +450,7 @@ a { color: inherit; text-decoration: none; }
 /* ---- how it works ---- */
 .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
 .step { background: var(--panel); border: 1px solid var(--border-soft); border-radius: 18px; padding: 26px 22px; }
-.step .n { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-family: var(--font-display); font-weight: 800; color: var(--radian-2); background: rgba(79, 124, 255, 0.12); border: 1px solid rgba(79, 124, 255, 0.28); }
+.step .n { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-family: var(--font-display); font-weight: 800; color: var(--radian-2); background: rgba(232,148,76, 0.12); border: 1px solid rgba(232,148,76, 0.28); }
 .step h3 { font-size: 18px; margin: 16px 0 8px; }
 .step p { color: var(--fg-dim); font-size: 14.5px; margin: 0; }
 
@@ -176,7 +472,7 @@ a { color: inherit; text-decoration: none; }
 .hint { font-size: 12.5px; color: var(--fg-faint); margin-top: 6px; }
 .seg { display: flex; background: var(--bg); border: 1px solid var(--border); border-radius: 11px; padding: 4px; gap: 4px; }
 .seg button { flex: 1; padding: 9px; border-radius: 8px; border: none; background: transparent; color: var(--fg-dim); font-weight: 650; font-family: var(--font-display); cursor: pointer; font-size: 14px; transition: background 0.15s, color 0.15s; }
-.seg button.on-buy { background: rgba(52, 211, 153, 0.16); color: var(--up); }
+.seg button.on-buy { background: rgba(108,199,154, 0.16); color: var(--up); }
 .seg button.on-sell { background: rgba(251, 113, 133, 0.16); color: var(--down); }
 
 .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--panel-2); border: 1px solid var(--border); border-radius: 12px; padding: 13px 18px; font-size: 14px; z-index: 90; box-shadow: 0 12px 40px -12px rgba(0,0,0,0.7); animation: toast-in 0.28s var(--ease); max-width: 90vw; }
@@ -205,7 +501,7 @@ label.filepick { display: flex; align-items: center; gap: 14px; margin-bottom: 0
 .feemode-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .feemode-card { text-align: left; display: flex; flex-direction: column; gap: 7px; padding: 15px; border-radius: 14px; border: 1px solid var(--border); background: var(--panel-2); cursor: pointer; transition: border-color 0.15s, background 0.15s; color: var(--fg); }
 .feemode-card:hover:not(.soon) { border-color: var(--radian); }
-.feemode-card.on { border-color: var(--radian); background: rgba(79,124,255,0.08); box-shadow: 0 0 0 1px var(--radian) inset; }
+.feemode-card.on { border-color: var(--radian); background: rgba(232,148,76,0.08); box-shadow: 0 0 0 1px var(--radian) inset; }
 .feemode-card.soon { opacity: 0.5; cursor: not-allowed; }
 .feemode-card .fm-title { font-family: var(--font-display); font-weight: 700; font-size: 15px; display: flex; align-items: center; gap: 8px; }
 .feemode-card .fm-desc { font-size: 12.5px; color: var(--fg-dim); line-height: 1.45; }
@@ -218,7 +514,7 @@ label.filepick { display: flex; align-items: center; gap: 14px; margin-bottom: 0
 .docs-toc-inner { display: flex; flex-direction: column; gap: 2px; }
 .docs-toc-link { padding: 7px 12px; border-radius: 8px; font-size: 14px; color: var(--fg-faint); border-left: 2px solid transparent; transition: color 0.15s, background 0.15s; }
 .docs-toc-link:hover { color: var(--fg-dim); }
-.docs-toc-link.on { color: var(--radian-2); background: rgba(79,124,255,0.08); border-left-color: var(--radian); }
+.docs-toc-link.on { color: var(--radian-2); background: rgba(232,148,76,0.08); border-left-color: var(--radian); }
 .docs-content section { padding-top: 20px; scroll-margin-top: 84px; }
 .docs-content h2 { font-size: 24px; margin: 22px 0 14px; }
 .docs-content section:first-child { padding-top: 0; }
@@ -230,31 +526,15 @@ label.filepick { display: flex; align-items: center; gap: 14px; margin-bottom: 0
 }
 
 /* live indicators */
-.live-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--up); box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.6); animation: live-pulse 1.8s var(--ease) infinite; }
-@keyframes live-pulse { 0% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.5); } 70% { box-shadow: 0 0 0 9px rgba(52, 211, 153, 0); } 100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0); } }
+.live-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--up); box-shadow: 0 0 0 0 rgba(108,199,154, 0.6); animation: live-pulse 1.8s var(--ease) infinite; }
+@keyframes live-pulse { 0% { box-shadow: 0 0 0 0 rgba(108,199,154, 0.5); } 70% { box-shadow: 0 0 0 9px rgba(108,199,154, 0); } 100% { box-shadow: 0 0 0 0 rgba(108,199,154, 0); } }
 .live-row { transition: background 0.15s; }
 .live-row:hover { background: var(--panel-2); }
-
-@media (max-width: 900px) { .nav-links a:not(.btn) { font-size: 13px; gap: 14px; } }
-
-/* network switcher */
-.netsw { position: relative; }
-.netsw-btn { display: inline-flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 600; color: var(--fg-dim); background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 8px 11px; cursor: pointer; font-family: var(--font-display); transition: border-color 0.15s; }
-.netsw-btn:hover { border-color: var(--radian); color: var(--fg); }
-.netsw-caret { font-size: 10px; opacity: 0.6; }
-.netsw-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.netsw-dot.on { background: var(--up); box-shadow: 0 0 6px rgba(52,211,153,0.6); }
-.netsw-dot.off { background: var(--grad); }
-.netsw-menu { position: absolute; top: calc(100% + 6px); right: 0; min-width: 190px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 12px; padding: 6px; z-index: 60; box-shadow: 0 14px 40px -12px rgba(0,0,0,0.7); }
-.netsw-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border-radius: 8px; border: none; background: transparent; color: var(--fg); font-size: 14px; font-weight: 600; cursor: pointer; font-family: var(--font-display); }
-.netsw-item:hover { background: var(--panel); }
-.netsw-item.active { background: rgba(79,124,255,0.08); }
-.netsw-sub { display: block; font-size: 11px; font-weight: 500; color: var(--fg-faint); margin-top: 1px; }
 
 /* flywheel */
 .flywheel { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 26px; }
 .fw-node { position: relative; background: linear-gradient(180deg, var(--panel), var(--panel-2)); border: 1px solid var(--border-soft); border-radius: 16px; padding: 16px; }
-.fw-i { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; font-family: var(--font-display); font-weight: 800; font-size: 13px; color: var(--radian-2); background: rgba(79,124,255,0.12); border: 1px solid rgba(79,124,255,0.28); }
+.fw-i { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; font-family: var(--font-display); font-weight: 800; font-size: 13px; color: var(--radian-2); background: rgba(232,148,76,0.12); border: 1px solid rgba(232,148,76,0.28); }
 .fw-t { font-family: var(--font-display); font-weight: 700; font-size: 14.5px; margin: 10px 0 5px; }
 .fw-d { font-size: 12px; color: var(--fg-dim); line-height: 1.45; }
 .fw-arrow { position: absolute; right: -11px; top: 50%; transform: translateY(-50%); color: var(--fg-faint); font-size: 16px; z-index: 2; }
@@ -264,31 +544,21 @@ label.filepick { display: flex; align-items: center; gap: 14px; margin-bottom: 0
 }
 
 /* not-live banner */
-.soon-banner { background: linear-gradient(100deg, rgba(245,185,66,0.1), rgba(79,124,255,0.06)); border: 1px solid rgba(245,185,66,0.28); border-radius: 16px; padding: 22px 24px; margin: 26px 0; text-align: center; }
+.soon-banner { background: linear-gradient(100deg, rgba(246,196,137,0.1), rgba(232,148,76,0.06)); border: 1px solid rgba(246,196,137,0.28); border-radius: 16px; padding: 22px 24px; margin: 26px 0; text-align: center; }
 .soon-banner h3 { font-size: 20px; margin-bottom: 6px; }
 .soon-banner p { color: var(--fg-dim); margin: 0; font-size: 14.5px; }
-
-/* mobile nav */
-.nav-mobile { display: none; align-items: center; gap: 12px; }
-.nav-burger { display: inline-flex; flex-direction: column; justify-content: center; gap: 4px; width: 38px; height: 38px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); cursor: pointer; padding: 0 9px; }
-.nav-burger span { display: block; height: 2px; background: var(--fg-dim); border-radius: 2px; }
-.nav-drawer { display: flex; flex-direction: column; padding: 8px 24px 16px; gap: 2px; border-bottom: 1px solid var(--border-soft); background: rgba(10,14,26,0.96); backdrop-filter: blur(14px); }
-.nav-drawer a { padding: 11px 12px; border-radius: 9px; color: var(--fg-dim); font-weight: 500; font-size: 15px; }
-.nav-drawer a:hover { background: var(--panel); color: var(--fg); }
 
 @media (max-width: 760px) {
   .stats { grid-template-columns: repeat(2, 1fr); }
   .steps { grid-template-columns: 1fr; }
-  .nav-links { display: none; }
-  .nav-mobile { display: flex; }
 }
 
 /* ── Stock-denominated markets (penny-stock + pump.fun) ─────────────────── */
 .stock-tag {
   display: inline-block; margin-left: 8px; padding: 2px 7px; border-radius: 999px;
   font-size: 9.5px; font-weight: 800; letter-spacing: 0.06em; vertical-align: middle;
-  background: rgba(111, 155, 255, 0.14); color: var(--radian-2);
-  border: 1px solid rgba(111, 155, 255, 0.32); text-transform: uppercase;
+  background: rgba(246,196,137, 0.14); color: var(--radian-2);
+  border: 1px solid rgba(246,196,137, 0.32); text-transform: uppercase;
 }
 .stockref {
   background: linear-gradient(180deg, var(--panel-2), var(--panel));
@@ -305,7 +575,7 @@ label.filepick { display: flex; align-items: center; gap: 14px; margin-bottom: 0
 .stockref-chg.down { color: var(--down); }
 .stockref-muted { color: var(--fg-dim); font-size: 14px; }
 .stockref-foot { margin-top: 8px; font-size: 11px; line-height: 1.45; color: var(--fg-dim); }
-.badge-soon { background: rgba(111, 155, 255, 0.12); color: var(--radian-2); border: 1px solid rgba(111, 155, 255, 0.3); }
+.badge-soon { background: rgba(246,196,137, 0.12); color: var(--radian-2); border: 1px solid rgba(246,196,137, 0.3); }
 
 /* ---- hero word crossfade ---- */
 /* the current word sits in flow (so the line is as wide as that word); the

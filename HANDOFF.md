@@ -103,6 +103,18 @@ cd web && npm install && npm run build && npm run start   # http://localhost:304
 
 (`next dev` works on a normal machine; some sandboxes cap file descriptors and break its watcher.)
 
+### 5b. Interface rebuild on baskvia's design system (started 2026-09-24)
+
+Phase 0 shipped: Tailwind v4 + the Ember token set, Sora / JetBrains Mono self-hosted, the new
+shell (top bar, More dropdown, crumb bar with chain badge, phone tab bar), EN/中 dictionary with
+compile-checked keys, the route table, the component primitives (Panel, PageHead, CondCell,
+buttons, TokenTile, AssetLogo, AddressAvatar, DitherChart, Treemap, RichText), `/more` and a
+404 page. Legacy pages run inside the new chrome with their variables aliased to the new palette.
+Conventions and the phase list: `web/DESIGN.md`; the page-by-page map is the 2026-09-24 artifact
+"The Pound 界面重构". Owner decisions: wordmark stays Radian (The Pound is the fee narrative),
+same mark geometry in a new hue, bilingual, no Demo mode (network switch instead), landing image
+sequence reused only once its licence is confirmed, cross-chain buy UI as an honest placeholder.
+
 ## 6. Known constraints (honest)
 
 - **Arc public RPC:** `eth_getLogs` is rate-limited/unreliable and `eth_getBlockReceipts` only
