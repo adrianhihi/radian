@@ -10,7 +10,7 @@ handover in one Safe transaction. Verify afterwards with `script/VerifyOwnership
 same way when the go-live checklist in MAINNET_RUNBOOK.md 5f is done; the web default network flips to
 Robinhood Chain in the same release.
 
-`robinhood-mainnet-pound.json` (2026-09-22): switches mainnet onto The Pound in one Safe transaction —
+`robinhood-mainnet-pound.json` (2026-09-22, EXECUTED 2026-09-24 as Safe nonce 1, tx `0x1ed1cf74…e059`): switched mainnet onto The Pound in one Safe transaction —
 `factory.setLaunchForwarder(router v4 0xD8e86A66…e6bD)`, `router.setVault(PoundVault 0x184366a1…4330)`,
 `router.setKeeper` / `executor v2 (0x693A5459…6041).setKeeper` (keeper 0xA864…79FA),
 `hook.setProtocolFeeRecipient(PoundVault)`, `hook.setProtocolFeeShareBps(5000)`, then `acceptOwnership()`
@@ -24,3 +24,13 @@ flywheel; the hook's recipient goes to the PoundVault instead. Kept for history.
 RadianTreasuryERC20 (0x6F5375684EB6C3C48cDa4F4a0e92471c2397d717) and accepts ownership of it and of
 the fixed RadianStakingERC20 (0xBC10A308CFD19cD2541e19609e6F730eC5a10683). The first pair
 (0x8058…ce73 / 0x2Fd9…029e) is retired; the Safe still owns it and can `rescueNative` its dust.
+
+## Proposing batches through the API (since 2026-09-24)
+
+The deployer `0x6CCd…5F95` is a registered *delegate* of the mainnet Safe: it may propose transactions into
+the Safe's queue but cannot sign or execute them. A batch is encoded as a `MultiSendCallOnly`
+(`0x9641d764fc13c8B624c04430C7356C1C7C8102e2`, operation 1) call, its SafeTx EIP-712 hash is signed with the
+deployer key (`cast wallet sign --no-hash`) and POSTed to
+`https://api.safe.global/tx-service/robinhood/api/v1/safes/<safe>/multisig-transactions/` with the owner's
+Safe API key. It then appears in the owner's queue as "Proposal → Confirm"; with the 1/1 threshold the owner
+confirms and executes in one go. The JSON files here remain the readable source of each batch.
