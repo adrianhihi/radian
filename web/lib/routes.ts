@@ -15,11 +15,12 @@ export interface NavItem {
 export const NAV: NavItem[] = [
   { name: "portfolio", href: "/portfolio" },
   { name: "explore", href: "/explore" },
-  { name: "launch", href: "/launch" },
+  { name: "swap", href: "/swap" },
   { name: "learn", href: "/docs" },
 ];
 
 export const NAV_MORE: NavItem[] = [
+  { name: "launch", href: "/launch" },
   { name: "earn", href: "/earn" },
   { name: "builders", href: "/builders" },
   { name: "factory", href: "/factory" },
@@ -45,6 +46,7 @@ const SUB: Record<string, string> = {
   live: "explore",
   stats: "explore",
   docs: "learn",
+  launch: MORE_NAME,
   earn: MORE_NAME,
   builders: MORE_NAME,
   factory: MORE_NAME,

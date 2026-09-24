@@ -1,71 +1,51 @@
 "use client";
-import { use, useCallback, useEffect, useRef, useState } from "react";
+
+// The token page on baskvia's basket-detail skeleton: head (hero washed in the
+// quote asset's colour), one big card (curve · chart + trade · stats · trades ·
+// fees & contracts), then the launch template's panels (The Wall / Proof-of-Fee)
+// and delegated auto-buy. All state comes from one multicall against the token
+// and its curve, polled every 12s; the curve address from the local registry or
+// the indexer; 24h facts and the spark from the indexer's launch row.
+import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { formatUnits, isAddress, parseEther, type Address } from "viem";
-import { Nav } from "@/components/Nav";
-import { TradePanel } from "@/components/TradePanel";
+import { formatUnits, isAddress, parseAbi, type Address } from "viem";
+import { Shell } from "@/components/shell/Shell";
+import { useT } from "@/components/LangProvider";
+import { Empty, Footer, OutlineLink } from "@/components/ui/primitives";
+import { DetailHead } from "@/components/token/DetailHead";
+import { ChartTrade, CurveSection, FeesContracts, StatsRow, TradesSection, sparkOf, statsOf } from "@/components/token/DetailBody";
+import { ZERO_ADDR, type TokenState } from "@/components/token/types";
+import type { TradeToken } from "@/components/trade/SwapForm";
 import { StockRef } from "@/components/StockRef";
-import { publicClient, curveAbi, tokenAbi, erc20Abi, explorer, arcTestnet, quoteByAddress, RADIAN, hasPofRouter, hasExecutor, hasPound, type QuoteAsset, type LaunchTemplate } from "@/lib/radian";
-import { routerTradeAbi } from "@/lib/pound";
-import { getReferrer } from "@/lib/referral";
-import { useRadianWallet } from "@/lib/useRadianWallet";
-import { findCurve } from "@/lib/registry";
-import { fetchTokenMeta, hasIndexer, type Sunset } from "@/lib/indexer";
-import { projectLinks, safeHttpUrl, xUrl } from "@/lib/projects";
-import { useIdentity } from "@/lib/identity";
-import { waitReceipt, ReceiptTimeout, usePendingResume } from "@/lib/pendingTx";
 import { IdentityBanner, PendingBar } from "@/components/TrustBanners";
-import { pofRouterAbi } from "@/lib/templates";
 import { WallTreasuryPanel, WallStakePanel, WallLadderPanel } from "@/components/WallPanels";
 import { PoFPanel } from "@/components/PoFPanel";
 import { AutoBuyPanel } from "@/components/AutoBuyPanel";
-import { parseUnits } from "viem";
+import { publicClient, curveAbi, tokenAbi, erc20Abi, quoteByAddress, RADIAN, hasPofRouter, hasExecutor, type LaunchTemplate } from "@/lib/radian";
+import { useRadianWallet } from "@/lib/useRadianWallet";
+import { findCurve } from "@/lib/registry";
+import { fetchTokenMeta, fetchTokenTrades, hasIndexer, type Sunset, type TokenTrade } from "@/lib/indexer";
+import { useIdentity } from "@/lib/identity";
+import { usePendingResume } from "@/lib/pendingTx";
+import { pofRouterAbi } from "@/lib/templates";
+import { useLaunches } from "@/lib/useLaunches";
 
-type State = {
-  name: string;
-  symbol: string;
-  logo: string;
-  description: string;
-  curve: Address;
-  quoteReserve: bigint;
-  tokenReserve: bigint;
-  trackedQuote: bigint;
-  graduationThreshold: bigint;
-  graduated: boolean;
-  sellable: bigint;
-  quoteDecimals: number;
-  quoteSymbol: string;
-  pairToken: Address;
-  native: boolean;
-  quoteAsset: QuoteAsset;
-  // fee policy frozen at launch — mirrored here so the preview matches the contract
-  feeBps: bigint;
-  creatorTaxBps: bigint;
-  snipeTaxSeconds: bigint;
-  // on-chain socials (creator-supplied; only rendered after URL validation)
-  website?: string;
-  twitter?: string;
-};
-
-const ZERO_ADDR = "0x0000000000000000000000000000000000000000" as Address;
-const BPS = 10000n;
-const SLIPPAGE_KEY = "radian.slippageBps";
-const SLIPPAGE_OPTIONS = [50, 100, 300] as const;
+// the fee policy snapshotted at launch: who gets the protocol share, and how much of the fee it is
+const curvePolicyAbi = parseAbi(["function protocolFeeRecipient() view returns (address)", "function protocolFeeShareBps() view returns (uint16)"]);
 
 export default function TokenPage({ params }: { params: Promise<{ address: string }> }) {
   const { address } = use(params);
   const token = address as Address;
-  const { authenticated, login, address: account, getWalletClient } = useRadianWallet();
-  const [st, setSt] = useState<State | null>(null);
-  const [side, setSide] = useState<"buy" | "sell">("buy");
-  const [amount, setAmount] = useState("");
+  const t = useT();
+  const { address: account } = useRadianWallet();
+  const [st, setSt] = useState<TokenState | null>(null);
   const [myTokens, setMyTokens] = useState<bigint>(0n);
-  const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
-  const [slippageBps, setSlippageBps] = useState<number>(100);
-  const [snipeBps, setSnipeBps] = useState<bigint>(0n);
   const [sunset, setSunset] = useState<Sunset | null>(null);
+  const [creator, setCreator] = useState<Address | null>(null);
+  const [trades, setTrades] = useState<TokenTrade[]>([]);
+  const [tradesLoaded, setTradesLoaded] = useState(false);
   // Launch template (The Wall / Proof-of-Fee) from the indexer, with an on-chain
   // fallback for PoF. Immutable per launch, so it is resolved once.
   const [template, setTemplate] = useState<LaunchTemplate | null>(null);
@@ -77,6 +57,8 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
   const loadedRef = useRef(false);
   const identity = useIdentity();
   const [pendingHash, setPendingHash] = useState<Address | null>(null);
+  const { rows } = useLaunches();
+  const row = useMemo(() => rows.find((r) => r.token.toLowerCase() === token.toLowerCase()), [rows, token]);
 
   const load = useCallback(async () => {
     // Curve address comes from the local registry (getLogs is unreliable on
@@ -86,13 +68,16 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
       setNotFound(true);
       return;
     }
-    let curve = (findCurve(token)?.curve ?? null) as Address | null;
+    const reg = findCurve(token);
+    let curve = (reg?.curve ?? null) as Address | null;
+    if (reg?.deployer) setCreator(reg.deployer as Address);
     if (hasIndexer()) {
-      // The indexer also knows whether this launch was retired for a successor.
+      // The indexer also knows the creator and whether this launch was retired for a successor.
       const meta = await fetchTokenMeta(token);
       if (!curve) curve = meta?.curve ?? null;
       if (meta) {
         setSunset(meta.sunset ?? null);
+        if (meta.deployer && meta.deployer !== ZERO_ADDR) setCreator(meta.deployer);
         if (meta.template && !templateRef.current) {
           templateRef.current = meta.template;
           setTemplate(meta.template);
@@ -115,15 +100,15 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
           address: RADIAN.pofRouter, abi: pofRouterAbi, functionName: "launches", args: [token],
         })) as readonly [Address, Address, Address];
         if (vault && vault !== ZERO_ADDR) {
-          const t: LaunchTemplate = { kind: "pof", vault, pofRouter: RADIAN.pofRouter };
-          templateRef.current = t;
-          setTemplate(t);
+          const tpl: LaunchTemplate = { kind: "pof", vault, pofRouter: RADIAN.pofRouter };
+          templateRef.current = tpl;
+          setTemplate(tpl);
         }
       } catch {
         pofCheckedRef.current = false; // RPC hiccup: try again on the next poll
       }
     }
-    // one Multicall3 batch instead of 10 separate RPC reads (poll-friendly)
+    // one Multicall3 batch instead of 16 separate RPC reads (poll-friendly)
     const mc = await publicClient.multicall({
       allowFailure: true,
       contracts: [
@@ -141,6 +126,8 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
         { address: curve, abi: curveAbi, functionName: "creatorTaxBps" },
         { address: curve, abi: curveAbi, functionName: "snipeTaxSeconds" },
         { address: token, abi: tokenAbi, functionName: "socials" },
+        { address: curve, abi: curvePolicyAbi, functionName: "protocolFeeRecipient" },
+        { address: curve, abi: curvePolicyAbi, functionName: "protocolFeeShareBps" },
       ],
     });
     const name = mc[0].result as string | undefined;
@@ -149,13 +136,9 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
       if (!loadedRef.current) setNotFound(true);
       return;
     }
-    const logo = (mc[2].result as string) ?? "";
-    const description = (mc[3].result as string) ?? "";
     const tracked = (mc[5].result as bigint | undefined) ?? 0n;
     const gthr = (mc[6].result as bigint | undefined) ?? 0n;
-    const grad = (mc[7].result as boolean | undefined) ?? false;
-    const sellable = (mc[8].result as bigint | undefined) ?? 0n;
-    const pair = (mc[9].result as Address | undefined) ?? ("0x0000000000000000000000000000000000000000" as Address);
+    const pair = (mc[9].result as Address | undefined) ?? ZERO_ADDR;
     const r = (mc[4].result as [bigint, bigint] | undefined) ?? [0n, 0n];
     let qa = quoteByAddress(pair as string);
     if (!qa) {
@@ -163,38 +146,37 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
       // from chain rather than guessing (a wrong "native" guess would send
       // msg.value to an ERC-20 curve and revert).
       const [sym, dec] = await Promise.all([
-        publicClient.readContract({ address: pair as Address, abi: erc20Abi, functionName: "symbol" }).catch(() => "PAIR"),
-        publicClient.readContract({ address: pair as Address, abi: erc20Abi, functionName: "decimals" }).catch(() => 18),
+        publicClient.readContract({ address: pair, abi: erc20Abi, functionName: "symbol" }).catch(() => "PAIR"),
+        publicClient.readContract({ address: pair, abi: erc20Abi, functionName: "decimals" }).catch(() => 18),
       ]);
       const decimals = Number(dec);
-      qa = {
-        key: (pair as string).toLowerCase(), symbol: String(sym), address: pair as Address, decimals, native: false,
-        blurb: "Approved pair asset", gradGoal: Number(formatUnits(gthr, decimals)),
-      };
+      qa = { key: pair.toLowerCase(), symbol: String(sym), address: pair, decimals, native: false, blurb: "Approved pair asset", gradGoal: Number(formatUnits(gthr, decimals)) };
     }
+    const socials = mc[13].result as readonly string[] | undefined; // [twitter, telegram, discord, website, farcaster]
     setSt({
-      name: name as string,
-      symbol: symbol as string,
-      logo: logo as string,
-      description: description as string,
+      name,
+      symbol,
+      logo: (mc[2].result as string) ?? "",
+      description: (mc[3].result as string) ?? "",
       curve,
       quoteReserve: r[0],
       tokenReserve: r[1],
-      trackedQuote: tracked as bigint,
-      graduationThreshold: gthr as bigint,
-      graduated: grad as boolean,
-      sellable: sellable as bigint,
+      trackedQuote: tracked,
+      graduationThreshold: gthr,
+      graduated: (mc[7].result as boolean | undefined) ?? false,
+      sellable: (mc[8].result as bigint | undefined) ?? 0n,
       quoteDecimals: qa.decimals,
       quoteSymbol: qa.symbol,
-      pairToken: pair as Address,
+      pairToken: pair,
       native: qa.native,
       quoteAsset: qa,
       feeBps: (mc[10].result as bigint | undefined) ?? 100n,
       creatorTaxBps: (mc[11].result as bigint | undefined) ?? 0n,
       snipeTaxSeconds: (mc[12].result as bigint | undefined) ?? 0n,
-      // socials() → [twitter, telegram, discord, website, farcaster]
-      website: (mc[13].result as readonly string[] | undefined)?.[3] || undefined,
-      twitter: (mc[13].result as readonly string[] | undefined)?.[0] || undefined,
+      protocolRecipient: (mc[14].result as Address | undefined) ?? ZERO_ADDR,
+      protocolShareBps: BigInt((mc[15].result as number | bigint | undefined) ?? 0),
+      website: socials?.[3] || undefined,
+      twitter: socials?.[0] || undefined,
     });
     loadedRef.current = true;
     setNotFound(false);
@@ -202,484 +184,147 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
 
   useEffect(() => {
     load();
-    const t = setInterval(load, 12000);
-    return () => clearInterval(t);
+    const iv = setInterval(load, 12000);
+    return () => clearInterval(iv);
   }, [load]);
 
+  // The trade log (indexer only): the chart when the launch row has no spark, and the list.
   useEffect(() => {
-    if (!account) return;
-    publicClient
-      .readContract({ address: token, abi: tokenAbi, functionName: "balanceOf", args: [account] })
-      .then((b) => setMyTokens(b as bigint));
-  }, [account, token, st]);
-
-  // Slippage tolerance is a per-viewer preference.
-  useEffect(() => {
-    try {
-      const v = Number(window.localStorage.getItem(SLIPPAGE_KEY));
-      if (Number.isFinite(v) && v >= 10 && v <= 5000) setSlippageBps(v);
-    } catch {}
-  }, []);
-  const pickSlippage = (bps: number) => {
-    setSlippageBps(bps);
-    try {
-      window.localStorage.setItem(SLIPPAGE_KEY, String(bps));
-    } catch {}
-  };
-
-  // The snipe tax (99% at launch, decaying to 0 within `snipeTaxSeconds`) is
-  // per-recipient and time-based, so poll it while the curve is live.
-  useEffect(() => {
-    if (!st || st.graduated) return;
-    const curve = st.curve;
-    const who = (account ?? ZERO_ADDR) as Address;
+    if (!hasIndexer() || !isAddress(token)) return;
     let alive = true;
-    const read = async () => {
-      try {
-        const v = (await publicClient.readContract({
-          address: curve, abi: curveAbi, functionName: "currentSnipeTaxBps", args: [who],
-        })) as bigint;
-        if (alive) setSnipeBps(v);
-      } catch {}
-    };
-    read();
-    const t = setInterval(read, 2000);
+    const pull = () =>
+      fetchTokenTrades(token)
+        .then((tr) => {
+          if (!alive) return;
+          setTrades(tr);
+          setTradesLoaded(true);
+        })
+        .catch(() => alive && setTradesLoaded(true));
+    pull();
+    const iv = setInterval(pull, 10000);
     return () => {
       alive = false;
-      clearInterval(t);
+      clearInterval(iv);
     };
-  }, [st?.curve, st?.graduated, account]);
+  }, [token]);
 
-  // Mirrors PonsV2BondingCurve.buy/sell exactly: the base fee, creator tax and
-  // (buy only) snipe tax all come off the quote leg before the constant-product
-  // swap; a buy is clamped to the sellable allocation. `minOut` is what we hand
-  // the contract, which enforces it on-chain (as a price bound on buys).
-  const quoteTrade = () => {
-    if (!st || !amount || Number(amount) <= 0) return null;
-    try {
-      if (side === "buy") {
-        const inWei = parseUnits(amount, st.quoteDecimals);
-        if (inWei <= 0n) return null;
-        let snipe = snipeBps;
-        if (snipe > 0n) {
-          const maxSnipe = BPS - st.feeBps - st.creatorTaxBps - 100n;
-          if (snipe > maxSnipe) snipe = maxSnipe;
-        }
-        const fee = (inWei * st.feeBps) / BPS;
-        const tax = (inWei * st.creatorTaxBps) / BPS;
-        const snipeTax = (inWei * snipe) / BPS;
-        const net = inWei - fee - tax - snipeTax;
-        if (net <= 0n) return null;
-        let out = (st.tokenReserve * net) / (st.quoteReserve + net);
-        if (out > st.sellable) out = st.sellable;
-        const minOut = (out * (BPS - BigInt(slippageBps))) / BPS;
-        return { out, minOut, fee, tax, snipeTax, snipeBps: snipe, inWei };
-      }
-      const inTok = parseEther(amount);
-      if (inTok <= 0n) return null;
-      const gross = (st.quoteReserve * inTok) / (st.tokenReserve + inTok);
-      const fee = (gross * st.feeBps) / BPS;
-      const tax = (gross * st.creatorTaxBps) / BPS;
-      const out = gross - fee - tax;
-      const minOut = (out * (BPS - BigInt(slippageBps))) / BPS;
-      return { out, minOut, fee, tax, snipeTax: 0n, snipeBps: 0n, inWei: inTok };
-    } catch {
-      return null;
-    }
-  };
-  const q = quoteTrade();
-  const fmtOut = (v: bigint) =>
-    side === "buy"
-      ? `${Number(formatUnits(v, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })} ${st?.symbol ?? ""}`
-      : `${Number(formatUnits(v, st?.quoteDecimals ?? 18)).toLocaleString(undefined, { maximumFractionDigits: 4 })} ${st?.quoteSymbol ?? ""}`;
-  const pctOf = (bps: bigint) => `${(Number(bps) / 100).toFixed(Number(bps) % 100 === 0 ? 0 : 2)}%`;
+  useEffect(() => {
+    if (!account || !isAddress(token)) return;
+    publicClient
+      .readContract({ address: token, abi: tokenAbi, functionName: "balanceOf", args: [account] })
+      .then((b) => setMyTokens(b as bigint))
+      .catch(() => {});
+  }, [account, token, st]);
 
   // Trades (and template / auto-buy actions) whose receipt this tab lost are
   // resolved from chain, never resent.
   usePendingResume(["buy", "sell", "stake", "unstake", "claim", "deposit", "withdraw", "cancel"], (p) => {
     if ((p.meta?.token ?? "").toLowerCase() !== token.toLowerCase()) return;
     setPendingHash(null);
-    setToast(`Your earlier ${p.kind} confirmed ✓`);
+    setToast(t("detail.resumed", { kind: p.kind }));
     load();
     setRefreshKey((k) => k + 1);
   });
 
-  async function trade() {
-    if (!authenticated) {
-      login();
-      return;
-    }
-    if (!st || !q) return;
-    if (identity.checked && !identity.ok) {
-      setToast("Trading is disabled: a platform contract's live code does not match its pinned hash.");
-      return;
-    }
-    const minOut = q.minOut;
-    setBusy(true);
-    try {
-      const wc = await getWalletClient();
-      if (!wc) {
-        setToast("No wallet available. Sign in again.");
-        setBusy(false);
-        return;
-      }
-      const { client, account: acct } = wc;
-      if (side === "buy") {
-        const inWei = parseUnits(amount, st.quoteDecimals);
-        // Proof-of-Fee: buys go through the PoF router so they record Work for
-        // the buyer (same curve, same price, same on-chain minOut); a direct
-        // curve buy would pay the fee and earn nothing.
-        const pof = template?.kind === "pof" ? template : null;
-        // The Pound: plain buys go through the launch router, which forwards to the
-        // curve at the same price and tags the referrer for the fee split.
-        const viaRouter = hasPound && !pof;
-        const spender = pof ? pof.pofRouter : viaRouter ? RADIAN.router : st.curve;
-        const sendBuy = (value?: bigint) =>
-          pof
-            ? client.writeContract({
-                account: acct, chain: arcTestnet, address: pof.pofRouter, abi: pofRouterAbi,
-                functionName: "buy", args: [token, inWei, minOut], value,
-              })
-            : viaRouter
-              ? client.writeContract({
-                  account: acct, chain: arcTestnet, address: RADIAN.router, abi: routerTradeAbi,
-                  functionName: "buy", args: [token, inWei, minOut, acct, getReferrer()], value,
-                })
-              : client.writeContract({
-                  account: acct, chain: arcTestnet, address: st.curve, abi: curveAbi,
-                  functionName: "buy", args: [inWei, minOut, acct], value,
-                });
-        if (st.native) {
-          setToast("Confirm buy…");
-          const hash = await sendBuy(inWei);
-          await waitReceipt(hash, "buy", { token });
-        } else {
-          setToast(`Approve ${st.quoteSymbol}…`);
-          const ah = await client.writeContract({
-            account: acct, chain: arcTestnet, address: st.pairToken, abi: erc20Abi,
-            functionName: "approve", args: [spender, inWei],
-          });
-          await waitReceipt(ah, "approve");
-          // The wallet may have edited the amount: re-read before spending on it.
-          const allowed = (await publicClient.readContract({
-            address: st.pairToken, abi: erc20Abi, functionName: "allowance", args: [acct, spender],
-          })) as bigint;
-          if (allowed < inWei) throw new Error("Your wallet approved a smaller amount, so nothing was bought. Approve the full amount to continue.");
-          setToast("Confirm buy…");
-          const hash = await sendBuy(undefined);
-          await waitReceipt(hash, "buy", { token });
-        }
-        setToast("Bought ✓");
-      } else {
-        const inTok = parseEther(amount);
-        const sellVia = hasPound ? RADIAN.router : st.curve; // The Pound: sells go through the router too (referral tag)
-        setToast("Approve…");
-        const ah = await client.writeContract({
-          account: acct,
-          chain: arcTestnet,
-          address: token,
-          abi: tokenAbi,
-          functionName: "approve",
-          args: [sellVia, inTok],
-        });
-        await waitReceipt(ah, "approve");
-        const allowed = (await publicClient.readContract({
-          address: token, abi: erc20Abi, functionName: "allowance", args: [acct, sellVia],
-        })) as bigint;
-        if (allowed < inTok) throw new Error("Your wallet approved a smaller amount, so nothing was sold. Approve the full amount to continue.");
-        setToast("Confirm sell…");
-        const hash = hasPound
-          ? await client.writeContract({
-              account: acct, chain: arcTestnet, address: RADIAN.router, abi: routerTradeAbi,
-              functionName: "sell", args: [token, inTok, minOut, acct, getReferrer()],
-            })
-          : await client.writeContract({
-              account: acct,
-              chain: arcTestnet,
-              address: st.curve,
-              abi: curveAbi,
-              functionName: "sell",
-              args: [inTok, minOut, acct],
-            });
-        await waitReceipt(hash, "sell", { token });
-        setToast("Sold ✓");
-      }
-      setAmount("");
-      await load();
-    } catch (e: any) {
-      if (e instanceof ReceiptTimeout) {
-        setPendingHash(e.hash);
-        setToast("Submitted, but not confirmed yet. This page keeps checking and never resends.");
-      } else {
-        setToast(e?.shortMessage ?? e?.message ?? "Trade failed.");
-      }
-    } finally {
-      setBusy(false);
-    }
-  }
+  const afterTrade = () => {
+    load();
+    setRefreshKey((k) => k + 1);
+  };
 
-  if (!st) {
-    return (
-      <>
-        <Nav />
-        <main className="wrap" style={{ padding: 60 }}>
-          {notFound ? (
-            <div className="empty">
-              <div style={{ fontSize: 18, fontWeight: 600 }}>Token not found</div>
-              <p style={{ color: "var(--fg-dim)", marginTop: 8 }}>
-                {isAddress(token)
-                  ? "This address isn't a Radian launch on the current network, or the indexer hasn't seen it yet."
-                  : "That isn't a valid token address."}
-              </p>
-              <Link href="/explore" className="btn btn-ghost btn-sm" style={{ marginTop: 16, display: "inline-flex" }}>
-                Browse launches
-              </Link>
-            </div>
-          ) : (
-            <div className="empty">Loading token…</div>
-          )}
-        </main>
-      </>
-    );
-  }
-
-  const pct = st.graduationThreshold > 0n
-    ? Math.min(100, Number((st.trackedQuote * 10000n) / st.graduationThreshold) / 100)
-    : 0;
-  const price = st.tokenReserve > 0n
-    ? Number(formatUnits(st.quoteReserve, st.quoteDecimals)) / Number(formatUnits(st.tokenReserve, 18))
-    : 0;
+  const tk: TradeToken | null = st
+    ? { token, curve: st.curve, pairToken: st.pairToken, native: st.native, template, name: st.name, symbol: st.symbol, quoteSymbol: st.quoteSymbol, quoteDecimals: st.quoteDecimals, graduated: st.graduated }
+    : null;
+  const spark = useMemo(() => sparkOf(row, trades), [row, trades]);
+  const stats = useMemo(() => statsOf(row, trades), [row, trades]);
 
   return (
-    <>
-      <Nav />
-      <div className="wrap" style={{ padding: "16px 24px 0" }}>
-        <IdentityBanner identity={identity} />
-        <PendingBar hash={pendingHash} onClose={() => setPendingHash(null)} />
-      </div>
-      <main className="wrap" style={{ padding: "40px 24px 0" }}>
-        <Link href="/explore" style={{ color: "var(--fg-faint)", fontSize: 14 }}>← All launches</Link>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 28, marginTop: 20, alignItems: "start" }} className="detail-grid">
-          <div>
-            <div className="card-top" style={{ gap: 16 }}>
-              <div className="avatar" style={{ width: 64, height: 64, fontSize: 24 }}>
-                {st.logo && /^https?:\/\//.test(st.logo) ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={st.logo} alt={st.symbol} />
-                ) : (
-                  st.symbol.slice(0, 2).toUpperCase()
-                )}
-              </div>
-              <div>
-                <h1 style={{ fontSize: 28 }}>{st.name}</h1>
-                <div style={{ color: "var(--fg-faint)", display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-                  <span>${st.symbol}</span>
-                  {(() => {
-                    // On-chain socials first (validated to http(s)), then the curated map.
-                    const curated = projectLinks(token);
-                    const site = safeHttpUrl(st.website) ?? safeHttpUrl(curated?.website);
-                    const x = xUrl(st.twitter) ?? xUrl(curated?.twitter);
-                    return (
-                      <>
-                        {site && (
-                          <a href={site} target="_blank" rel="noreferrer noopener" style={{ color: "var(--radian-2)", fontSize: 13 }}>
-                            Project site ↗
-                          </a>
-                        )}
-                        {x && (
-                          <a href={x} target="_blank" rel="noreferrer noopener" style={{ color: "var(--radian-2)", fontSize: 13 }}>
-                            X ↗
-                          </a>
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
-              </div>
-              <span style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
-                {template && (
-                  <span className="badge badge-soon" title={template.kind === "wall" ? "Stock Treasury template" : "Proof-of-Fee template"}>
-                    {template.kind === "wall" ? "The Wall" : "Proof-of-Fee"}
-                  </span>
-                )}
-                <span className={`badge ${sunset ? "badge-soon" : st.graduated ? "badge-grad" : "badge-live"}`}>
-                  {sunset ? "Retired" : st.graduated ? "Graduated" : "Live on curve"}
-                </span>
-              </span>
+    <Shell crumbSuffix={st?.name}>
+      <IdentityBanner identity={identity} />
+      <PendingBar hash={pendingHash} onClose={() => setPendingHash(null)} />
+
+      {!st || !tk ? (
+        <div className="screen-in">
+          {notFound ? (
+            <Empty>
+              <div className="text-lg font-semibold text-ink">{t("detail.notFound")}</div>
+              <p className="mt-2">{isAddress(token) ? t("detail.notFoundBody") : t("detail.badAddr")}</p>
+              <OutlineLink href="/explore" className="mt-4">
+                {t("detail.browse")}
+              </OutlineLink>
+            </Empty>
+          ) : (
+            <Empty>{t("detail.loading")}</Empty>
+          )}
+        </div>
+      ) : (
+        <div className="screen-in">
+          <DetailHead token={token} st={st} creator={creator} row={row} template={template} sunset={sunset} onToast={setToast} />
+
+          {sunset && (
+            <div role="note" className="mt-4 rounded-[12px] border border-signal/40 bg-[rgba(106,208,224,.08)] px-4 py-3 text-sm text-ink-2">
+              <b className="text-ink">{t("detail.sunset")}</b> {sunset.reason}{" "}
+              <Link href={`/token/${sunset.successor}`} className="font-semibold text-brand hover:underline">
+                {t("detail.sunsetGo")}
+              </Link>
             </div>
+          )}
 
-            {sunset && (
-              <div
-                role="note"
-                style={{
-                  marginTop: 18, padding: "12px 14px", borderRadius: 12, fontSize: 14,
-                  background: "rgba(111,155,255,0.08)", border: "1px solid rgba(111,155,255,0.3)",
-                }}
-              >
-                <strong>This launch was retired.</strong> {sunset.reason}{" "}
-                <Link href={`/token/${sunset.successor}`} style={{ color: "var(--radian-2)", fontWeight: 600 }}>
-                  Go to the current version →
-                </Link>
-              </div>
-            )}
-
-            <p style={{ color: "var(--fg-dim)", marginTop: 18 }}>{st.description || "A token launched on Radian."}</p>
-
-            <div className="panel" style={{ marginTop: 22 }}>
-              <div className="prog-row"><span>Bonding progress</span><span>{pct.toFixed(1)}%</span></div>
-              <div className="prog"><span style={{ width: `${Math.max(2, pct)}%` }} /></div>
-              <div className="prog-row" style={{ marginTop: 8, marginBottom: 0 }}>
-                <span>{Number(formatUnits(st.trackedQuote, st.quoteDecimals)).toLocaleString(undefined, { maximumFractionDigits: 2 })} {st.quoteSymbol} in curve</span>
-                <span>goal {Number(formatUnits(st.graduationThreshold, st.quoteDecimals)).toLocaleString()} {st.quoteSymbol}</span>
-              </div>
-            </div>
-
-            <div className="panel" style={{ marginTop: 16 }}>
-              <div className="kv"><span>Spot price</span><span className="v">{price.toExponential(3)} {st.quoteSymbol}</span></div>
-              <div className="kv"><span>Curve reserve</span><span className="v">{Number(formatUnits(st.quoteReserve, st.quoteDecimals)).toLocaleString(undefined, { maximumFractionDigits: 2 })} {st.quoteSymbol}</span></div>
-              <div className="kv"><span>Sellable supply</span><span className="v">{Number(formatUnits(st.sellable, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
-              <div className="kv"><span>Token</span><a className="v mono" href={explorer.address(token)} target="_blank" rel="noreferrer" style={{ color: "var(--radian-2)" }}>{token.slice(0, 8)}…{token.slice(-6)}</a></div>
-              <div className="kv"><span>Curve</span><a className="v mono" href={explorer.address(st.curve)} target="_blank" rel="noreferrer" style={{ color: "var(--radian-2)" }}>{st.curve.slice(0, 8)}…{st.curve.slice(-6)}</a></div>
-            </div>
-
+          <div className="glass-panel mt-6 overflow-hidden rounded-2xl p-0">
+            <CurveSection st={st} />
+            <ChartTrade st={st} spark={spark} tk={tk} onTraded={afterTrade} onPending={(h) => setPendingHash(h)} />
+            <StatsRow st={st} stats={stats} />
             {st.quoteAsset.stock && (
-              <div className="panel" style={{ marginTop: 16 }}>
+              <div className="border-b border-stroke p-5">
                 <StockRef asset={st.quoteAsset} />
               </div>
             )}
-
-            {template?.kind === "wall" && (
-              <>
-                <WallTreasuryPanel
-                  treasury={template.treasury} staking={template.staking} token={token} symbol={st.symbol} quote={st.quoteAsset}
-                  identity={identity} onToast={setToast} onPending={setPendingHash} refreshKey={refreshKey}
-                />
-                <WallStakePanel
-                  staking={template.staking} token={token} symbol={st.symbol} quote={st.quoteAsset} myTokens={myTokens}
-                  identity={identity} onToast={setToast} onPending={setPendingHash} refreshKey={refreshKey}
-                />
-                {template.kind === "wall" && template.ladder && st.graduated && (
-                  <WallLadderPanel ladder={template.ladder} symbol={st.symbol} quote={st.quoteAsset} refreshKey={refreshKey} />
-                )}
-              </>
-            )}
-            {template?.kind === "pof" && (
-              <PoFPanel
-                vault={template.vault} pofRouter={template.pofRouter} token={token} symbol={st.symbol} quote={st.quoteAsset}
-                identity={identity} onToast={setToast} onPending={setPendingHash} refreshKey={refreshKey}
-              />
-            )}
-
-            <TradePanel token={token} symbol={st.symbol} />
+            {hasIndexer() && <TradesSection trades={trades} loaded={tradesLoaded} quoteSymbol={st.quoteSymbol} />}
+            <FeesContracts token={token} st={st} template={template} />
           </div>
 
-          {/* The trade panel is sticky on its own; with the auto-buy panel below it the
-              column can outgrow the viewport, so it scrolls normally instead. */}
-          <div style={!st.graduated && hasExecutor && !sunset ? undefined : { position: "sticky", top: 84 }}>
-          <div className="panel">
-            {st.graduated ? (
-              <div style={{ textAlign: "center", padding: "14px 0" }}>
-                <div className="badge badge-grad" style={{ display: "inline-block" }}>Graduated</div>
-                <p style={{ color: "var(--fg-dim)", fontSize: 14, marginTop: 14 }}>
-                  This token has graduated into a locked Uniswap V4 pool. Curve trading is closed;
-                  trade it on the V4 market.
-                </p>
-              </div>
-            ) : (
-              <>
-                <div className="seg" style={{ marginBottom: 16 }}>
-                  <button className={side === "buy" ? "on-buy" : ""} onClick={() => setSide("buy")}>Buy</button>
-                  <button className={side === "sell" ? "on-sell" : ""} onClick={() => setSide("sell")}>Sell</button>
-                </div>
-                <div className="field">
-                  <label>{side === "buy" ? `You pay (${st.quoteSymbol})` : `You sell (${st.symbol})`}</label>
-                  <input className="input" type="number" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.0" />
-                  {side === "sell" && (
-                    <p className="hint">Balance: {Number(formatUnits(myTokens, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })} {st.symbol}</p>
-                  )}
-                </div>
-                <div className="field" style={{ marginBottom: 12 }}>
-                  <label style={{ fontSize: 12 }}>Slippage tolerance</label>
-                  <div className="seg">
-                    {SLIPPAGE_OPTIONS.map((bps) => (
-                      <button
-                        key={bps}
-                        type="button"
-                        className={slippageBps === bps ? (side === "buy" ? "on-buy" : "on-sell") : ""}
-                        onClick={() => pickSlippage(bps)}
-                      >
-                        {bps / 100}%
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {side === "buy" && snipeBps > 0n && (
-                  <div
-                    role="alert"
-                    style={{
-                      background: "rgba(251,113,133,0.1)", border: "1px solid rgba(251,113,133,0.35)",
-                      borderRadius: 12, padding: "10px 12px", fontSize: 13, marginBottom: 12,
-                    }}
-                  >
-                    <strong style={{ color: "var(--down)" }}>Snipe tax: {pctOf(q?.snipeBps ?? snipeBps)} right now.</strong>{" "}
-                    Buys in the first {st.snipeTaxSeconds.toString()}s after launch pay a tax that decays to 0. Wait a moment, or
-                    buy anyway — the estimate below already includes it.
-                  </div>
-                )}
-                {q && (
-                  <div style={{ marginBottom: 12 }}>
-                    <div className="kv">
-                      <span>You receive ≈</span>
-                      <span className="v">{fmtOut(q.out)}</span>
-                    </div>
-                    <div className="kv">
-                      <span>Min. received ({slippageBps / 100}% slippage)</span>
-                      <span className="v">{fmtOut(q.minOut)}</span>
-                    </div>
-                    <div className="kv" style={{ fontSize: 12.5 }}>
-                      <span>Fees</span>
-                      <span className="v" style={{ fontWeight: 500 }}>
-                        {pctOf(st.feeBps)} fee
-                        {st.creatorTaxBps > 0n ? ` + ${pctOf(st.creatorTaxBps)} creator tax` : ""}
-                        {q.snipeTax > 0n ? ` + ${pctOf(q.snipeBps)} snipe tax` : ""}
-                      </span>
-                    </div>
-                  </div>
-                )}
-                <button
-                  className={`btn ${side === "buy" ? "btn-primary" : "btn-ghost"}`}
-                  style={{ width: "100%", justifyContent: "center" }}
-                  onClick={trade}
-                  disabled={busy || (authenticated && !q)}
-                >
-                  {busy ? (
-                    <span className="spinner" />
-                  ) : !authenticated ? (
-                    "Sign in to trade"
-                  ) : side === "buy" ? (
-                    snipeBps > 0n ? `Buy anyway (${pctOf(q?.snipeBps ?? snipeBps)} snipe tax)` : "Buy"
-                  ) : (
-                    "Sell"
-                  )}
-                </button>
-                <p className="hint" style={{ textAlign: "center" }}>
-                  Min. received is enforced on-chain — the trade reverts instead of filling below it.
-                  {template?.kind === "pof" && side === "buy" && " Buys go through the PoF router, so they count as Work."}
-                  {hasPound && template?.kind !== "pof" && " Trades go through the Radian router, which credits the referrer who brought you (if any)."}
-                </p>
-              </>
-            )}
-          </div>
-          {!st.graduated && hasExecutor && !sunset && (
-            <AutoBuyPanel
-              token={token} curve={st.curve} symbol={st.symbol} quote={st.quoteAsset}
-              identity={identity} onToast={setToast} onPending={setPendingHash} refreshKey={refreshKey}
-            />
+          {(template || (!st.graduated && hasExecutor && !sunset)) && (
+            <div className="mt-6 grid gap-4">
+              {template?.kind === "wall" && (
+                <>
+                  <WallTreasuryPanel
+                    treasury={template.treasury} staking={template.staking} token={token} symbol={st.symbol} quote={st.quoteAsset}
+                    identity={identity} onToast={setToast} onPending={setPendingHash} refreshKey={refreshKey}
+                  />
+                  <WallStakePanel
+                    staking={template.staking} token={token} symbol={st.symbol} quote={st.quoteAsset} myTokens={myTokens}
+                    identity={identity} onToast={setToast} onPending={setPendingHash} refreshKey={refreshKey}
+                  />
+                  {template.ladder && st.graduated && <WallLadderPanel ladder={template.ladder} symbol={st.symbol} quote={st.quoteAsset} refreshKey={refreshKey} />}
+                </>
+              )}
+              {template?.kind === "pof" && (
+                <PoFPanel
+                  vault={template.vault} pofRouter={template.pofRouter} token={token} symbol={st.symbol} quote={st.quoteAsset}
+                  identity={identity} onToast={setToast} onPending={setPendingHash} refreshKey={refreshKey}
+                />
+              )}
+              {!st.graduated && hasExecutor && !sunset && (
+                <AutoBuyPanel
+                  token={token} curve={st.curve} symbol={st.symbol} quote={st.quoteAsset}
+                  identity={identity} onToast={setToast} onPending={setPendingHash} refreshKey={refreshKey}
+                />
+              )}
+            </div>
           )}
-          </div>
+
+          <Footer />
         </div>
-      </main>
-      {toast && <div className="toast" onClick={() => setToast(null)}>{toast}</div>}
-    </>
+      )}
+
+      {toast && (
+        <button
+          type="button"
+          onClick={() => setToast(null)}
+          className="fixed bottom-[88px] left-1/2 z-50 max-w-[calc(100%-32px)] -translate-x-1/2 rounded-xl border border-stroke bg-night px-4 py-3 text-left text-sm text-ink shadow-[var(--shadow)] nav:bottom-6"
+        >
+          {toast}
+        </button>
+      )}
+    </Shell>
   );
 }

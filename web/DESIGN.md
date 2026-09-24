@@ -55,6 +55,9 @@ derive from `lib/routes.ts` — add a page there first, never hand-write an href
 
 0 foundation (done 2026-09-24) · 1 landing + explore (done 2026-09-24: `/` is the landing —
 components/landing, the cave sequence under public/cave; `/explore` on baskvia's explore skeleton
-with the shared trade path lib/useTrade.ts and the indexer's spark / 24h fields) · 2 token page + swap · 3 create wizard,
+with the shared trade path lib/useTrade.ts and the indexer's spark / 24h fields) · 2 token page + swap (done 2026-09-24:
+`/token/[address]` on the basket-detail skeleton — components/token/{DetailHead,DetailBody}; `/swap` console with
+components/swap/TokenAside; one trade form components/trade/SwapForm on useTrade for both; Swap in the main nav,
+Launch under More) · 3 create wizard,
 creators, my launches, creator profile · 4 portfolio, fees, earn, activity feed, learn, integrate,
 verify, rules, risk.

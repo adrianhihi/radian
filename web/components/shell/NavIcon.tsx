@@ -16,6 +16,8 @@ const PATHS: Record<string, React.ReactNode> = {
   ),
   // a curve going up and out: the launch
   launch: <path d="M4 19c4-1 7-4 9-8l2-4M14 4h5v5M9 19l-1 2M15 17l1 2" />,
+  // two arrows passing each other: the swap
+  swap: <path d="M4 8h13M13 4l4 4-4 4M20 16H7M11 12l-4 4 4 4" />,
   learn: <path d="M4 5.5h6a2 2 0 0 1 2 2V19a2 2 0 0 0-2-1.8H4zM20 5.5h-6a2 2 0 0 0-2 2V19a2 2 0 0 1 2-1.8h6z" />,
   more: (
     <>

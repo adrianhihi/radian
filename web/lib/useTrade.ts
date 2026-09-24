@@ -97,7 +97,7 @@ export function useTrade() {
 }
 
 /** Curve facts a quote needs, read in one multicall. */
-export type CurveQuoteState = { quoteReserve: bigint; tokenReserve: bigint; sellable: bigint; feeBps: bigint; creatorTaxBps: bigint; snipeBps: bigint };
+export type CurveQuoteState = { quoteReserve: bigint; tokenReserve: bigint; sellable: bigint; feeBps: bigint; creatorTaxBps: bigint; snipeBps: bigint; snipeTaxSeconds: bigint };
 
 export async function readCurveQuoteState(curve: Address, account?: Address): Promise<CurveQuoteState> {
   const mc = await publicClient.multicall({
@@ -108,6 +108,7 @@ export async function readCurveQuoteState(curve: Address, account?: Address): Pr
       { address: curve, abi: curveAbi, functionName: "feeBps" },
       { address: curve, abi: curveAbi, functionName: "creatorTaxBps" },
       { address: curve, abi: curveAbi, functionName: "currentSnipeTaxBps", args: [account ?? "0x0000000000000000000000000000000000000001"] },
+      { address: curve, abi: curveAbi, functionName: "snipeTaxSeconds" },
     ],
   });
   const r = (mc[0].result as [bigint, bigint] | undefined) ?? [0n, 0n];
@@ -118,6 +119,7 @@ export async function readCurveQuoteState(curve: Address, account?: Address): Pr
     feeBps: (mc[2].result as bigint | undefined) ?? 100n,
     creatorTaxBps: (mc[3].result as bigint | undefined) ?? 0n,
     snipeBps: (mc[4].result as bigint | undefined) ?? 0n,
+    snipeTaxSeconds: (mc[5].result as bigint | undefined) ?? 0n,
   };
 }
 
