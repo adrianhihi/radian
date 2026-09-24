@@ -223,7 +223,7 @@ export default function FactoryPage() {
             <div className="panel reveal" style={{ marginTop: 18 }}>
               <h3 style={{ fontSize: 18, marginBottom: 6 }}>Registry</h3>
               <p className="hint" style={{ marginTop: 0, marginBottom: 12 }}>
-                {total} launches, {graduated} graduated. The newest {latest.length} are listed; <Link href="/#explore" style={{ color: "var(--radian-2)" }}>Explore</Link> has all of them.
+                {total} launches, {graduated} graduated. The newest {latest.length} are listed; <Link href="/explore" style={{ color: "var(--radian-2)" }}>Explore</Link> has all of them.
               </p>
               {latest.length === 0 ? (
                 <p className="hint">No launches indexed yet.</p>

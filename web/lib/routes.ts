@@ -58,7 +58,7 @@ const NAV_NAMES = new Set([...NAV.map((n) => n.name), MORE_NAME]);
 /** First path segment → route name used for crumbs. "/" is the explore page during phase 0. */
 export function routeNameOf(pathname: string): string {
   const seg = pathname.split("/").filter(Boolean)[0];
-  if (!seg) return "explore"; // the landing takes "/" in phase 1b; until then the old list lives there
+  if (!seg) return "home"; // the landing: no Shell, no crumb, nothing highlighted
   if (seg === "docs") return "learn";
   // Object.hasOwn, not `in`: `in` walks the prototype chain (/constructor, /toString…)
   return NAV_NAMES.has(seg) || Object.hasOwn(SUB, seg) ? seg : "explore";
@@ -67,7 +67,7 @@ export function routeNameOf(pathname: string): string {
 /** Which top-level nav item to highlight for a path. */
 export function activeNav(pathname: string): string {
   const seg = pathname.split("/").filter(Boolean)[0];
-  if (!seg) return "explore";
+  if (!seg) return "home";
   if (NAV_NAMES.has(seg)) return seg;
   return SUB[seg] ?? "explore";
 }

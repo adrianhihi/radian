@@ -431,7 +431,7 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
                   ? "This address isn't a Radian launch on the current network, or the indexer hasn't seen it yet."
                   : "That isn't a valid token address."}
               </p>
-              <Link href="/#explore" className="btn btn-ghost btn-sm" style={{ marginTop: 16, display: "inline-flex" }}>
+              <Link href="/explore" className="btn btn-ghost btn-sm" style={{ marginTop: 16, display: "inline-flex" }}>
                 Browse launches
               </Link>
             </div>
@@ -458,7 +458,7 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
         <PendingBar hash={pendingHash} onClose={() => setPendingHash(null)} />
       </div>
       <main className="wrap" style={{ padding: "40px 24px 0" }}>
-        <Link href="/#explore" style={{ color: "var(--fg-faint)", fontSize: 14 }}>← All launches</Link>
+        <Link href="/explore" style={{ color: "var(--fg-faint)", fontSize: 14 }}>← All launches</Link>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 28, marginTop: 20, alignItems: "start" }} className="detail-grid">
           <div>
             <div className="card-top" style={{ gap: 16 }}>

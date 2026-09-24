@@ -110,6 +110,11 @@ shell (top bar, More dropdown, crumb bar with chain badge, phone tab bar), EN/�
 compile-checked keys, the route table, the component primitives (Panel, PageHead, CondCell,
 buttons, TokenTile, AssetLogo, AddressAvatar, DitherChart, Treemap, RichText), `/more` and a
 404 page. Legacy pages run inside the new chrome with their variables aliased to the new palette.
+Phase 1 shipped the same day: the landing at `/` (baskvia's cave sequence and scroll choreography,
+Radian copy, Ember accents) and `/explore` (header stats, hero + most-backed card, showcase, Top /
+Tokens / Creators / Graduating tabs, sort chips, quote filter, ⌘K search, quick buy through the shared
+`lib/useTrade.ts`, card and list views, creator board, how-it-works dialog); the indexer's `/launches`
+rows now carry `spark`, `lastPrice`, `change24h`, `volume24h`, `trades24h`.
 Conventions and the phase list: `web/DESIGN.md`; the page-by-page map is the 2026-09-24 artifact
 "The Pound 界面重构". Owner decisions: wordmark stays Radian (The Pound is the fee narrative),
 same mark geometry in a new hue, bilingual, no Demo mode (network switch instead), landing image

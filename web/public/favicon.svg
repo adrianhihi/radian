@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Radian">
+  <rect width="32" height="32" rx="7" fill="#140f0a"/>
+  <g transform="translate(1.92 3.78) scale(0.2347)" stroke-width="5" stroke-linejoin="round">
+    <path d="M 85.50 28.36 L 72.75 6.28 L 47.25 6.28 L 34.50 28.36 L 47.25 50.44 L 72.75 50.44 Z" fill="#f6c489" stroke="#f6c489"/>
+    <path d="M 58.10 75.82 L 45.35 53.74 L 19.85 53.74 L 7.10 75.82 L 19.85 97.90 L 45.35 97.90 Z" fill="#e8944c" stroke="#e8944c"/>
+    <path d="M 112.90 75.82 L 100.15 53.74 L 74.65 53.74 L 61.90 75.82 L 74.65 97.90 L 100.15 97.90 Z" fill="#cf6d45" stroke="#cf6d45"/>
+  </g>
+</svg>
