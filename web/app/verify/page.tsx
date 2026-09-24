@@ -13,6 +13,8 @@ import { useT } from "@/components/LangProvider";
 import { Footer, Panel } from "@/components/ui/primitives";
 import { useNetwork } from "@/lib/networks";
 import { useIdentity, pinnedContracts } from "@/lib/identity";
+import { parseAbi } from "viem";
+import { publicClient, RADIAN } from "@/lib/radian";
 import { fingerprint } from "@/lib/ui/fingerprint";
 
 const CODE_HASH_CMD = "cast keccak $(cast code <address> --rpc-url <rpc>)";
@@ -24,6 +26,23 @@ export default function VerifyPage() {
   const [pinned, setPinned] = useState<ReturnType<typeof pinnedContracts>>([]);
   useEffect(() => setPinned(pinnedContracts()), [net.key]);
   const byName = new Map(identity.results.map((r) => [r.name, r]));
+  // who owns the factory today, read live (a Safe on mainnet)
+  const [owner, setOwner] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    let alive = true;
+    publicClient
+      .readContract({ address: RADIAN.factory, abi: parseAbi(["function owner() view returns (address)"]), functionName: "owner" })
+      .then((o) => alive && setOwner(o as string))
+      .catch(() => alive && setOwner(null));
+    return () => {
+      alive = false;
+    };
+  }, [net.key]);
+  // the pinned contracts by purpose, in a fixed order
+  const groupOf = (name: string): "pound" | "templates" | "radian" | "core" =>
+    /pound|pack/i.test(name) ? "pound" : /wall|pof|executor/i.test(name) ? "templates" : /radian|staking|treasury/i.test(name) ? "radian" : "core";
+  const groups = (["core", "templates", "pound", "radian"] as const).map((g) => ({ g, rows: pinned.filter((e) => groupOf(e.name) === g) })).filter((x) => x.rows.length > 0);
+  const groupLabel = { core: t("verify.groupCore"), templates: t("verify.groupTemplates"), pound: t("verify.groupPound"), radian: t("verify.groupRadian") } as const;
 
   const others: { name: string; address: string; note: string }[] = [
     ...(net.radian.token !== "0x0000000000000000000000000000000000000000" ? [{ name: t("verify.radianToken"), address: net.radian.token, note: t("verify.radianTokenNote") }, { name: t("verify.radianCurve"), address: net.radian.curve, note: t("verify.radianCurveNote") }] : []),
@@ -51,8 +70,11 @@ export default function VerifyPage() {
             {pinned.length === 0 ? (
               <p className="mt-4 text-[13px] text-muted">{t("verify.nothingPinned")}</p>
             ) : (
-              <ul className="mt-4 divide-y divide-stroke">
-                {pinned.map((e) => {
+              groups.map(({ g, rows }) => (
+              <div key={g} className="mt-4">
+              <h3 className="mono-label text-[10px] tracking-[.16em] text-ink-3">{groupLabel[g]}</h3>
+              <ul className="divide-y divide-stroke">
+                {rows.map((e) => {
                   const r = byName.get(e.name);
                   const status = !identity.checked ? "unverified" : r?.ok ? "match" : "mismatch";
                   return (
@@ -79,6 +101,8 @@ export default function VerifyPage() {
                   );
                 })}
               </ul>
+              </div>
+              ))
             )}
             {identity.error && <p className="mt-3 text-[12.5px] text-neg">{t("verify.liveFailed", { err: identity.error })}</p>}
             <p className="mt-4 text-[12.5px] leading-[1.7] text-ink-3">
@@ -109,6 +133,31 @@ export default function VerifyPage() {
               ))}
             </ul>
             <p className="mt-4 text-[12.5px] leading-[1.7] text-ink-3">{t("verify.curveNote")}</p>
+          </Panel>
+
+          <Panel>
+            <h2 className="text-[20px] font-bold text-ink">{t("verify.ownerTitle")}</h2>
+            <p className="mt-2 text-[13px] leading-[1.7] text-muted">{t("verify.ownerBody")}</p>
+            <div className="mt-4 grid gap-2 py-1 min-[720px]:grid-cols-[200px_minmax(0,1fr)]">
+              <div className="mono-label text-[10.5px] tracking-[.14em] text-ink-2">{t("verify.ownerLabel")}</div>
+              <div className="min-w-0">
+                {owner === undefined ? (
+                  <span className="text-[12.5px] text-ink-3">{t("verify.ownerReading")}</span>
+                ) : owner === null ? (
+                  <span className="text-[12.5px] text-ink-3">—</span>
+                ) : (
+                  <>
+                    <span className="mono-label mb-1.5 inline-block rounded-full border border-brand/40 bg-glass-2 px-2.5 py-0.5 text-[10.5px] tracking-[.1em] text-brand" title={t("verify.fingerprintNote")}>
+                      {fingerprint(owner)}
+                    </span>
+                    <br />
+                    <a href={`${net.explorer}/address/${owner}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 break-all font-mono text-[12px] text-ink-2 hover:text-brand">
+                      {owner} <ExternalLink size={11} strokeWidth={1.8} aria-hidden="true" className="flex-none" />
+                    </a>
+                  </>
+                )}
+              </div>
+            </div>
           </Panel>
 
           <Panel>

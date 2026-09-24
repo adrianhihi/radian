@@ -213,7 +213,7 @@ export default function LearnPage() {
                             <span className="min-w-0 flex-1 text-[14.5px] text-ink">{it.q}</span>
                             <ChevronDown size={13} strokeWidth={1.8} aria-hidden="true" className={`flex-none text-ink-3 transition-transform ${isOpen ? "rotate-180" : ""}`} />
                           </button>
-                          <a href={`#${id}`} aria-label={it.q} className="text-[12px] text-ink-3 hover:text-brand">
+                          <a href={`#${id}`} aria-label={t("learn.linkTo", { q: it.q })} className="text-[12px] text-ink-3 hover:text-brand">
                             #
                           </a>
                         </div>

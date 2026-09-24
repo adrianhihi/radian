@@ -36,6 +36,8 @@ export const NAV_FOOTER: NavItem[] = [
   { name: "earn", href: "/earn" },
   { name: "verify", href: "/verify" },
   { name: "terms", href: "/terms" },
+  { name: "privacy", href: "/privacy" },
+  { name: "risk", href: "/risk" },
 ];
 
 export const MORE_NAME = "more";
@@ -56,6 +58,8 @@ const SUB: Record<string, string> = {
   factory: MORE_NAME,
   verify: MORE_NAME,
   terms: MORE_NAME,
+  privacy: MORE_NAME,
+  risk: MORE_NAME,
   more: MORE_NAME,
 };
 

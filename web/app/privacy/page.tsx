@@ -1,20 +1,19 @@
 "use client";
 
-// Terms, with the network note (a testnet is play money; a live network is not).
+// Privacy: what stays in the browser, what the app reads and from whom, who sees what.
 import { useT } from "@/components/LangProvider";
 import { LegalPage, SeeAlso } from "@/components/LegalPage";
-import { TERMS } from "@/lib/content/legal";
+import { PRIVACY } from "@/lib/content/legal";
 
-export default function TermsPage() {
+export default function PrivacyPage() {
   const t = useT();
   return (
-    <LegalPage doc={TERMS} showNetwork>
+    <LegalPage doc={PRIVACY}>
       <SeeAlso
         links={[
+          { href: "/terms", label: t("nav.terms") },
           { href: "/risk", label: t("nav.risk") },
-          { href: "/privacy", label: t("nav.privacy") },
           { href: "/verify", label: t("nav.verify") },
-          { href: "/factory", label: t("nav.factory") },
         ]}
       />
     </LegalPage>

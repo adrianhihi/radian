@@ -12,7 +12,7 @@ import { useT, useTDynamic } from "@/components/LangProvider";
 export default function MorePage() {
   const t = useT();
   const td = useTDynamic();
-  const items = [...NAV_MORE, { name: "terms", href: "/terms" }];
+  const items = [...NAV_MORE, { name: "terms", href: "/terms" }, { name: "risk", href: "/risk" }, { name: "privacy", href: "/privacy" }];
   return (
     <Shell>
       <div className="screen-in">
