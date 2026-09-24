@@ -158,7 +158,7 @@ export function DetailHead({
               <div className="flex items-center gap-3">
                 <div className="nav:text-right">
                   <div className="mono-label text-[10px] tracking-[.08em] text-ink-3">{t("detail.creator")}</div>
-                  <div className="tnum text-sm font-medium text-ink">{shortAddr(creator)}</div>
+                  <div className={`text-sm font-medium text-ink ${row?.creatorName ? "" : "tnum"}`}>{row?.creatorName || shortAddr(creator)}</div>
                   <Link href={`/profile/${creator}`} className="mono-label text-[11px] text-brand hover:underline">
                     {t("detail.viewCreator")}
                   </Link>

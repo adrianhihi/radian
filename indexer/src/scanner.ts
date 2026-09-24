@@ -3,6 +3,8 @@ import {
   publicClient,
   singleClient,
   FACTORY,
+  CONFIRMATIONS,
+  erc20TransferEvent,
   VAULT,
   SEED,
   RADIAN,
@@ -48,6 +50,7 @@ const INITIAL_LOOKBACK = BigInt(process.env.INITIAL_LOOKBACK ?? (SCAN_MODE === "
 // Blocks whose headers are fetched concurrently (batched 8 per JSON-RPC request).
 const CONCURRENCY = Number(process.env.SCAN_CONCURRENCY ?? 8);
 const SCAN_INTERVAL_MS = Number(process.env.SCAN_INTERVAL_MS ?? 5000);
+const TRANSFER_BLOCKS_PER_TICK = BigInt(process.env.TRANSFER_BLOCKS_PER_TICK ?? (SCAN_MODE === "logs" ? 40_000 : 2000));
 
 const FACTORY_LC = FACTORY.toLowerCase();
 const TREASURY_LC = RADIAN.treasury.toLowerCase();
@@ -157,9 +160,10 @@ async function blockReceipts(n: bigint): Promise<RawReceipt[] | null> {
   }
 }
 
+// Transactions to a launch token count too: a plain transfer moves a holder balance.
 const interesting = (to?: string | null) => {
   const a = to?.toLowerCase();
-  return !!a && (a === FACTORY_LC || ROUTERS.has(a) || !!store.hasCurve(a));
+  return !!a && (a === FACTORY_LC || ROUTERS.has(a) || !!store.hasCurve(a) || store.launches.has(a));
 };
 
 function pushLogs(out: RawLog[], logs: readonly { address: Address; topics: readonly `0x${string}`[]; data: `0x${string}`; logIndex: number | null; transactionHash: `0x${string}` | null }[]) {
@@ -347,7 +351,11 @@ function applyBlock(b: BlockLogs) {
       continue;
     }
     const launch = store.hasCurve(addr);
-    if (!launch) continue;
+    if (!launch) {
+      // A launch token's own Transfer → holder balances (mint at launch, curve trades, plain transfers).
+      if (store.launches.has(addr)) applyTransferLog(addr, log);
+      continue;
+    }
     const ev = decode(curveEventsAbi, log);
     if (ev?.eventName === "CurveBuy") {
       const a = ev.args as { recipient: Address; quoteIn: bigint; tokensOut: bigint };
@@ -364,6 +372,38 @@ function applyBlock(b: BlockLogs) {
         quote: a.quoteOut.toString(), tokens: a.tokensIn.toString(),
       });
     }
+  }
+}
+
+function applyTransferLog(token: string, log: RawLog) {
+  try {
+    if (log.topics.length !== 3) return;
+    const ev = decodeEventLog({ abi: [erc20TransferEvent], topics: log.topics, data: log.data }) as unknown as { args: { from: Address; to: Address; value: bigint } };
+    store.applyTransfer(token, ev.args.from, ev.args.to, ev.args.value, `${log.transactionHash}:${toNum(log.logIndex)}`);
+  } catch {
+    /* not an ERC-20 Transfer (e.g. an Approval); ignore */
+  }
+}
+
+// LOGS MODE only: the topic filter above never asks for Transfer (every ERC-20 on the chain would
+// answer), so holder balances come from a second, address-filtered query over the same range.
+// Runs after the range's launches are known, so a token born in the range is included.
+async function collectTransfers(from: bigint, to: bigint) {
+  const tokens = [...store.launches.keys()] as Address[];
+  if (tokens.length === 0) return;
+  try {
+    const logs = await publicClient.getLogs({ address: tokens, event: erc20TransferEvent, fromBlock: from, toBlock: to });
+    for (const l of logs) {
+      applyTransferLog(l.address, { address: l.address, topics: l.topics as RawLog["topics"], data: l.data, logIndex: l.logIndex, transactionHash: l.transactionHash ?? "0x" });
+    }
+  } catch (e) {
+    if (to - from >= 10n) {
+      const mid = from + (to - from) / 2n;
+      await collectTransfers(from, mid);
+      await collectTransfers(mid + 1n, to);
+      return;
+    }
+    console.warn(`[scan] transfers ${from}-${to} failed:`, (e as { shortMessage?: string })?.shortMessage ?? (e as Error)?.message ?? e);
   }
 }
 
@@ -385,6 +425,7 @@ async function processBlockRange(
       applyBlock(b);
       advance(b.number);
     }
+    if (SCAN_MODE === "logs") await collectTransfers(start, end);
     advance(end); // a chunk with no matching logs still moves the cursor
     start = end + 1n;
   }
@@ -521,7 +562,9 @@ export async function tick(): Promise<boolean> {
   scanning = true;
   let busy = false;
   try {
-    const head = await singleClient.getBlockNumber();
+    // Stay a few blocks behind the tip so a reorg never leaves phantom rows.
+    const tip = await singleClient.getBlockNumber();
+    const head = tip > CONFIRMATIONS ? tip - CONFIRMATIONS : 0n;
 
     if (store.checkpoint === 0n) {
       // Cold start: track the head from a short lookback right away…
@@ -545,6 +588,17 @@ export async function tick(): Promise<boolean> {
       await processBlockRange(from, to, SCAN_MODE === "logs" ? collectLogs : collectLive, (n) => (store.checkpoint = n));
     }
 
+    // Holder balances for the history before this feature existed: address-filtered Transfer logs
+    // from the deploy block up to the live cursor, a bounded slice per tick (dedupe makes overlap
+    // with the live scan harmless). Only once launches are known — the filter is their addresses.
+    if (store.launches.size > 0 && store.transferCursor < store.checkpoint) {
+      const tFrom = store.transferCursor > 0n ? store.transferCursor + 1n : FACTORY_DEPLOY_BLOCK > 0n ? FACTORY_DEPLOY_BLOCK : store.backfillCursor + 1n;
+      const tTo = store.checkpoint - tFrom > TRANSFER_BLOCKS_PER_TICK ? tFrom + TRANSFER_BLOCKS_PER_TICK : store.checkpoint;
+      if (tFrom <= tTo) await collectTransfers(tFrom, tTo);
+      store.transferCursor = tTo;
+      if (store.transferCursor >= store.checkpoint) console.log("[scan] holder balances back-filled");
+    }
+
     // Backfill: a bounded slice of history per tick.
     if (store.backfillCursor < store.backfillFrom) {
       const bFrom = store.backfillCursor + 1n;
@@ -558,7 +612,8 @@ export async function tick(): Promise<boolean> {
 
     const behind = head - store.checkpoint;
     const left = store.backfillFrom > store.backfillCursor ? store.backfillFrom - store.backfillCursor : 0n;
-    busy = behind > LIVE_BLOCKS_PER_TICK || left > 0n;
+    const tLeft = store.launches.size > 0 && store.checkpoint > store.transferCursor ? store.checkpoint - store.transferCursor : 0n;
+    busy = behind > LIVE_BLOCKS_PER_TICK || left > 0n || tLeft > TRANSFER_BLOCKS_PER_TICK;
     console.log(
       `[scan] head ${head} live ${store.checkpoint} (${behind} behind)` +
         (left > 0n ? ` backfill ${left} left` : "") +
@@ -575,7 +630,14 @@ export async function tick(): Promise<boolean> {
 
 export async function startScanner() {
   store.load();
-  console.log(`[scan] mode=${SCAN_MODE}${SCAN_MODE === "logs" ? ` range=${LOGS_RANGE}` : ""}`);
+  // A snapshot built from another factory (a redeploy) is wrong for this one: forget the chain-derived
+  // part and rescan from the deploy block; what people signed (wall, logos, profiles) stays.
+  if (store.loadedFactory && store.loadedFactory !== FACTORY_LC) {
+    console.warn(`[scan] factory changed ${store.loadedFactory} → ${FACTORY_LC}: index reset, rescanning from block ${FACTORY_DEPLOY_BLOCK}`);
+    store.resetIndex();
+  }
+  store.factory = FACTORY_LC;
+  console.log(`[scan] mode=${SCAN_MODE}${SCAN_MODE === "logs" ? ` range=${LOGS_RANGE}` : ""} confirmations=${CONFIRMATIONS}`);
   await verifyIdentity();
   await backfillFlywheel();
   await rescanRanges();

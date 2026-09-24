@@ -7,7 +7,8 @@
 import type { Address, WalletClient } from "viem";
 import { INDEXER_URL, hasIndexer } from "./indexer";
 
-export type WallEntry = { address: Address; text: string; time: number; balance?: string };
+export type WallEntry = { address: Address; text: string; time: number; balance?: string; name?: string };
+export type Wall = { entries: WallEntry[]; moderators: string[] };
 
 export const WALL_MAX = 280;
 export const LOGO_SIZE = 128;
@@ -15,13 +16,27 @@ export const LOGO_MAX_BYTES = 200 * 1024;
 
 export const wallMessage = (token: string, text: string, time: number) => `Radian wall\ntoken: ${token.toLowerCase()}\ntime: ${time}\n\n${text}`;
 export const logoMessage = (token: string, sha256: string, time: number) => `Radian logo\ntoken: ${token.toLowerCase()}\nsha256: ${sha256}\ntime: ${time}`;
+export const hideMessage = (token: string, target: string, time: number) => `Radian moderation: hide wall message\ntoken: ${token.toLowerCase()}\naddress: ${target.toLowerCase()}\ntime: ${time}`;
 
-export async function fetchWall(token: string): Promise<WallEntry[]> {
-  if (!hasIndexer()) return [];
+/** The wall's visible lines (newest first) and who may hide one (the factory owner + configured moderators). */
+export async function fetchWall(token: string): Promise<Wall> {
+  if (!hasIndexer()) return { entries: [], moderators: [] };
   const r = await fetch(`${INDEXER_URL}/token/${token}/wall`, { cache: "no-store" });
-  if (!r.ok) return [];
-  const j = (await r.json()) as { entries?: WallEntry[] };
-  return j.entries ?? [];
+  if (!r.ok) return { entries: [], moderators: [] };
+  const j = (await r.json()) as { entries?: WallEntry[]; moderators?: string[] };
+  return { entries: j.entries ?? [], moderators: (j.moderators ?? []).map((m) => m.toLowerCase()) };
+}
+
+/** A moderator hides one wallet's line (signed; the indexer checks the signer against the factory owner). */
+export async function hideWallEntry(token: string, target: string, wc: { client: WalletClient; account: Address }): Promise<SignResult> {
+  const time = Date.now();
+  let signature: string;
+  try {
+    signature = await wc.client.signMessage({ account: wc.account, message: hideMessage(token, target, time) });
+  } catch {
+    return { ok: false, reason: "rejected" };
+  }
+  return post(`/token/${token}/wall/hide`, { address: target, by: wc.account, time, signature });
 }
 
 export type SignResult = { ok: true } | { ok: false; reason: string };
@@ -87,7 +102,9 @@ export function resizeLogo(file: File): Promise<string> {
         if (!ctx) throw new Error("canvas");
         const s = Math.min(img.width, img.height);
         ctx.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, LOGO_SIZE, LOGO_SIZE);
-        resolve(c.toDataURL("image/png"));
+        // PNG first (crisp marks); a photo that still exceeds the cap goes out as JPEG instead of failing.
+        const png = c.toDataURL("image/png");
+        resolve(png.length * 0.75 > LOGO_MAX_BYTES ? c.toDataURL("image/jpeg", 0.85) : png);
       } catch (e) {
         reject(e);
       } finally {

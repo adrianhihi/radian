@@ -17,6 +17,8 @@ import { Empty, Footer, HeroLink, Panel, SectionHead } from "@/components/ui/pri
 import { TokenCard, PeriodChips } from "@/components/explore/TokenCards";
 import { SwapForm, type TradeToken } from "@/components/trade/SwapForm";
 import { CreatorTools } from "@/components/profile/CreatorTools";
+import { ProfileEditor } from "@/components/profile/ProfileEditor";
+import { useProfile } from "@/lib/profile";
 import { PendingBar } from "@/components/TrustBanners";
 import { filterSortLaunches, sparkValues, type Period } from "@/lib/explore";
 import { useNetwork } from "@/lib/networks";
@@ -55,6 +57,7 @@ export default function ProfilePage() {
   const addr = String(Array.isArray(raw) ? (raw[0] ?? "") : (raw ?? ""));
   const valid = isAddress(addr);
   const isMe = !!me && me.toLowerCase() === addr.toLowerCase();
+  const profile = useProfile(valid ? addr : null);
 
   const mine = useMemo(() => filterSortLaunches(rows, {}).filter((r) => r.deployer.toLowerCase() === addr.toLowerCase()), [rows, addr]);
   const graduated = mine.filter((r) => r.graduated).length;
@@ -94,16 +97,22 @@ export default function ProfilePage() {
         <header className="flex flex-col items-center text-center">
           <AddressAvatar address={addr} size={96} />
           <div className="mono-label mt-4 text-[11px] tracking-[.14em] text-ink-3">{isMe ? t("profile.you") : t("profile.eyebrow")}</div>
-          <h1 className="tnum mt-1 break-all text-[clamp(30px,5vw,48px)] font-[650] leading-[1.15] text-ink">{shortAddr(addr)}</h1>
-          <div className="mt-3 flex flex-wrap justify-center gap-2">
+          <h1 className={`mt-1 break-all text-[clamp(30px,5vw,48px)] font-[650] leading-[1.15] text-ink ${profile?.name ? "" : "tnum"}`}>{profile?.name || shortAddr(addr)}</h1>
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
             <button type="button" onClick={onCopy} aria-label={t("profile.copy")} className="mono-label rounded-full border border-stroke bg-glass-2 px-3 py-1 text-[11px] text-ink-2 hover:border-brand hover:text-brand">
               {copied ? t("profile.copied") : shortAddr(addr)} <Copy size={11} strokeWidth={1.8} aria-hidden="true" className="inline align-[-1px]" />
             </button>
             <a href={explorer.address(addr)} target="_blank" rel="noreferrer" className="mono-label rounded-full border border-stroke bg-glass-2 px-3 py-1 text-[11px] text-ink-3 hover:border-brand hover:text-brand">
               {t("profile.explorer")}
             </a>
+            {profile?.x && (
+              <a href={`https://x.com/${profile.x}`} target="_blank" rel="noreferrer" className="mono-label rounded-full border border-stroke bg-glass-2 px-3 py-1 text-[11px] text-ink-2 hover:border-brand hover:text-brand">
+                @{profile.x}
+              </a>
+            )}
+            {isMe && <ProfileEditor key={profile?.updatedAt ?? 0} profile={profile ?? null} />}
           </div>
-          <p className="mt-4 max-w-[560px] text-[13px] leading-[1.8] text-muted">{t("profile.desc")}</p>
+          <p className="mt-4 max-w-[560px] whitespace-pre-line text-[13px] leading-[1.8] text-muted">{profile?.bio || t("profile.desc")}</p>
         </header>
 
         <div className="mt-8 grid gap-4 nav:grid-cols-[2fr_1fr_1fr]">

@@ -27,8 +27,7 @@ import {
   PACK_BURNER,
   poundVaultAbi,
   packBurnerAbi,
-  quoteMeta,
-} from "./config.js";
+  quoteMeta, VAULT, LOCKER, POOL_MANAGER, LAUNCH_ROUTER, LEGACY_ROUTERS, POF_ROUTER, EXECUTOR } from "./config.js";
 import { isAddress, parseAbi, type Address } from "viem";
 
 const ZERO_ADDR = "0x0000000000000000000000000000000000000000" as Address;
@@ -150,7 +149,32 @@ export function startServer() {
     return out;
   };
 
+  // Contracts that hold launch tokens without being holders: the curve, the locker and the V4 pool
+  // after graduation, the buyback vault, the routers, the template contracts, The Pound, the dead address.
+  const SYSTEM_LC = new Set(
+    [LOCKER, VAULT, POOL_MANAGER, LAUNCH_ROUTER, ...LEGACY_ROUTERS, POF_ROUTER, EXECUTOR, POUND_VAULT, PACK_BURNER, RADIAN.treasury, RADIAN.staking, "0x000000000000000000000000000000000000dEaD"]
+      .map((a) => String(a).toLowerCase())
+      .filter((a) => a && a !== "0x0000000000000000000000000000000000000000"),
+  );
+  const holdersOf = (l: { token: string; curve: string; template?: { kind: string; [k: string]: unknown } | null }): number | null => {
+    if (!store.hasBalances(l.token)) return null; // no Transfer seen yet: unknown, not zero
+    const ex = new Set(SYSTEM_LC);
+    ex.add(l.curve.toLowerCase());
+    ex.add(l.token.toLowerCase());
+    for (const v of Object.values(l.template ?? {})) if (typeof v === "string" && v.startsWith("0x")) ex.add(v.toLowerCase());
+    return store.holderCount(l.token, ex);
+  };
+
+  // The launch rows are rebuilt from the whole trade log; memoised for a few seconds because every
+  // list endpoint and every poll asks for them (the scanner mutates the store in between anyway).
+  let viewCache: { at: number; rows: ReturnType<typeof buildLaunchView> } | null = null;
+  const VIEW_TTL_MS = Number(process.env.VIEW_TTL_MS ?? 4000);
   const launchView = () => {
+    if (viewCache && Date.now() - viewCache.at < VIEW_TTL_MS) return viewCache.rows;
+    viewCache = { at: Date.now(), rows: buildLaunchView() };
+    return viewCache.rows;
+  };
+  const buildLaunchView = () => {
     const stats = tradeStats();
     return [...store.launches.values()]
       .map((l) => {
@@ -167,6 +191,8 @@ export function startServer() {
           token: l.token,
           curve: l.curve,
           deployer: l.deployer,
+          creatorName: store.profiles.get(l.deployer.toLowerCase())?.name ?? "",
+          holders: holdersOf(l),
           name: l.name ?? "",
           symbol: l.symbol ?? "",
           logo: store.logos.get(l.token.toLowerCase()) ?? l.logo ?? "", // a creator-signed logo replaces the on-chain one
@@ -189,16 +215,26 @@ export function startServer() {
       .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0) || Number(BigInt(b.trackedQuote) - BigInt(a.trackedQuote)));
   };
 
+  // Public reads are the same for everyone and change every few seconds: let browsers and any CDN in
+  // front keep them briefly. Per-wallet and signed data stay uncached (see meta.ts).
+  const pub = (res: express.Response, seconds = 5) => res.setHeader("Cache-Control", `public, max-age=${seconds}, s-maxage=${seconds * 3}`);
+  const indexMeta = () => ({ through: store.checkpoint.toString(), backfillDone: store.backfillCursor >= store.backfillFrom });
+
   app.get("/health", (_req, res) => {
-    res.json({ ok: true, checkpoint: store.checkpoint.toString(), launches: store.launches.size, trades: store.trades.length, ledger: store.flywheel.length, identity: store.identity });
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ ok: true, checkpoint: store.checkpoint.toString(), ...indexMeta(), launches: store.launches.size, trades: store.trades.length, ledger: store.flywheel.length, identity: store.identity });
   });
 
   app.get("/launches", (_req, res) => {
-    // Retired launches stay resolvable at /token/:addr but leave the lists.
-    res.json({ launches: launchView().filter((l) => !l.sunset && !isHidden(l.token)) });
+    pub(res);
+    // Retired launches stay resolvable at /token/:addr but leave the lists. `through` / `backfillDone`
+    // let a client say "still indexing" instead of "nothing launched" on a cold index.
+    res.json({ launches: launchView().filter((l) => !l.sunset && !isHidden(l.token)), ...indexMeta() });
   });
 
   app.get("/token/:addr", (req, res) => {
+    if (!isAddress(req.params.addr)) return res.status(400).json({ error: "address" });
+    pub(res);
     const l = launchView().find((x) => x.token.toLowerCase() === req.params.addr.toLowerCase());
     if (!l) return res.status(404).json({ error: "not found" });
     const dec = decOf(req.params.addr);
@@ -211,6 +247,7 @@ export function startServer() {
   });
 
   app.get("/activity", (req, res) => {
+    pub(res);
     const limit = Math.max(1, Math.min(200, Math.floor(Number(req.query.limit)) || 50));
     const byToken = new Map(launchView().map((l) => [l.token.toLowerCase(), l]));
     const trades = store.recentTrades(limit * 2).filter((t) => !isSunset(t.token) && !isHidden(t.token)).slice(0, limit).map((t) => {
@@ -227,6 +264,7 @@ export function startServer() {
   });
 
   app.get("/stats", (req, res) => {
+    pub(res, 10);
     const ls = launchView().filter((l) => !l.sunset && !isHidden(l.token));
     const window = req.query.window === "24h" ? "24h" : "all";
     const since = window === "24h" ? Date.now() - 86_400_000 : 0;

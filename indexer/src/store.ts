@@ -92,7 +92,11 @@ export type FlywheelEvent = {
 export type Identity = { checked: boolean; ok: boolean; mismatches: string[]; checkedAt?: number };
 
 // A holder's signed line on a token's wall (server-verified: signature + balanceOf > 0 at post time).
-export type WallEntry = { address: Address; text: string; time: number; balance?: string };
+// `hidden` is set by a moderator's signed message; a new line from the same wallet un-hides it.
+export type WallEntry = { address: Address; text: string; time: number; balance?: string; hidden?: boolean };
+
+// A wallet's signed profile (name / bio / X handle without the @); updatedAt = the signed time.
+export type Profile = { name: string; bio: string; x: string; updatedAt: number };
 
 type Snapshot = {
   checkpoint: string; // live cursor: last block scanned at the head
@@ -107,6 +111,11 @@ type Snapshot = {
   rescansDone?: string[];
   wall?: Record<string, WallEntry[]>; // token → entries
   logos?: Record<string, string>; // token → creator-signed logo URL (overrides the on-chain logo in views)
+  profiles?: Record<string, Profile>; // address → signed profile
+  balances?: Record<string, Record<string, string>>; // token → holder → balance (from Transfer events)
+  transfers?: string[]; // txHash:logIndex of every Transfer already applied (idempotent rescans)
+  transferCursor?: string; // last block whose token Transfers were back-filled (history runs up to the live cursor)
+  factory?: string; // the factory this index was built from; a different one means "start over"
 };
 
 const SNAPSHOT = process.env.SNAPSHOT_PATH ?? "./radian-index.json";
@@ -130,6 +139,14 @@ class Store {
   rescansDone = new Set<string>();
   wall = new Map<string, WallEntry[]>();
   logos = new Map<string, string>();
+  profiles = new Map<string, Profile>();
+  balances = new Map<string, Map<string, bigint>>();
+  private transferKeys = new Set<string>();
+  transferCursor = 0n;
+  /** the factory address recorded in the loaded snapshot ("" when none) */
+  loadedFactory = "";
+  /** the factory this process indexes (set by the scanner; written into the snapshot) */
+  factory = "";
   identity: Identity = { checked: false, ok: true, mismatches: [] };
   private flywheelKeys = new Set<string>();
   private curveIndex = new Map<string, Launch>();
@@ -160,6 +177,15 @@ class Store {
         for (const r of s.rescansDone ?? []) this.rescansDone.add(r);
         for (const [k, v] of Object.entries(s.wall ?? {})) this.wall.set(k.toLowerCase(), v);
         for (const [k, v] of Object.entries(s.logos ?? {})) this.logos.set(k.toLowerCase(), v);
+        for (const [k, v] of Object.entries(s.profiles ?? {})) this.profiles.set(k.toLowerCase(), v);
+        for (const [tok, holders] of Object.entries(s.balances ?? {})) {
+          const m = new Map<string, bigint>();
+          for (const [h, b] of Object.entries(holders)) m.set(h, BigInt(b));
+          this.balances.set(tok.toLowerCase(), m);
+        }
+        for (const k of s.transfers ?? []) this.transferKeys.add(k);
+        this.transferCursor = BigInt(s.transferCursor || "0");
+        this.loadedFactory = (s.factory ?? "").toLowerCase();
         console.log(
           `[store] loaded ${path === BACKUP ? "BACKUP " : ""}snapshot: ${this.launches.size} launches, ${this.trades.length} trades (${(s.trades ?? []).length} rows), checkpoint ${this.checkpoint}, backfill ${this.backfillCursor}/${this.backfillFrom}`,
         );
@@ -185,6 +211,11 @@ class Store {
       rescansDone: [...this.rescansDone],
       wall: Object.fromEntries(this.wall),
       logos: Object.fromEntries(this.logos),
+      profiles: Object.fromEntries(this.profiles),
+      balances: Object.fromEntries([...this.balances].map(([tok, m]) => [tok, Object.fromEntries([...m].filter(([, b]) => b !== 0n).map(([h, b]) => [h, b.toString()]))])),
+      transfers: [...this.transferKeys],
+      transferCursor: this.transferCursor.toString(),
+      factory: this.factory || this.loadedFactory,
     };
     const tmp = `${SNAPSHOT}.tmp`;
     try {
@@ -283,6 +314,68 @@ class Store {
   recentTrades(limit = 50) {
     return [...this.trades].sort((a, b) => b.ts - a.ts).slice(0, limit);
   }
+
+  /**
+   * Applies one ERC-20 Transfer of a launch token to the holder balances. Keyed by
+   * txHash:logIndex, so a rescanned block changes nothing. Mints (from zero) and
+   * burns (to zero) only touch the other side.
+   */
+  applyTransfer(token: string, from: string, to: string, value: bigint, key: string): boolean {
+    const k = key.toLowerCase();
+    if (this.transferKeys.has(k)) return false;
+    this.transferKeys.add(k);
+    const tok = token.toLowerCase();
+    let m = this.balances.get(tok);
+    if (!m) {
+      m = new Map();
+      this.balances.set(tok, m);
+    }
+    const f = from.toLowerCase();
+    const t = to.toLowerCase();
+    if (f !== ZERO_LC) m.set(f, (m.get(f) ?? 0n) - value);
+    if (t !== ZERO_LC) m.set(t, (m.get(t) ?? 0n) + value);
+    return true;
+  }
+
+  /** Wallets holding the token right now, minus the contracts in `excluded` (curve, locker, pool…). */
+  holderCount(token: string, excluded: Set<string>): number {
+    const m = this.balances.get(token.toLowerCase());
+    if (!m) return 0;
+    let n = 0;
+    for (const [h, b] of m) if (b > 0n && !excluded.has(h)) n++;
+    return n;
+  }
+  /** Whether any Transfer of this token has been seen (an index with no rows says "unknown", not 0). */
+  hasBalances(token: string): boolean {
+    return this.balances.has(token.toLowerCase());
+  }
+
+  /**
+   * Forgets everything derived from the chain (cursors, launches, trades, ledgers, balances) while
+   * keeping what people signed off-chain (wall, logos, profiles) and the agent auths. Used when the
+   * configured factory differs from the one the snapshot was built from.
+   */
+  resetIndex() {
+    this.checkpoint = 0n;
+    this.backfillFrom = 0n;
+    this.backfillCursor = 0n;
+    this.launches.clear();
+    this.curveIndex.clear();
+    this.trades = [];
+    this.byEvent.clear();
+    this.legacyRows.clear();
+    this.flywheel = [];
+    this.flywheelKeys.clear();
+    this.pound = [];
+    this.poundKeys.clear();
+    this.referrers.clear();
+    this.rescansDone.clear();
+    this.balances.clear();
+    this.transferKeys.clear();
+    this.transferCursor = 0n;
+  }
 }
+
+const ZERO_LC = "0x0000000000000000000000000000000000000000";
 
 export const store = new Store();

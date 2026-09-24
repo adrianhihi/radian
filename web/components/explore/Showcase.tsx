@@ -94,7 +94,7 @@ export function Showcase({ rows }: { rows: LaunchRow[] }) {
             </div>
             <p className="mono-label mt-2 truncate text-[13px] text-muted">{r.name}</p>
             <div className="mt-3">
-              <CreatorChip address={r.deployer} />
+              <CreatorChip address={r.deployer} name={r.creatorName} />
             </div>
           </div>
           <div className="flex min-w-0 flex-col gap-3">

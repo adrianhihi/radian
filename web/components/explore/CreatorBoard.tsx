@@ -20,7 +20,7 @@ export function CreatorBoard({ rows }: { rows: CreatorRow[] }) {
               <span className="tnum w-5 flex-none text-center text-xs text-ink-3">{i + 1}</span>
               <AddressAvatar address={r.addr} size={40} />
               <span className="min-w-0 flex-1">
-                <span className="tnum block truncate text-[15px] text-ink">{shortAddr(r.addr)}</span>
+                <span className={`block truncate text-[15px] text-ink ${r.top.creatorName ? "" : "tnum"}`}>{r.top.creatorName || shortAddr(r.addr)}</span>
                 <span className="mono-label mt-1 block truncate text-[10.5px] tracking-[.08em] text-ink-3">
                   {t("explore.creatorTop", { sym: r.top.symbol })}
                   {" · "}

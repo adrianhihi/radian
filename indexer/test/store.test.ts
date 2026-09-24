@@ -102,3 +102,28 @@ test("wall entries and creator logos persist across a snapshot, keyed by lower-c
   assert.deepEqual(fresh.wall.get("0xt0ken"), [{ address: "0xAbC", text: "diamond hands", time: 5000, balance: "10" }]);
   assert.equal(fresh.logos.get("0xt0ken"), "https://img.example/abc.png");
 });
+
+test("holder balances follow Transfer events once per event, and the index reset keeps signed data", () => {
+  const T = "0xT0KEN";
+  assert.equal(store.hasBalances(T), false);
+  assert.ok(store.applyTransfer(T, "0x0000000000000000000000000000000000000000", "0xCURVE", 1000n, "0xh1:0"));
+  assert.ok(store.applyTransfer(T, "0xCURVE", "0xAlice", 600n, "0xh2:0"));
+  assert.ok(store.applyTransfer(T, "0xCURVE", "0xBob", 400n, "0xh2:1"));
+  assert.equal(store.applyTransfer(T, "0xCURVE", "0xBob", 400n, "0xh2:1"), false, "same event applied once");
+  assert.ok(store.applyTransfer(T, "0xBob", "0xAlice", 400n, "0xh3:0"));
+  const ex = new Set(["0xcurve"]);
+  assert.equal(store.holderCount(T, ex), 1, "bob is at zero, the curve is excluded");
+  store.profiles.set("0xalice", { name: "Alice", bio: "", x: "alice", updatedAt: 1 });
+  store.save();
+  const fresh = new (Object.getPrototypeOf(store).constructor)();
+  fresh.load();
+  assert.equal(fresh.holderCount(T, ex), 1);
+  assert.equal(fresh.applyTransfer(T, "0xBob", "0xAlice", 400n, "0xh3:0"), false, "transfer keys survive the snapshot");
+  assert.equal(fresh.profiles.get("0xalice")?.name, "Alice");
+  fresh.resetIndex();
+  assert.equal(fresh.launches.size, 0);
+  assert.equal(fresh.trades.length, 0);
+  assert.equal(fresh.hasBalances(T), false);
+  assert.equal(fresh.profiles.get("0xalice")?.name, "Alice", "profiles survive a reset");
+  assert.ok(fresh.wall.get("0xt0ken")?.length, "wall survives a reset");
+});

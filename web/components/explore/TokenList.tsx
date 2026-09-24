@@ -64,6 +64,9 @@ function Row({ row: r, rank, open, onToggle }: { row: LaunchRow; rank: number; o
           <Stat value={has ? pct(r.change24h as number) : "—"} label={t("explore.colChange")} tone={!has ? "text-ink-3" : (r.change24h as number) >= 0 ? "text-brand" : "text-neg"} width="w-[72px] nav:w-[90px]" />
           <Stat value={`${p}%`} label={t("explore.colProgress")} tone={r.graduated ? "text-signal" : ""} width="w-[64px] nav:w-[80px]" />
           <span className="hidden nav:block">
+            <Stat value={typeof r.holders === "number" ? r.holders.toLocaleString("en-US") : "—"} label={t("explore.colHolders")} tone={typeof r.holders === "number" ? "" : "text-ink-3"} width="w-[72px]" />
+          </span>
+          <span className="hidden nav:block">
             <Stat value={`${Number(formatUnits(r.trackedQuote, r.quoteDecimals)).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${r.quoteSymbol}`} label={t("explore.colReserve")} width="w-[140px]" />
           </span>
         </span>
@@ -118,7 +121,7 @@ function Expanded({ row: r, id }: { row: LaunchRow; id: string }) {
       <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12px] text-muted">
         <span className="tnum">{td("tcard.trades24", { n: r.trades24h ?? 0 })}</span>
         <span className="inline-flex items-center gap-2">
-          {t("explore.byCreator")} <CreatorChip address={r.deployer} />
+          {t("explore.byCreator")} <CreatorChip address={r.deployer} name={r.creatorName} />
         </span>
       </div>
 

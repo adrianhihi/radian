@@ -159,6 +159,8 @@ export type LaunchRow = {
   volume24h?: number; // quote units
   trades24h?: number;
   createdAt?: number; // ms
+  creatorName?: string; // the deployer's signed profile name (indexer); "" when none
+  holders?: number | null; // wallets holding it now (indexer); null = not counted yet
 };
 
 // Which launch template a token used, and where its per-launch contracts live.

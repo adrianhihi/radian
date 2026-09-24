@@ -9,8 +9,10 @@ export const INDEXER_URL = getActiveNetwork().indexerUrl.replace(/\/$/, "");
 
 export const hasIndexer = () => INDEXER_URL.length > 0;
 
-async function get<T>(path: string): Promise<T> {
-  const r = await fetch(`${INDEXER_URL}${path}`, { cache: "no-store" });
+// Public lists carry a short Cache-Control from the indexer, so the browser may reuse a response
+// for a few seconds across pages; per-wallet reads ask for a fresh one.
+async function get<T>(path: string, fresh = false): Promise<T> {
+  const r = await fetch(`${INDEXER_URL}${path}`, fresh ? { cache: "no-store" } : undefined);
   if (!r.ok) throw new Error(`indexer ${path} ${r.status}`);
   return (await r.json()) as T;
 }
@@ -39,6 +41,8 @@ type ApiLaunch = {
   volume24h?: number;
   trades24h?: number;
   createdAt?: number;
+  creatorName?: string;
+  holders?: number | null;
 };
 
 // Wire shape of a launch's template. Anything unexpected → null (Standard).
@@ -78,6 +82,8 @@ export async function fetchLaunches(): Promise<LaunchRow[]> {
     volume24h: typeof l.volume24h === "number" ? l.volume24h : 0,
     trades24h: typeof l.trades24h === "number" ? l.trades24h : 0,
     createdAt: typeof l.createdAt === "number" ? l.createdAt : undefined,
+    creatorName: typeof l.creatorName === "string" ? l.creatorName : "",
+    holders: typeof l.holders === "number" ? l.holders : null,
   }));
 }
 

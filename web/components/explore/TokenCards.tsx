@@ -20,7 +20,7 @@ export type CardView = "curve" | "graph";
 const fmtQ = (v: bigint, dec: number, digits = 2) => Number(formatUnits(v, dec)).toLocaleString(undefined, { maximumFractionDigits: digits });
 
 /** Creator chip: avatar + short address, linking to the creator's page. */
-export function CreatorChip({ address }: { address: string }) {
+export function CreatorChip({ address, name }: { address: string; name?: string }) {
   const t = useT();
   return (
     <Link
@@ -29,7 +29,7 @@ export function CreatorChip({ address }: { address: string }) {
       className="mono-label inline-flex flex-none items-center gap-1.5 rounded-full border border-stroke bg-glass-2 py-1 pl-1 pr-2.5 text-[10.5px] text-muted transition-colors hover:border-brand hover:text-ink"
     >
       <AddressAvatar address={address} size={18} />
-      {shortAddr(address)}
+      {name || shortAddr(address)}
     </Link>
   );
 }
@@ -159,7 +159,7 @@ export function TokenCard({ row, view = "curve", badge = false }: { row: LaunchR
           ${row.symbol} <span className="mono-label text-[12.5px] font-normal tracking-normal text-muted">{row.name}</span>
         </h3>
         <span className="ml-auto">
-          <CreatorChip address={row.deployer} />
+          <CreatorChip address={row.deployer} name={row.creatorName} />
         </span>
       </div>
 

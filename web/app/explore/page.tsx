@@ -36,6 +36,7 @@ const SORT_LABEL: Record<ExploreSort, TKey> = {
   top: "explore.sortTop",
   change: "explore.sortChange",
   value: "explore.sortValue",
+  holders: "explore.sortHolders",
   newest: "explore.sortNewest",
   progress: "explore.sortProgress",
 };
@@ -218,7 +219,7 @@ export default function ExplorePage() {
               <>
                 {noData && list.length > 0 && (
                   <p role="status" className="mb-4 rounded-xl border border-stroke bg-glass-2 px-4 py-3 text-[13px] leading-[1.7] text-muted">
-                    {t(controls.sort === "change" ? "explore.noChange" : "explore.noNewest")}
+                    {t(controls.sort === "change" ? "explore.noChange" : controls.sort === "holders" ? "explore.noHolders" : "explore.noNewest")}
                   </p>
                 )}
                 {list.length ? (

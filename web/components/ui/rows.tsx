@@ -50,8 +50,10 @@ export function ChipGroup<T extends string | number>({ options, value, onChange,
   );
 }
 
-export function Spinner({ size = 14 }: { size?: number }) {
-  return <span aria-hidden="true" className="inline-block animate-spin rounded-full border-2 border-stroke-2 border-t-brand" style={{ width: size, height: size }} />;
+/** A ring spinner. With `label` it is announced (`role="status"`); without, it is decoration next to text. */
+export function Spinner({ size = 14, label }: { size?: number; label?: string }) {
+  const a11y = label ? { role: "status" as const, "aria-label": label } : { "aria-hidden": true as const };
+  return <span {...a11y} className="inline-block animate-spin rounded-full border-2 border-stroke-2 border-t-brand" style={{ width: size, height: size }} />;
 }
 
 /** A small "sign in" fallback for panels that act on the wallet. */

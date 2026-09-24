@@ -3,7 +3,7 @@
 // and tested on their own.
 import type { LaunchRow } from "./radian";
 
-export const EXPLORE_SORTS = ["top", "change", "value", "newest", "progress"] as const;
+export const EXPLORE_SORTS = ["top", "change", "value", "holders", "newest", "progress"] as const;
 export type ExploreSort = (typeof EXPLORE_SORTS)[number];
 
 export interface ExploreControls {
@@ -37,7 +37,13 @@ export function filterSortLaunches(rows: LaunchRow[], controls: Partial<ExploreC
     desc(a.graduated ? 1 : a.progress, b.graduated ? 1 : b.progress) || desc(num(a.volume24h), num(b.volume24h)) || desc(reserveOf(a), reserveOf(b)) || byIndex(a, b);
 
   const list = rows.filter((r) => {
-    const okQ = !query || r.name.toLowerCase().includes(query) || r.symbol.toLowerCase().includes(query) || r.deployer.toLowerCase().includes(query);
+    const okQ =
+      !query ||
+      r.name.toLowerCase().includes(query) ||
+      r.symbol.toLowerCase().includes(query) ||
+      r.deployer.toLowerCase().includes(query) ||
+      r.quoteSymbol.toLowerCase().includes(query) ||
+      (r.creatorName ?? "").toLowerCase().includes(query);
     const okQuote = quote === "all" || r.pairToken.toLowerCase() === quote;
     return okQ && okQuote;
   });
@@ -46,6 +52,7 @@ export function filterSortLaunches(rows: LaunchRow[], controls: Partial<ExploreC
     top,
     change: (a, b) => desc(num(a.change24h), num(b.change24h)) || top(a, b),
     value: (a, b) => desc(reserveOf(a), reserveOf(b)) || byIndex(a, b),
+    holders: (a, b) => desc(num(a.holders), num(b.holders)) || top(a, b),
     newest: (a, b) => desc(num(a.createdAt), num(b.createdAt)) || top(a, b),
     progress: (a, b) => desc(a.graduated ? -1 : a.progress, b.graduated ? -1 : b.progress) || byIndex(a, b),
   };
@@ -56,6 +63,7 @@ export function filterSortLaunches(rows: LaunchRow[], controls: Partial<ExploreC
 export function sortHasData(rows: LaunchRow[], sort: ExploreSort): boolean {
   if (sort === "change") return rows.some((r) => num(r.change24h) != null);
   if (sort === "newest") return rows.some((r) => num(r.createdAt) != null);
+  if (sort === "holders") return rows.some((r) => num(r.holders) != null);
   return true;
 }
 

@@ -357,6 +357,17 @@ export const curveGradAbi = parseAbi([
   "function sellableTokens() view returns (uint256)",
 ]);
 export const lockerAbi = parseAbi(["function isLocked(address token) view returns (bool)"]);
+export const ownerAbi = parseAbi(["function owner() view returns (address)"]);
+// The ERC-20 Transfer event of every launch token, for holder counts.
+export const erc20TransferEvent = parseAbi(["event Transfer(address indexed from, address indexed to, uint256 value)"])[0];
+// The canonical Uniswap V4 PoolManager on this chain: after graduation it holds the pool's tokens,
+// so it must never count as a holder. Arc testnet runs our own deployment; the Robinhood chains
+// share the canonical address.
+export const POOL_MANAGER = (process.env.POOL_MANAGER ?? (IS_ARC_TESTNET ? "0x24219d0F3611fE4E438850bB7DB165439957dc9f" : "0x8366a39CC670B4001A1121B8F6A443A643e40951")) as Address;
+// Blocks behind the head the live cursor stays, so a reorg never leaves phantom rows.
+export const CONFIRMATIONS = BigInt(process.env.CONFIRMATIONS ?? 2);
+// Wallets allowed to hide a holder-wall line besides the factory owner (comma-separated).
+export const WALL_MODERATORS = (process.env.WALL_MODERATORS ?? "").split(",").map((a) => a.trim().toLowerCase()).filter(Boolean);
 export const LOCKER = (process.env.LOCKER ?? (IS_ARC_TESTNET ? "0x7efb5B773BBbf69Bd163b52b1BA88C529a0f123c" : "0x0000000000000000000000000000000000000000")) as Address;
 
 // ---- The Pound (2026-09-22) ----

@@ -59,7 +59,7 @@ export function statsOf(row: LaunchRow | undefined, trades: TokenTrade[]) {
     const pts = sparkValues(sparkOf(row, trades), "24H");
     change24h = pts.length >= 2 && pts[0] > 0 ? ((pts[pts.length - 1] - pts[0]) / pts[0]) * 100 : null;
   }
-  return { volume24h, trades24h, change24h, createdAt: row?.createdAt };
+  return { volume24h, trades24h, change24h, createdAt: row?.createdAt, holders: typeof row?.holders === "number" ? row.holders : null };
 }
 
 /** Bonding progress. */
@@ -159,6 +159,7 @@ export function StatsRow({ st, stats }: { st: TokenState; stats: ReturnType<type
     [t("detail.stTrades", { n: stats.trades24h }), ""],
   ];
   if (days != null) chips.push([t("detail.stLaunched"), days < 1 ? t("detail.today") : t("detail.daysAgo", { n: days })]);
+  if (stats.holders != null) chips.push([t("detail.stHolders"), stats.holders.toLocaleString("en-US")]);
   return (
     <div className="border-b border-stroke p-5">
       <dl className="grid grid-cols-2 overflow-hidden rounded-[14px] border border-stroke nav:grid-cols-4">
