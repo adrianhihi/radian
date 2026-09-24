@@ -14,7 +14,7 @@ export interface NavItem {
 
 export const NAV: NavItem[] = [
   { name: "portfolio", href: "/portfolio" },
-  { name: "explore", href: "/" },
+  { name: "explore", href: "/explore" },
   { name: "launch", href: "/launch" },
   { name: "learn", href: "/docs" },
 ];
@@ -58,7 +58,7 @@ const NAV_NAMES = new Set([...NAV.map((n) => n.name), MORE_NAME]);
 /** First path segment → route name used for crumbs. "/" is the explore page during phase 0. */
 export function routeNameOf(pathname: string): string {
   const seg = pathname.split("/").filter(Boolean)[0];
-  if (!seg) return "explore";
+  if (!seg) return "explore"; // the landing takes "/" in phase 1b; until then the old list lives there
   if (seg === "docs") return "learn";
   // Object.hasOwn, not `in`: `in` walks the prototype chain (/constructor, /toString…)
   return NAV_NAMES.has(seg) || Object.hasOwn(SUB, seg) ? seg : "explore";

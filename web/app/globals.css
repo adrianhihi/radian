@@ -420,7 +420,7 @@ a { color: inherit; text-decoration: none; }
 .section-head p { color: var(--fg-dim); margin: 8px 0 0; font-size: 15px; max-width: 520px; }
 
 /* ---- token grid ---- */
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(288px, 1fr)); gap: 18px; }
+.token-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(288px, 1fr)); gap: 18px; }
 .card {
   background: linear-gradient(180deg, var(--panel), var(--panel-2));
   border: 1px solid var(--border-soft); border-radius: 18px; padding: 18px;

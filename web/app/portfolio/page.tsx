@@ -226,7 +226,7 @@ export default function PortfolioPage() {
                     <p>Tokens you created. You earn 70% of every trade fee (35% with Buyback &amp; Lock on).</p>
                   </div>
                 </div>
-                <div className="grid">
+                <div className="token-grid">
                   {created.map((r, i) => (
                     <Link key={r.token} href={`/token/${r.token}`} className="card reveal" data-reveal-delay={(i % 3) * 80}>
                       <div className="card-top">

@@ -176,7 +176,7 @@ export default function Home() {
               )}
             </div>
           ) : (
-            <div className="grid">
+            <div className="token-grid">
               {shown.map((row, i) => (
                 <TokenCard key={row.token} row={row} delay={(i % 3) * 90} />
               ))}

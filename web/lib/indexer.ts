@@ -33,6 +33,12 @@ type ApiLaunch = {
   quoteSymbol: string;
   quoteDecimals: number;
   template?: ApiTemplate | null;
+  spark?: [number, number][];
+  lastPrice?: number | null;
+  change24h?: number | null;
+  volume24h?: number;
+  trades24h?: number;
+  createdAt?: number;
 };
 
 // Wire shape of a launch's template. Anything unexpected → null (Standard).
@@ -66,6 +72,12 @@ export async function fetchLaunches(): Promise<LaunchRow[]> {
     quoteDecimals: l.quoteDecimals ?? 18,
     pairToken: l.pairToken ?? "0x0000000000000000000000000000000000000000",
     template: parseTemplate(l.template),
+    spark: Array.isArray(l.spark) ? l.spark : [],
+    lastPrice: typeof l.lastPrice === "number" ? l.lastPrice : null,
+    change24h: typeof l.change24h === "number" ? l.change24h : null,
+    volume24h: typeof l.volume24h === "number" ? l.volume24h : 0,
+    trades24h: typeof l.trades24h === "number" ? l.trades24h : 0,
+    createdAt: typeof l.createdAt === "number" ? l.createdAt : undefined,
   }));
 }
 

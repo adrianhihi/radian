@@ -152,6 +152,13 @@ export type LaunchRow = {
   pairToken: Address; // 0x0 for native
   // Launch template (indexer-derived); undefined/null = Standard.
   template?: LaunchTemplate | null;
+  // Trade-log facts from the indexer (absent on the chain-read fallback).
+  spark?: [number, number][]; // [ts ms, quote per token]
+  lastPrice?: number | null;
+  change24h?: number | null; // percent; null = fewer than two trades
+  volume24h?: number; // quote units
+  trades24h?: number;
+  createdAt?: number; // ms
 };
 
 // Which launch template a token used, and where its per-launch contracts live.

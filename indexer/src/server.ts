@@ -103,13 +103,63 @@ export function startServer() {
 
   const decOf = (token: string) => store.launches.get(token.toLowerCase())?.quoteDecimals ?? 18;
 
-  const launchView = () =>
-    [...store.launches.values()]
+  // Per-token price facts from the trade log, for the explore lists: a spark
+  // series of [ts, price] (quote per token, last 60 trades), the last price,
+  // the 24h change (vs the last trade at or before 24h ago; a token younger
+  // than that measures from its first trade), 24h volume and trade count.
+  type TokenStats = { spark: [number, number][]; lastPrice: number | null; change24h: number | null; volume24h: number; trades24h: number };
+  const tradeStats = (): Map<string, TokenStats> => {
+    const since = Date.now() - 86_400_000;
+    const by = new Map<string, typeof store.trades>();
+    for (const t of store.trades) {
+      const k = t.token.toLowerCase();
+      const list = by.get(k);
+      if (list) list.push(t);
+      else by.set(k, [t]);
+    }
+    const out = new Map<string, TokenStats>();
+    for (const [k, list] of by) {
+      list.sort((a, b) => a.ts - b.ts);
+      const dec = decOf(k);
+      const pts: [number, number][] = [];
+      for (const t of list) {
+        const q = Number(t.quote) / 10 ** dec;
+        const tok = Number(t.tokens) / 1e18;
+        if (tok > 0 && q > 0) pts.push([t.ts, q / tok]);
+      }
+      const last = pts.length ? pts[pts.length - 1][1] : null;
+      let ref: number | null = null;
+      for (const p of pts) {
+        if (p[0] <= since) ref = p[1];
+        else break;
+      }
+      if (ref == null && pts.length > 1) ref = pts[0][1];
+      const recent = list.filter((t) => t.ts >= since);
+      out.set(k, {
+        spark: pts.slice(-60),
+        lastPrice: last,
+        change24h: last != null && ref != null && ref > 0 ? (last / ref - 1) * 100 : null,
+        volume24h: recent.reduce((s, t) => s + Number(t.quote) / 10 ** dec, 0),
+        trades24h: recent.length,
+      });
+    }
+    return out;
+  };
+
+  const launchView = () => {
+    const stats = tradeStats();
+    return [...store.launches.values()]
       .map((l) => {
         // progress is a ratio of same-unit values, so decimals cancel out
         const tq = Number(l.trackedQuote ?? "0");
         const goal = Number(l.graduationThreshold ?? "0");
+        const st = stats.get(l.token.toLowerCase());
         return {
+          spark: st?.spark ?? [],
+          lastPrice: st?.lastPrice ?? null,
+          change24h: st?.change24h ?? null,
+          volume24h: st?.volume24h ?? 0,
+          trades24h: st?.trades24h ?? 0,
           token: l.token,
           curve: l.curve,
           deployer: l.deployer,
@@ -133,6 +183,7 @@ export function startServer() {
       })
       // newest first (by createdAt when known, else by reserve)
       .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0) || Number(BigInt(b.trackedQuote) - BigInt(a.trackedQuote)));
+  };
 
   app.get("/health", (_req, res) => {
     res.json({ ok: true, checkpoint: store.checkpoint.toString(), launches: store.launches.size, trades: store.trades.length, ledger: store.flywheel.length, identity: store.identity });

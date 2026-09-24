@@ -199,7 +199,7 @@ export default function FactoryPage() {
             <div className="panel reveal" style={{ marginTop: 18 }}>
               <h3 style={{ fontSize: 18, marginBottom: 6 }}>Templates</h3>
               <p className="hint" style={{ marginTop: 0, marginBottom: 14 }}>Every template uses the same factory and curve. A template only decides where the creator slice of fees goes. Per-launch contracts are clones of the implementations listed here.</p>
-              <div className="grid">
+              <div className="token-grid">
                 {[
                   { name: "Standard", n: total - walls - pofs, d: "Fees go to the creator, or to a locked buyback if the creator chose that.", impls: [] as { l: string; a: string }[] },
                   { name: "The Wall", n: walls, d: "Fees fund a treasury that buys the token back on the curve below book value, then runs a bid ladder on Uniswap V4 after graduation. Stakers earn a stream.", impls: [{ l: "WallTreasury", a: net.contracts.wallTreasuryImpl }, { l: "WallStaking", a: net.contracts.wallStakingImpl }, { l: "WallLadder", a: net.contracts.wallLadderImpl }] },
