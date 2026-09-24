@@ -591,12 +591,15 @@ export async function tick(): Promise<boolean> {
     // Holder balances for the history before this feature existed: address-filtered Transfer logs
     // from the deploy block up to the live cursor, a bounded slice per tick (dedupe makes overlap
     // with the live scan harmless). Only once launches are known — the filter is their addresses.
-    if (store.launches.size > 0 && store.transferCursor < store.checkpoint) {
+    // eth_getLogs only: in receipts mode (Arc) the RPC rejects log queries, so balances are tracked
+    // from the receipts of the live scan onward and holders stay "not counted yet" for older history.
+    if (SCAN_MODE === "logs" && store.launches.size > 0 && store.transferCursor < store.checkpoint) {
       const tFrom = store.transferCursor > 0n ? store.transferCursor + 1n : FACTORY_DEPLOY_BLOCK > 0n ? FACTORY_DEPLOY_BLOCK : store.backfillCursor + 1n;
       const tTo = store.checkpoint - tFrom > TRANSFER_BLOCKS_PER_TICK ? tFrom + TRANSFER_BLOCKS_PER_TICK : store.checkpoint;
+      const wasBehind = store.checkpoint - tFrom > TRANSFER_BLOCKS_PER_TICK;
       if (tFrom <= tTo) await collectTransfers(tFrom, tTo);
       store.transferCursor = tTo;
-      if (store.transferCursor >= store.checkpoint) console.log("[scan] holder balances back-filled");
+      if (wasBehind && store.transferCursor >= store.checkpoint) console.log("[scan] holder balances back-filled");
     }
 
     // Backfill: a bounded slice of history per tick.
@@ -612,7 +615,7 @@ export async function tick(): Promise<boolean> {
 
     const behind = head - store.checkpoint;
     const left = store.backfillFrom > store.backfillCursor ? store.backfillFrom - store.backfillCursor : 0n;
-    const tLeft = store.launches.size > 0 && store.checkpoint > store.transferCursor ? store.checkpoint - store.transferCursor : 0n;
+    const tLeft = SCAN_MODE === "logs" && store.launches.size > 0 && store.checkpoint > store.transferCursor ? store.checkpoint - store.transferCursor : 0n;
     busy = behind > LIVE_BLOCKS_PER_TICK || left > 0n || tLeft > TRANSFER_BLOCKS_PER_TICK;
     console.log(
       `[scan] head ${head} live ${store.checkpoint} (${behind} behind)` +
