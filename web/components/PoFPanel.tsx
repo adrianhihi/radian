@@ -16,6 +16,7 @@ import { useRadianWallet } from "@/lib/useRadianWallet";
 import type { IdentityResult } from "@/lib/identity";
 import { waitReceipt, ReceiptTimeout } from "@/lib/pendingTx";
 import { recordTx } from "@/lib/txLog";
+import { txErrorText } from "@/lib/txError";
 
 const MAX_CLAIM = 100; // rounds per claim() call
 const SCAN_ROUNDS = 300; // most recent active rounds we look at per refresh
@@ -153,8 +154,7 @@ export function PoFPanel({ token, symbol, vault, pofRouter, quote, identity, onT
         onPending(e.hash);
         onToast(t("trade.pending"));
       } else {
-        const err = e as { shortMessage?: string; message?: string };
-        onToast(err?.shortMessage ?? err?.message ?? t("portfolio.claimFailed"));
+        onToast(txErrorText(t, e, { fallback: t("portfolio.claimFailed") }));
       }
     } finally {
       setBusy(false);

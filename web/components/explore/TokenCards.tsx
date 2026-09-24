@@ -168,7 +168,7 @@ export function TokenCard({ row, view = "curve", badge = false }: { row: LaunchR
       <div className="mt-auto flex flex-wrap items-center gap-3 pt-4">
         <ChangePill value={row.change24h} />
         <span className="tnum mono-label text-[11px] text-muted">{td("tcard.trades24", { n: row.trades24h ?? 0 })}</span>
-        <Link href={href} aria-label={`${row.name}`} className="mono-label ml-auto rounded-lg border border-stroke-2 px-3 py-1.5 text-[10.5px] tracking-[.12em] text-ink-2 transition-colors hover:border-brand hover:text-brand">
+        <Link href={href} aria-label={t("tcard.openAria", { name: row.name })} className="mono-label ml-auto rounded-lg border border-stroke-2 px-3 py-1.5 text-[10.5px] tracking-[.12em] text-ink-2 transition-colors hover:border-brand hover:text-brand">
           {t("explore.openToken")}
         </Link>
       </div>

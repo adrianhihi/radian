@@ -9,11 +9,13 @@
 //
 // The quote mirrors PonsV2BondingCurve exactly (lib/useTrade quoteBuy / quoteSell);
 // `minOut` is handed to the contract, which enforces it on chain.
-import { ChevronDown } from "lucide-react";
+import { Check, ChevronDown, ExternalLink } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatUnits, parseEther, parseUnits, type Address, type Hex } from "viem";
 import { useT } from "@/components/LangProvider";
 import { PrimaryButton } from "@/components/ui/primitives";
+import { Spinner } from "@/components/ui/rows";
+import { txErrorText } from "@/lib/txError";
 import { FlipButton, PayCard, QuoteLine, ReceiveCard, TokenPill } from "./SwapCards";
 import { publicClient, erc20Abi, explorer, hasPound, activeNetwork, type LaunchTemplate } from "@/lib/radian";
 import { useRadianWallet } from "@/lib/useRadianWallet";
@@ -43,6 +45,10 @@ const BPS = 10_000n;
 const POLL_MS = 4000;
 
 const pctOf = (bps: bigint) => `${(Number(bps) / 100).toFixed(Number(bps) % 100 === 0 ? 0 : 2)}%`;
+// Below this much gas coin a send will fail in the wallet: say so first. Arc pays gas in USDC
+// (a cent or two per transaction), the Robinhood chains in ETH.
+const LOW_GAS = activeNetwork.nativeSymbol === "USDC" ? parseEther("0.05") : parseEther("0.0005");
+const GAS_SYM = activeNetwork.nativeSymbol ?? "USDC";
 
 export function SwapForm({
   tk,
@@ -73,7 +79,7 @@ export function SwapForm({
   const [gasBal, setGasBal] = useState<bigint | null>(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string; hash?: Hex } | null>(null);
 
   // Slippage tolerance is a per-viewer preference.
   useEffect(() => {
@@ -133,11 +139,13 @@ export function SwapForm({
     setAmount(v);
     setMsg(null);
   };
-  const flip = () => {
-    setSide((s) => (s === "buy" ? "sell" : "buy"));
+  const setSideTo = (s: Side) => {
+    if (s === side) return;
+    setSide(s);
     setAmount(""); // the unit changes with the side; a kept number would be the wrong one
     setMsg(null);
   };
+  const flip = () => setSideTo(side === "buy" ? "sell" : "buy");
 
   const inWei = useMemo(() => {
     if (!amount) return 0n;
@@ -171,9 +179,20 @@ export function SwapForm({
     onAmount(formatUnits(v, side === "buy" ? dec : 18));
   };
 
-  // a wallet with no gas coin at all cannot send anything: say so before the wallet does
+  // a wallet with (almost) no gas coin cannot send anything: say so before the wallet does
   const noGas = authenticated && gasBal !== null && gasBal === 0n;
-  const shownError = noGas ? t("trade.noGas", { sym: activeNetwork.nativeSymbol ?? "USDC" }) : !amount ? "" : over ? t("trade.tooMuch") : !q && cs ? t("trade.needAmount") : "";
+  const lowGas = authenticated && gasBal !== null && gasBal > 0n && gasBal < LOW_GAS;
+  const shownError = noGas
+    ? t("trade.noGas", { sym: GAS_SYM })
+    : lowGas
+      ? t("trade.lowGas", { sym: GAS_SYM, v: fmtNum(Number(formatUnits(gasBal, 18)), 4), addr: address ?? "" })
+      : !amount
+        ? ""
+        : over
+          ? t("trade.tooMuch")
+          : !q && cs
+            ? t("trade.needAmount")
+            : "";
   const invalid = !q || over || busy || !identityOk;
 
   const submit = async (e: React.FormEvent) => {
@@ -208,18 +227,17 @@ export function SwapForm({
       );
     const est = fmtOut(q.out);
     try {
-      if (side === "buy") await buy(target, inWei, q.minOut, onStatus);
-      else await sell(target, inWei, q.minOut, onStatus);
-      setMsg({ ok: true, text: side === "buy" ? t("trade.doneBuy", { v: est, sym: tk.symbol }) : t("trade.doneSell", { v: est, sym: tk.quoteSymbol }) });
+      const hash = side === "buy" ? await buy(target, inWei, q.minOut, onStatus) : await sell(target, inWei, q.minOut, onStatus);
+      setMsg({ ok: true, text: side === "buy" ? t("trade.doneBuy", { v: est, sym: tk.symbol }) : t("trade.doneSell", { v: est, sym: tk.quoteSymbol }), hash });
       setAmount("");
       onTraded?.();
       refresh();
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err instanceof ReceiptTimeout) {
-        setMsg({ ok: true, text: t("trade.pending") });
+        setMsg({ ok: true, text: t("trade.pending"), hash: err.hash });
         onPending?.(err.hash);
       } else {
-        setMsg({ ok: false, text: err?.shortMessage ?? err?.message ?? "Failed." });
+        setMsg({ ok: false, text: txErrorText(t, err, { gasSym: GAS_SYM, address: address ?? "" }) });
       }
     } finally {
       setBusy(false);
@@ -269,9 +287,21 @@ export function SwapForm({
   const chip = "flex-1 rounded-[7px] border border-stroke bg-glass-2 px-2 py-2 text-xs text-muted transition-colors hover:border-brand hover:text-brand disabled:opacity-40";
   const inputId = `swap-amount-${tk.token.slice(2, 8)}`;
 
+  const tab = (s: Side) =>
+    `mono-label rounded-full px-3.5 py-1 text-[10.5px] tracking-[.12em] transition-colors ${side === s ? (s === "buy" ? "bg-brand text-night" : "bg-neg text-white") : "text-ink-3 hover:text-ink"}`;
+
   return (
     <>
       <form noValidate onSubmit={submit}>
+        {/* Buy / Sell as tabs as well as the flip button: testers looked for "sell" and did not find the arrow. */}
+        <div role="tablist" aria-label={t("trade.sideAria")} className="mb-3 inline-flex rounded-full border border-stroke-2 bg-glass-2 p-0.5">
+          <button type="button" role="tab" aria-selected={side === "buy"} onClick={() => setSideTo("buy")} className={tab("buy")}>
+            {t("trade.buy")}
+          </button>
+          <button type="button" role="tab" aria-selected={side === "sell"} onClick={() => setSideTo("sell")} className={tab("sell")}>
+            {t("trade.sell")}
+          </button>
+        </div>
         <PayCard
           label={t("trade.youPay")}
           inputId={inputId}
@@ -287,7 +317,7 @@ export function SwapForm({
           trailing={side === "buy" ? <TokenPill>{tk.quoteSymbol}</TokenPill> : picker}
         />
         <FlipButton label={t("trade.flipAria")} onClick={flip} />
-        <ReceiveCard label={t("trade.youReceive")} value={q ? fmtOut(q.out) : "—"} trailing={side === "buy" ? picker : <TokenPill>{tk.quoteSymbol}</TokenPill>} />
+        <ReceiveCard label={t("trade.youReceiveEst")} value={q ? `≈ ${fmtOut(q.out)}` : "—"} trailing={side === "buy" ? picker : <TokenPill>{tk.quoteSymbol}</TokenPill>} />
 
         <div className="my-3 flex gap-2">
           {([0.25, 0.5, 1] as const).map((f) => (
@@ -333,8 +363,14 @@ export function SwapForm({
           <QuoteLine label={t("trade.minOut")} value={q ? `${fmtOut(q.minOut)} ${outSym}` : "—"} />
         </div>
 
-        <p id={`${inputId}-error`} role="status" className="mb-2 min-h-5 text-[13px] leading-[1.6] text-neg">
-          {shownError}
+        <p id={`${inputId}-error`} role="status" className={`mb-2 flex min-h-5 items-center gap-2 text-[13px] leading-[1.6] ${busy && status ? "text-muted" : "text-neg"}`}>
+          {busy && status ? (
+            <>
+              <Spinner size={12} /> {status}
+            </>
+          ) : (
+            shownError
+          )}
         </p>
 
         {!authenticated ? (
@@ -343,7 +379,7 @@ export function SwapForm({
           </PrimaryButton>
         ) : (
           <PrimaryButton type="submit" disabled={invalid}>
-            {busy ? (status ?? "…") : side === "buy" ? (snipeBps > 0n ? t("trade.buyAnyway", { p: pctOf(snipeBps) }) : t("trade.buy")) : t("trade.sell")}
+            {busy && <Spinner size={14} />} {side === "buy" ? (snipeBps > 0n ? t("trade.buyAnyway", { p: pctOf(snipeBps) }) : t("trade.buy")) : t("trade.sell")}
           </PrimaryButton>
         )}
 
@@ -355,8 +391,19 @@ export function SwapForm({
       </form>
 
       {msg && (
-        <div role="status" className={`mt-[15px] rounded-lg p-3 text-[13px] leading-[1.7] ${msg.ok ? "bg-[rgba(108,199,154,.13)] text-pos" : "bg-[rgba(240,102,90,.12)] text-neg"}`}>
-          {msg.text}
+        <div role="status" className={`mt-[15px] flex items-start gap-2 rounded-lg p-3 text-[13px] leading-[1.7] ${msg.ok ? "bg-[rgba(108,199,154,.13)] text-pos" : "bg-[rgba(240,102,90,.12)] text-neg"}`}>
+          {msg.ok && <Check size={14} strokeWidth={2} aria-hidden="true" className="mt-1 flex-none" />}
+          <span className="min-w-0">
+            {msg.text}
+            {msg.hash && (
+              <>
+                {" "}
+                <a href={explorer.tx(msg.hash)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 underline">
+                  {t("trade.viewTx")} <ExternalLink size={11} strokeWidth={1.8} aria-hidden="true" />
+                </a>
+              </>
+            )}
+          </span>
         </div>
       )}
     </>

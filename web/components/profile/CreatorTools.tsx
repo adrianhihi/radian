@@ -15,6 +15,7 @@ import { publicClient, arcTestnet, RADIAN, type LaunchRow } from "@/lib/radian";
 import { useRadianWallet } from "@/lib/useRadianWallet";
 import { waitReceipt, ReceiptTimeout } from "@/lib/pendingTx";
 import { recordTx } from "@/lib/txLog";
+import { txErrorText } from "@/lib/txError";
 import { resizeLogo, uploadLogo } from "@/lib/wall";
 import { shortAddr } from "@/lib/ui/format";
 
@@ -69,8 +70,7 @@ export function CreatorTools({ mine, onPending, onChanged }: { mine: LaunchRow[]
         onPending(e.hash);
         setMsg({ token, text: t("trade.pending"), error: false });
       } else {
-        const err = e as { shortMessage?: string; message?: string };
-        setMsg({ token, text: err?.shortMessage ?? err?.message ?? t("create.failed"), error: true });
+        setMsg({ token, text: txErrorText(t, e, { fallback: t("create.failed") }), error: true });
       }
     } finally {
       setBusy(null);

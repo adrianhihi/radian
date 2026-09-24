@@ -13,7 +13,7 @@ import { Shell } from "@/components/shell/Shell";
 import { useT } from "@/components/LangProvider";
 import { Empty, Footer, OutlineLink } from "@/components/ui/primitives";
 import { DetailHead } from "@/components/token/DetailHead";
-import { ChartTrade, CurveSection, FeesContracts, StatsRow, TradesSection, sparkOf, statsOf } from "@/components/token/DetailBody";
+import { ChartTrade, CurveSection, FeesContracts, SinceCard, StatsRow, TradesSection, sparkOf, statsOf } from "@/components/token/DetailBody";
 import { HolderWall } from "@/components/token/HolderWall";
 import { ZERO_ADDR, type TokenState } from "@/components/token/types";
 import type { TradeToken } from "@/components/trade/SwapForm";
@@ -42,6 +42,12 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
   const [st, setSt] = useState<TokenState | null>(null);
   const [myTokens, setMyTokens] = useState<bigint>(0n);
   const [toast, setToast] = useState<string | null>(null);
+  // A toast says its piece and goes; the timer is cleared when a new one replaces it.
+  useEffect(() => {
+    if (!toast) return;
+    const id = setTimeout(() => setToast(null), 5000);
+    return () => clearTimeout(id);
+  }, [toast]);
   const [notFound, setNotFound] = useState(false);
   const [sunset, setSunset] = useState<Sunset | null>(null);
   const [creator, setCreator] = useState<Address | null>(null);
@@ -271,8 +277,9 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
           )}
 
           <div className="glass-panel mt-6 overflow-hidden rounded-2xl p-0">
+            <SinceCard st={st} spark={spark} />
             <CurveSection st={st} />
-            <ChartTrade st={st} spark={spark} tk={tk} onTraded={afterTrade} onPending={(h) => setPendingHash(h)} />
+            <ChartTrade st={st} spark={spark} tk={tk} onTraded={afterTrade} onPending={(h) => setPendingHash(h)} loaded={tradesLoaded || !hasIndexer()} />
             <StatsRow st={st} stats={stats} />
             {st.quoteAsset.stock && (
               <div className="border-b border-stroke p-5">

@@ -18,6 +18,7 @@ import { useRadianWallet } from "@/lib/useRadianWallet";
 import type { IdentityResult } from "@/lib/identity";
 import { waitReceipt, ReceiptTimeout } from "@/lib/pendingTx";
 import { recordTx } from "@/lib/txLog";
+import { txErrorText } from "@/lib/txError";
 
 type Common = {
   token: Address;
@@ -90,8 +91,7 @@ export function WallTreasuryPanel({ treasury, staking, token, symbol, quote, ide
         onPending(e.hash);
         onToast(t("trade.pending"));
       } else {
-        const err = e as { shortMessage?: string; message?: string };
-        onToast(err?.shortMessage ?? err?.message ?? t("portfolio.claimFailed"));
+        onToast(txErrorText(t, e, { fallback: t("portfolio.claimFailed") }));
       }
     } finally {
       setBusy(false);
@@ -193,8 +193,7 @@ export function WallStakePanel({ staking, token, symbol, quote, identity, onToas
         onPending(e.hash);
         onToast(t("trade.pending"));
       } else {
-        const err = e as { shortMessage?: string; message?: string };
-        onToast(err?.shortMessage ?? err?.message ?? t("create.failed"));
+        onToast(txErrorText(t, e, { fallback: t("create.failed") }));
       }
     } finally {
       setBusy(false);

@@ -89,9 +89,9 @@ function Expanded({ row: r, id }: { row: LaunchRow; id: string }) {
         <div className="min-w-0 flex-1">
           <p className="text-[15px] font-medium leading-[1.5] text-ink">{r.description || t("tcard.noDesc")}</p>
         </div>
-        <a href={explorer.address(r.deployer)} target="_blank" rel="noreferrer" aria-label={t("tcard.creatorAria", { addr: r.deployer })} className="flex-none">
+        <Link href={`/profile/${r.deployer}`} aria-label={t("tcard.creatorAria", { addr: r.deployer })} className="flex-none">
           <AddressAvatar address={r.deployer} size={38} />
-        </a>
+        </Link>
       </div>
 
       <div className="mt-3.5 flex items-center justify-between gap-3">

@@ -29,6 +29,7 @@ import { useIdentity } from "@/lib/identity";
 import { waitReceipt, ReceiptTimeout, usePendingResume } from "@/lib/pendingTx";
 import { buildWallConfig, buildPoFConfig, type PoFConfigInput, type WallConfigInput } from "@/lib/templates";
 import { recordTx } from "@/lib/txLog";
+import { txErrorText } from "@/lib/txError";
 
 const ZERO_ADDR = "0x0000000000000000000000000000000000000000" as Address;
 const ZERO_HASH = "0x0000000000000000000000000000000000000000000000000000000000000000" as Hex;
@@ -329,8 +330,7 @@ export default function CreatePage() {
         setPendingHash(e.hash);
         setToast(t("create.pending"));
       } else {
-        const err = e as { shortMessage?: string; message?: string };
-        setToast(err?.shortMessage ?? err?.message ?? t("create.failed"));
+        setToast(txErrorText(t, e, { fallback: t("create.failed") }));
       }
       setBusy(false);
       setStatus(null);

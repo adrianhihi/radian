@@ -5,9 +5,10 @@
 // shared trade path (router v4 with the referral tag where The Pound runs).
 import { ChevronDown } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { formatUnits, parseUnits } from "viem";
+import { formatUnits, parseUnits, type Hex } from "viem";
 import { useT } from "@/components/LangProvider";
-import { publicClient, erc20Abi, quoteByAddress, type LaunchRow } from "@/lib/radian";
+import { publicClient, erc20Abi, quoteByAddress, explorer, activeNetwork, type LaunchRow } from "@/lib/radian";
+import { txErrorText } from "@/lib/txError";
 import { useRadianWallet } from "@/lib/useRadianWallet";
 import { useTrade, readCurveQuoteState, quoteBuy, type CurveQuoteState } from "@/lib/useTrade";
 import { ReceiptTimeout } from "@/lib/pendingTx";
@@ -24,7 +25,7 @@ export function QuickBuy({ rows, token, onToken }: { rows: LaunchRow[]; token: s
   const [cs, setCs] = useState<CurveQuoteState | null>(null);
   const [balance, setBalance] = useState<bigint | null>(null);
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string; hash?: Hex } | null>(null);
   const [status, setStatus] = useState<string | null>(null);
 
   const quote = row ? quoteByAddress(row.pairToken) : undefined;
@@ -86,14 +87,14 @@ export function QuickBuy({ rows, token, onToken }: { rows: LaunchRow[]; token: s
     setBusy(true);
     setMsg(null);
     try {
-      await buy({ token: row.token, curve: row.curve, pairToken: row.pairToken, native, template: row.template }, inWei, q.minOut, (s) => {
+      const hash = await buy({ token: row.token, curve: row.curve, pairToken: row.pairToken, native, template: row.template }, inWei, q.minOut, (s) => {
         setStatus(s === "approve" ? t("quick.approve", { sym: row.quoteSymbol }) : s === "confirm" ? t("quick.confirm") : s === "sent" ? t("quick.sent") : null);
       });
-      setMsg({ ok: true, text: t("quick.bought", { v: est ?? "", sym: row.symbol }) });
+      setMsg({ ok: true, text: t("quick.bought", { v: est ?? "", sym: row.symbol }), hash });
       setAmount("");
-    } catch (err: any) {
-      if (err instanceof ReceiptTimeout) setMsg({ ok: true, text: t("quick.pending") });
-      else setMsg({ ok: false, text: err?.shortMessage ?? err?.message ?? "Failed." });
+    } catch (err: unknown) {
+      if (err instanceof ReceiptTimeout) setMsg({ ok: true, text: t("quick.pending"), hash: err.hash });
+      else setMsg({ ok: false, text: txErrorText(t, err, { gasSym: activeNetwork.nativeSymbol ?? "USDC", address: address ?? "" }) });
     } finally {
       setBusy(false);
       setStatus(null);
@@ -164,6 +165,14 @@ export function QuickBuy({ rows, token, onToken }: { rows: LaunchRow[]; token: s
       {msg && (
         <div role="status" className={`mt-2 rounded-lg p-2.5 text-[12.5px] leading-[1.6] ${msg.ok ? "bg-[rgba(108,199,154,.13)] text-pos" : "bg-[rgba(240,102,90,.12)] text-neg"}`}>
           {msg.text}
+          {msg.hash && (
+            <>
+              {" "}
+              <a href={explorer.tx(msg.hash)} target="_blank" rel="noreferrer" className="underline">
+                {t("trade.viewTx")} ↗
+              </a>
+            </>
+          )}
         </div>
       )}
     </form>

@@ -19,6 +19,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { formatUnits, type Address, type Hex } from "viem";
 import { useT } from "@/components/LangProvider";
+import { Spinner } from "@/components/ui/rows";
 import { AddressAvatar } from "@/components/ui/AddressAvatar";
 import { DitherChart } from "@/components/ui/DitherChart";
 import { SwapForm, type TradeToken } from "@/components/trade/SwapForm";
@@ -59,7 +60,26 @@ export function statsOf(row: LaunchRow | undefined, trades: TokenTrade[]) {
     const pts = sparkValues(sparkOf(row, trades), "24H");
     change24h = pts.length >= 2 && pts[0] > 0 ? ((pts[pts.length - 1] - pts[0]) / pts[0]) * 100 : null;
   }
-  return { volume24h, trades24h, change24h, createdAt: row?.createdAt, holders: typeof row?.holders === "number" ? row.holders : null };
+  const pts7 = sparkValues(sparkOf(row, trades), "7D");
+  const change7d = pts7.length >= 2 && pts7[0] > 0 ? ((pts7[pts7.length - 1] - pts7[0]) / pts7[0]) * 100 : null;
+  return { volume24h, trades24h, change24h, change7d, createdAt: row?.createdAt, holders: typeof row?.holders === "number" ? row.holders : null };
+}
+
+/** "100 {quote} at the first trade → x today", from the first recorded trade and the live spot only. */
+export function SinceCard({ st, spark }: { st: TokenState; spark: [number, number][] }) {
+  const t = useT();
+  if (spark.length < 2) return null;
+  const p0 = spark[0][1];
+  const spot = st.tokenReserve > 0n ? Number(formatUnits(st.quoteReserve, st.quoteDecimals)) / Number(formatUnits(st.tokenReserve, 18)) : 0;
+  if (!(p0 > 0) || !(spot > 0)) return null;
+  const today = (100 * spot) / p0;
+  return (
+    <div className="flex flex-wrap items-baseline justify-center gap-x-2 border-b border-stroke px-5 py-4 text-center">
+      <span className="mono-label text-[10.5px] tracking-[.16em] text-ink-3">{t("detail.since100", { sym: st.quoteSymbol })}</span>
+      <span className={`tnum text-[24px] font-semibold ${today >= 100 ? "text-brand" : "text-neg"}`}>{fmtNum(today, 2)}</span>
+      <span className="mono-label text-[10.5px] tracking-[.16em] text-ink-3">{t("detail.sinceToday", { sym: st.quoteSymbol })}</span>
+    </div>
+  );
 }
 
 /** Bonding progress. */
@@ -90,12 +110,14 @@ export function ChartTrade({
   tk,
   onTraded,
   onPending,
+  loaded = true,
 }: {
   st: TokenState;
   spark: [number, number][];
   tk: TradeToken;
   onTraded: () => void;
   onPending: (hash: Hex) => void;
+  loaded?: boolean;
 }) {
   const t = useT();
   const [period, setPeriod] = useState<Period>("7D");
@@ -130,7 +152,7 @@ export function ChartTrade({
         {series.length >= 2 ? (
           <DitherChart series={series} label={t("tcard.chartAria", { name: st.name })} orient="vertical" className="mt-4 min-h-[260px] w-full flex-1" />
         ) : (
-          <div className="mt-4 grid min-h-[260px] flex-1 place-items-center rounded-[12px] border border-dashed border-stroke-2 text-[13px] text-ink-3">{t("detail.noChart")}</div>
+          <div className="mt-4 grid min-h-[260px] flex-1 place-items-center rounded-[12px] border border-dashed border-stroke-2 text-[13px] text-ink-3">{loaded ? t("detail.noChart") : <Spinner size={18} label={t("detail.chartLoading")} />}</div>
         )}
       </div>
       <div className="p-5">
@@ -147,7 +169,8 @@ export function ChartTrade({
 export function StatsRow({ st, stats }: { st: TokenState; stats: ReturnType<typeof statsOf> }) {
   const t = useT();
   const price = st.tokenReserve > 0n ? Number(formatUnits(st.quoteReserve, st.quoteDecimals)) / Number(formatUnits(st.tokenReserve, 18)) : 0;
-  const days = stats.createdAt ? Math.floor((Date.now() - stats.createdAt) / 86_400_000) : null;
+  const [now] = useState(() => Date.now()); // captured once: "launched Nd ago" must not drift between renders
+  const days = stats.createdAt ? Math.floor((now - stats.createdAt) / 86_400_000) : null;
   const cells: [string, string, string?][] = [
     [t("detail.stPrice"), `${fmtPrice(price)} ${st.quoteSymbol}`],
     [t("detail.st24"), stats.change24h == null ? "—" : pct(stats.change24h), stats.change24h == null ? "text-ink-3" : stats.change24h >= 0 ? "text-pos" : "text-neg"],
@@ -158,6 +181,7 @@ export function StatsRow({ st, stats }: { st: TokenState; stats: ReturnType<type
     [t("detail.stSellable"), `${fmtQ(st.sellable, 18, 0)} ${st.symbol}`],
     [t("detail.stTrades", { n: stats.trades24h }), ""],
   ];
+  chips.push([t("detail.st7d"), stats.change7d == null ? "—" : pct(stats.change7d)]);
   if (days != null) chips.push([t("detail.stLaunched"), days < 1 ? t("detail.today") : t("detail.daysAgo", { n: days })]);
   if (stats.holders != null) chips.push([t("detail.stHolders"), stats.holders.toLocaleString("en-US")]);
   return (

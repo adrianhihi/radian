@@ -187,11 +187,16 @@ export default function ExplorePage() {
                   <h3 className="mono-label text-[12px] tracking-[.16em] text-ink">
                     <span className="text-brand">ϟ</span> {t("explore.quickBuy")}
                   </h3>
-                  {buyToken && (
-                    <Link href={`/token/${buyToken}`} className="mono-label text-[10.5px] tracking-[.12em] text-ink-3 hover:text-brand">
-                      {t("explore.tokenPage")}
+                  <span className="flex gap-3">
+                    {buyToken && (
+                      <Link href={`/token/${buyToken}`} className="mono-label text-[10.5px] tracking-[.12em] text-ink-3 hover:text-brand">
+                        {t("explore.tokenPage")}
+                      </Link>
+                    )}
+                    <Link href={buyToken ? `/swap?token=${buyToken}` : "/swap"} className="mono-label text-[10.5px] tracking-[.12em] text-ink-3 hover:text-brand">
+                      {t("explore.fullConsole")}
                     </Link>
-                  )}
+                  </span>
                 </div>
                 <QuickBuy rows={ranked} token={buyToken} onToken={setBuyToken} />
               </div>

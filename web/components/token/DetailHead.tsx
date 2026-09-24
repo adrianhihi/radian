@@ -7,12 +7,14 @@
 // and the logo.
 import { ArrowDown, ArrowUp, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { formatUnits, type Address } from "viem";
 import { useT } from "@/components/LangProvider";
 import { AddressAvatar } from "@/components/ui/AddressAvatar";
 import { AssetLogo } from "@/components/ui/AssetLogo";
 import { OutlineButton, OutlineLink } from "@/components/ui/primitives";
 import { hasPound, type LaunchRow, type LaunchTemplate } from "@/lib/radian";
+import { emptyDraft, saveDraft } from "@/lib/draft";
 import type { Sunset } from "@/lib/indexer";
 import { projectLinks, safeHttpUrl, xUrl } from "@/lib/projects";
 import { useRadianWallet } from "@/lib/useRadianWallet";
@@ -62,6 +64,19 @@ export function DetailHead({
     else fail();
   };
 
+  // "Use as template": the wizard opens with this launch's market, template and creator tax;
+  // the name, symbol and story are the new creator's own.
+  const router = useRouter();
+  const remix = () => {
+    saveDraft({
+      ...emptyDraft(),
+      quoteKey: st.quoteAsset.key ?? "",
+      template: template?.kind ?? "standard",
+      creatorTax: (Number(st.creatorTaxBps) / 100).toString(),
+    });
+    router.push("/create");
+  };
+
   const chip = "mono-label rounded-md border border-stroke bg-glass-2 px-2.5 py-1 text-[12px] text-ink-2";
 
   return (
@@ -73,6 +88,9 @@ export function DetailHead({
         <div className="flex flex-wrap gap-2">
           <OutlineButton type="button" onClick={onShare}>
             {t("detail.share")}
+          </OutlineButton>
+          <OutlineButton type="button" onClick={remix}>
+            {t("detail.remix")} <ArrowUpRight size={13} strokeWidth={1.8} aria-hidden="true" className="inline align-[-2px]" />
           </OutlineButton>
           {!st.graduated && (
             <OutlineLink href={`/swap?token=${token}`}>

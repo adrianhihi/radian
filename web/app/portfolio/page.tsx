@@ -25,6 +25,7 @@ import { waitReceipt, ReceiptTimeout, usePendingResume } from "@/lib/pendingTx";
 import { fmtNum, fmtPrice, shortAddr } from "@/lib/ui/format";
 import { assetColors } from "@/lib/ui/tokens";
 import { recordTx, useTxLog, type TxKind } from "@/lib/txLog";
+import { txErrorText } from "@/lib/txError";
 
 type Holding = { row: LaunchRow; bal: bigint; spot: number | null; value: number | null };
 type Claim = { kind: "fees" | "referral"; asset: { symbol: string; decimals: number; address: Address }; amount: bigint; accrued?: bigint };
@@ -133,8 +134,7 @@ export default function PortfolioPage() {
         setPendingHash(e.hash);
         setToast(t("trade.pending"));
       } else {
-        const err = e as { shortMessage?: string; message?: string };
-        setToast(err?.shortMessage ?? err?.message ?? t("portfolio.claimFailed"));
+        setToast(txErrorText(t, e, { fallback: t("portfolio.claimFailed") }));
       }
     } finally {
       setBusy(null);
