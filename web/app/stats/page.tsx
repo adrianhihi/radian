@@ -1,40 +1,47 @@
 "use client";
+
+// Stats: protocol numbers over 24h or all time from the indexer, with the
+// on-chain launch list as the fallback. Four headline cells, the volume bars,
+// buy / sell / average, the ranked tokens, and the buyback vault.
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Nav } from "@/components/Nav";
-import { SoonBanner } from "@/components/SoonBanner";
+import { Shell } from "@/components/shell/Shell";
+import { useT } from "@/components/LangProvider";
+import { AssetLogo } from "@/components/ui/AssetLogo";
+import { DataTable, TD, TD_NUM } from "@/components/ui/DataTable";
+import { CondCell, CondGrid, Empty, Footer, PageHead, Panel, SectionHead } from "@/components/ui/primitives";
+import { NotLive } from "@/components/TrustBanners";
 import { useNetwork } from "@/lib/networks";
-import { AnimatedNumber } from "@/components/AnimatedNumber";
-import { useReveal } from "@/lib/useReveal";
 import { useStats } from "@/lib/useStats";
+import { useCountUp } from "@/lib/ui/useCountUp";
+import { fmtNum } from "@/lib/ui/format";
 import { hasIndexer, fetchStats, type ProtocolStats } from "@/lib/indexer";
 
-function VolumeChart({ data }: { data: number[] }) {
+function Big({ value, digits = 0, prefix = "" }: { value: number; digits?: number; prefix?: string }) {
+  const v = useCountUp(value);
+  return (
+    <>
+      {prefix}
+      {fmtNum(v, digits)}
+    </>
+  );
+}
+
+function VolumeBars({ data }: { data: number[] }) {
   const max = Math.max(...data, 1e-9);
   return (
-    <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 90, marginTop: 8 }}>
+    <div className="mt-3 flex h-[90px] items-end gap-[3px]" aria-hidden="true">
       {data.map((v, i) => (
-        <div
-          key={i}
-          title={`${v.toFixed(3)} USDC`}
-          style={{
-            flex: 1,
-            height: `${Math.max(2, (v / max) * 100)}%`,
-            background: v > 0 ? "linear-gradient(180deg, var(--arc-a), var(--arc-b))" : "var(--panel-2)",
-            borderRadius: 3,
-            minHeight: 2,
-            transition: "height 0.5s var(--ease)",
-          }}
-        />
+        <div key={i} title={`${v.toFixed(3)}`} className={`min-h-[2px] flex-1 rounded-[3px] transition-[height] duration-500 ${v > 0 ? "grad-fill" : "bg-glass-2"}`} style={{ height: `${Math.max(2, (v / max) * 100)}%` }} />
       ))}
     </div>
   );
 }
 
 export default function StatsPage() {
-  useReveal();
+  const t = useT();
   const net = useNetwork();
-  const chain = useStats(); // on-chain fallback (launches/graduated/tvl/buyback)
+  const chain = useStats();
   const [win, setWin] = useState<"24h" | "all">("all");
   const [s, setS] = useState<ProtocolStats | null>(null);
 
@@ -42,115 +49,97 @@ export default function StatsPage() {
     if (!hasIndexer()) return;
     const load = () => fetchStats(win).then(setS).catch(() => {});
     load();
-    const t = setInterval(load, 12000);
-    return () => clearInterval(t);
+    const iv = setInterval(load, 12000);
+    return () => clearInterval(iv);
   }, [win]);
 
   const launches = s?.launches ?? chain.launches;
   const graduated = s?.graduated ?? chain.graduated;
   const tvl = s?.curveTvl ?? chain.curveTvl;
   const buyback = s?.buybackLocked ?? chain.buybackLocked;
+  const winLabel = win === "24h" ? t("stats.win24") : t("stats.winAll");
 
   return (
-    <>
-      <Nav />
-      <main className="wrap" style={{ padding: "48px 24px 0" }}>
-        <SoonBanner />
-        {net.live && (<>
-        <div className="reveal" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 16, flexWrap: "wrap" }}>
-          <div>
-            <h1 style={{ fontSize: 34 }}>Protocol analytics</h1>
-            <p style={{ color: "var(--fg-dim)", marginTop: 10 }}>
-              Independent on-chain reporting for Radian on Circle Arc testnet.
-            </p>
+    <Shell>
+      <div className="screen-in">
+        <PageHead
+          eyebrow={t("stats.eyebrow")}
+          title={t("stats.title")}
+          sub={t("stats.sub", { chain: net.chainName })}
+          aside={
+            hasIndexer() ? (
+              <span role="group" aria-label={t("stats.winAria")} className="inline-flex flex-none gap-0.5 rounded-[9px] border border-stroke bg-glass-2 p-[3px]">
+                {(["24h", "all"] as const).map((w) => (
+                  <button key={w} type="button" aria-pressed={win === w} onClick={() => setWin(w)} className={`rounded-md px-3 py-1.5 text-xs font-semibold leading-none transition-colors ${win === w ? "bg-glass-hi text-ink" : "text-muted hover:text-ink"}`}>
+                    {w === "24h" ? t("stats.win24") : t("stats.winAll")}
+                  </button>
+                ))}
+              </span>
+            ) : undefined
+          }
+        />
+        <NotLive />
+        {net.live && (
+          <div className="grid gap-5">
+            <CondGrid className="mt-0">
+              <CondCell label={t("stats.launched")} value={<Big value={launches} />} />
+              <CondCell label={t("stats.graduated")} value={<Big value={graduated} />} />
+              <CondCell label={`${t("stats.volume")} · ${winLabel}`} value={<Big value={s?.volume ?? 0} digits={2} prefix="$" />} />
+              <CondCell label={t("stats.creatorRewards")} value={<Big value={s?.creatorRewards ?? 0} digits={3} prefix="$" />} />
+            </CondGrid>
+
+            {hasIndexer() && s && (
+              <>
+                <Panel>
+                  <SectionHead title={t("stats.volume24")} aside={t("stats.tradesIn", { n: s.trades, win: winLabel })} />
+                  <VolumeBars data={s.hourlyVolume} />
+                  <CondGrid>
+                    <CondCell label={t("stats.buyVolume", { n: s.buyTrades })} value={<span className="text-pos">${fmtNum(s.buyVolume, 2)}</span>} />
+                    <CondCell label={t("stats.sellVolume", { n: s.sellTrades })} value={<span className="text-neg">${fmtNum(s.sellVolume, 2)}</span>} />
+                    <CondCell label={t("stats.avgTrade")} value={`$${fmtNum(s.avgTrade, 3)}`} />
+                  </CondGrid>
+                </Panel>
+
+                <Panel>
+                  <SectionHead title={t("stats.ranked")} aside={t("stats.rankedSub", { win: winLabel })} />
+                  {s.ranked.length === 0 ? (
+                    <Empty>{t("stats.noTrades")}</Empty>
+                  ) : (
+                    <DataTable head={["#", t("live.colToken"), t("stats.colVolume"), t("stats.colBuys"), t("stats.colSells")]} align={["left", "left", "right", "right", "right"]}>
+                      {s.ranked.map((r, i) => (
+                        <tr key={r.token}>
+                          <td className={`${TD} text-ink-3`}>{i + 1}</td>
+                          <td className={TD}>
+                            <Link href={`/token/${r.token}`} className="flex items-center gap-2.5 hover:text-brand">
+                              <AssetLogo symbol={r.symbol || "?"} size={24} radius={12} />
+                              <span className="min-w-0">
+                                <b className="block truncate text-[13.5px] text-ink">{r.name || "—"}</b>
+                                <span className="mono-label text-[10.5px] text-ink-3">${r.symbol}</span>
+                              </span>
+                            </Link>
+                          </td>
+                          <td className={TD_NUM}>${fmtNum(r.volume, 2)}</td>
+                          <td className={`${TD_NUM} text-pos`}>{r.buys}</td>
+                          <td className={`${TD_NUM} text-neg`}>{r.sells}</td>
+                        </tr>
+                      ))}
+                    </DataTable>
+                  )}
+                </Panel>
+              </>
+            )}
+
+            <Panel>
+              <SectionHead title={t("stats.buybackTitle")} aside={t("stats.buybackSub")} />
+              <CondGrid>
+                <CondCell label={t("stats.lockedTokens")} value={<Big value={buyback} />} />
+                <CondCell label={t("stats.inCurves")} value={`$${fmtNum(tvl, 2)}`} />
+              </CondGrid>
+            </Panel>
           </div>
-          {hasIndexer() && (
-            <div className="seg" style={{ width: "auto" }}>
-              {(["24h", "all"] as const).map((w) => (
-                <button key={w} className={win === w ? "on-buy" : ""} onClick={() => setWin(w)} style={{ padding: "8px 16px", flex: "none" }}>
-                  {w === "24h" ? "24 Hours" : "All time"}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="stats" style={{ marginTop: 26 }}>
-          {[
-            { k: launches, l: "Tokens launched", dp: 0 },
-            { k: graduated, l: "Graduated", dp: 0 },
-            { k: s?.volume ?? 0, l: `Volume${hasIndexer() ? ` (${win})` : ""}`, dp: 2, pre: "$" },
-            { k: s?.creatorRewards ?? 0, l: "Creator rewards", dp: 3, pre: "$" },
-          ].map((b, i) => (
-            <div className="stat reveal" data-reveal-delay={i * 60} key={b.l}>
-              <div className="k"><AnimatedNumber value={b.k} decimals={b.dp} prefix={b.pre ?? ""} /></div>
-              <div className="l">{b.l}</div>
-            </div>
-          ))}
-        </div>
-
-        {hasIndexer() && s && (
-          <>
-            <div className="panel reveal" style={{ marginTop: 18 }}>
-              <div className="prog-row" style={{ marginBottom: 4 }}>
-                <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16, color: "var(--fg)" }}>Volume, last 24h</span>
-                <span>{s.trades} trades in {win}</span>
-              </div>
-              <VolumeChart data={s.hourlyVolume} />
-            </div>
-
-            <div className="stats" style={{ marginTop: 18, gridTemplateColumns: "repeat(3,1fr)" }}>
-              <div className="stat reveal"><div className="k" style={{ color: "var(--up)" }}>${s.buyVolume.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div><div className="l">Buy volume · {s.buyTrades} trades</div></div>
-              <div className="stat reveal" data-reveal-delay={60}><div className="k" style={{ color: "var(--down)" }}>${s.sellVolume.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div><div className="l">Sell volume · {s.sellTrades} trades</div></div>
-              <div className="stat reveal" data-reveal-delay={120}><div className="k">${s.avgTrade.toLocaleString(undefined, { maximumFractionDigits: 3 })}</div><div className="l">Avg trade</div></div>
-            </div>
-
-            <div className="section" style={{ paddingTop: 34 }}>
-              <div className="section-head reveal">
-                <div><h2 style={{ fontSize: 22 }}>Ranked tokens</h2><p>By trading volume in {win}.</p></div>
-              </div>
-              <div className="panel reveal" style={{ padding: 0, overflow: "hidden" }}>
-                <div className="kv" style={{ padding: "11px 20px", color: "var(--fg-faint)", fontSize: 12, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                  <span>Token</span>
-                  <span style={{ display: "flex", gap: 28 }}>
-                    <span style={{ width: 90, textAlign: "right" }}>Volume</span>
-                    <span style={{ width: 44, textAlign: "right" }}>Buys</span>
-                    <span style={{ width: 44, textAlign: "right" }}>Sells</span>
-                  </span>
-                </div>
-                {s.ranked.length === 0 ? (
-                  <div className="empty">No trades in this window yet.</div>
-                ) : (
-                  s.ranked.map((r, i) => (
-                    <Link key={r.token} href={`/token/${r.token}`} className="kv live-row" style={{ padding: "13px 20px", alignItems: "center" }}>
-                      <span style={{ display: "flex", alignItems: "center", gap: 11 }}>
-                        <span style={{ color: "var(--fg-faint)", width: 16 }}>{i + 1}</span>
-                        <span className="avatar" style={{ width: 30, height: 30, fontSize: 12 }}>{(r.symbol || "?").slice(0, 2).toUpperCase()}</span>
-                        <span><span style={{ fontWeight: 600 }}>{r.name || "—"}</span> <span style={{ color: "var(--fg-faint)", fontSize: 12 }}>${r.symbol}</span></span>
-                      </span>
-                      <span style={{ display: "flex", gap: 28, fontVariantNumeric: "tabular-nums" }}>
-                        <span className="v" style={{ width: 90, textAlign: "right" }}>${r.volume.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-                        <span style={{ width: 44, textAlign: "right", color: "var(--up)" }}>{r.buys}</span>
-                        <span style={{ width: 44, textAlign: "right", color: "var(--down)" }}>{r.sells}</span>
-                      </span>
-                    </Link>
-                  ))
-                )}
-              </div>
-            </div>
-          </>
         )}
-
-        <div className="panel reveal" style={{ marginTop: 18, marginBottom: 60 }}>
-          <div className="prog-row" style={{ marginBottom: 4 }}>
-            <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16, color: "var(--fg)" }}>Buyback & lock</span>
-            <span>5-year linear vest</span>
-          </div>
-          <div className="kv"><span>Tokens bought back and locked</span><span className="v"><AnimatedNumber value={buyback} decimals={0} /> tokens</span></div>
-          <div className="kv" style={{ border: "none" }}><span>USDC currently in curves</span><span className="v">${tvl.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></div>
-        </div>
-      </>)}
-      </main>
-    </>
+        <Footer />
+      </div>
+    </Shell>
   );
 }

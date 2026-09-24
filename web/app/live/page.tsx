@@ -1,161 +1,141 @@
 "use client";
+
+// Live: every curve on this network and the trade tape, refreshing from the
+// chain and the indexer. On baskvia's activity skeleton: a head, one table of
+// the curves, one panel of the latest trades.
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { formatUnits } from "viem";
-import { Nav } from "@/components/Nav";
-import { SoonBanner } from "@/components/SoonBanner";
+import { Shell } from "@/components/shell/Shell";
+import { useT } from "@/components/LangProvider";
+import { AddressAvatar } from "@/components/ui/AddressAvatar";
+import { AssetLogo } from "@/components/ui/AssetLogo";
+import { DataTable, LiveDot, TD, TD_NUM } from "@/components/ui/DataTable";
+import { Empty, Footer, PageHead, Panel, SectionHead } from "@/components/ui/primitives";
+import { NotLive } from "@/components/TrustBanners";
 import { useNetwork } from "@/lib/networks";
-import { useReveal } from "@/lib/useReveal";
 import { useLaunches } from "@/lib/useLaunches";
 import { hasIndexer, fetchActivity, type Activity } from "@/lib/indexer";
+import { ago, fmtNum, fmtPrice, shortAddr } from "@/lib/ui/format";
 
 export default function LivePage() {
-  useReveal();
+  const t = useT();
   const net = useNetwork();
   const { rows, loading } = useLaunches();
   const [trades, setTrades] = useState<Activity[]>([]);
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     if (!hasIndexer()) return;
-    const load = () => fetchActivity(60).then(setTrades).catch(() => {});
+    const load = () =>
+      fetchActivity(60)
+        .then((tr) => {
+          setTrades(tr);
+          setNow(Date.now());
+        })
+        .catch(() => {});
     load();
-    const t = setInterval(load, 8000);
-    return () => clearInterval(t);
+    const iv = setInterval(load, 8000);
+    return () => clearInterval(iv);
   }, []);
 
-  const ago = (ts: number) => {
-    const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
-    if (s < 60) return `${s}s`;
-    if (s < 3600) return `${Math.floor(s / 60)}m`;
-    return `${Math.floor(s / 3600)}h`;
-  };
-
   return (
-    <>
-      <Nav />
-      <main className="wrap" style={{ padding: "48px 24px 0" }}>
-        <SoonBanner />
-        {net.live && (<>
-        <div className="reveal" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span className="live-dot" />
-          <h1 style={{ fontSize: 34 }}>Live</h1>
-        </div>
-        <p className="reveal" style={{ color: "var(--fg-dim)", marginTop: 10 }}>
-          Every curve on Radian, refreshing straight from Arc. Price and reserve update as
-          people trade.
-        </p>
-
-        <div className="panel reveal" style={{ marginTop: 24, padding: 0, overflow: "hidden" }}>
-          <div
-            className="kv"
-            style={{ padding: "12px 20px", color: "var(--fg-faint)", fontSize: 12, textTransform: "uppercase", letterSpacing: "0.04em" }}
-          >
-            <span>Token</span>
-            <span style={{ display: "flex", gap: 40 }}>
-              <span style={{ width: 110, textAlign: "right" }}>Spot (quote)</span>
-              <span style={{ width: 90, textAlign: "right" }}>Reserve</span>
-              <span style={{ width: 70, textAlign: "right" }}>Progress</span>
+    <Shell>
+      <div className="screen-in">
+        <PageHead
+          eyebrow={t("live.eyebrow")}
+          title={
+            <span className="inline-flex items-center gap-3">
+              <LiveDot /> {t("live.title")}
             </span>
-          </div>
-          {loading && rows.length === 0 ? (
-            <div className="empty">Connecting to Arc…</div>
-          ) : (
-            rows.map((r) => {
-              const reserve = Number(formatUnits(r.trackedQuote, r.quoteDecimals));
-              const pct = Math.round(r.progress * 100);
-              return (
-                <Link
-                  key={r.token}
-                  href={`/token/${r.token}`}
-                  className="kv live-row"
-                  style={{ padding: "14px 20px", alignItems: "center" }}
-                >
-                  <span style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <span className="avatar" style={{ width: 32, height: 32, fontSize: 13 }}>
-                      {r.symbol.slice(0, 2).toUpperCase()}
-                    </span>
-                    <span>
-                      <span style={{ fontWeight: 600 }}>{r.name}</span>{" "}
-                      <span style={{ color: "var(--fg-faint)", fontSize: 13 }}>${r.symbol}</span>
-                    </span>
-                    {r.graduated ? (
-                      <span className="badge badge-grad">Graduated</span>
-                    ) : (
-                      <span className="badge badge-live">Live</span>
-                    )}
-                  </span>
-                  <span style={{ display: "flex", gap: 40, fontVariantNumeric: "tabular-nums" }}>
-                    <span className="v mono" style={{ width: 110, textAlign: "right" }}>
-                      {(
-                        Number(formatUnits(r.quoteReserve, r.quoteDecimals)) / 1_000_000_000
-                      ).toExponential(2)}
-                    </span>
-                    <span className="v" style={{ width: 90, textAlign: "right" }}>
-                      {reserve.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                    </span>
-                    <span className="v" style={{ width: 70, textAlign: "right", color: r.graduated ? "var(--grad)" : "var(--up)" }}>
-                      {pct}%
-                    </span>
-                  </span>
-                </Link>
-              );
-            })
-          )}
-        </div>
-        {hasIndexer() && (
-          <div className="section" style={{ paddingTop: 40 }}>
-            <div className="section-head reveal">
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span className="live-dot" />
-                <h2 style={{ fontSize: 24 }}>Trade tape</h2>
-              </div>
-              <p>Every buy and sell across Radian, newest first — indexed from Arc.</p>
-            </div>
-            <div className="panel reveal" style={{ padding: 0, overflow: "hidden" }}>
-              {trades.length === 0 ? (
-                <div className="empty">No trades yet — be the first to trade a curve.</div>
+          }
+          sub={t("live.sub", { chain: net.chainName })}
+        />
+        <NotLive />
+        {net.live && (
+          <div className="grid gap-5">
+            <Panel>
+              <SectionHead title={t("live.curves")} aside={t("live.curvesN", { n: rows.length })} />
+              {loading && rows.length === 0 ? (
+                <Empty>{t("live.connecting", { chain: net.chainName })}</Empty>
+              ) : rows.length === 0 ? (
+                <Empty>{t("explore.emptyLive", { chain: net.chainName })}</Empty>
               ) : (
-                trades.map((t, i) => (
-                  <Link
-                    key={t.txHash + t.side + i}
-                    href={`/token/${t.token}`}
-                    className="kv live-row"
-                    style={{ padding: "12px 20px", alignItems: "center" }}
-                  >
-                    <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <span
-                        className="badge"
-                        style={{
-                          background: t.side === "buy" ? "rgba(52,211,153,0.14)" : "rgba(251,113,133,0.14)",
-                          color: t.side === "buy" ? "var(--up)" : "var(--down)",
-                        }}
-                      >
-                        {t.side}
-                      </span>
-                      <span style={{ fontWeight: 600 }}>${t.symbol || "?"}</span>
-                      <span className="mono" style={{ color: "var(--fg-faint)", fontSize: 12 }}>
-                        {t.trader.slice(0, 6)}…{t.trader.slice(-4)}
-                      </span>
-                    </span>
-                    <span style={{ display: "flex", gap: 24, alignItems: "center" }}>
-                      <span className="v">
-                        {Number(formatUnits(BigInt(t.quote), t.quoteDecimals ?? 18)).toLocaleString(undefined, { maximumFractionDigits: 3 })} {t.quoteSymbol ?? "USDC"}
-                      </span>
-                      <span style={{ color: "var(--fg-faint)", fontSize: 12, width: 34, textAlign: "right" }}>
-                        {ago(t.ts)}
-                      </span>
-                    </span>
-                  </Link>
-                ))
+                <DataTable head={[t("live.colToken"), t("live.colStatus"), t("live.colSpot"), t("live.colReserve"), t("live.colProgress")]} align={["left", "left", "right", "right", "right"]}>
+                  {rows.map((r) => {
+                    const reserve = Number(formatUnits(r.trackedQuote, r.quoteDecimals));
+                    const p = r.graduated ? 100 : Math.round(r.progress * 100);
+                    return (
+                      <tr key={r.token}>
+                        <td className={TD}>
+                          <Link href={`/token/${r.token}`} className="flex items-center gap-2.5 hover:text-brand">
+                            <AssetLogo symbol={r.symbol} src={/^https?:\/\//.test(r.logo) ? r.logo : null} size={26} radius={13} />
+                            <span className="min-w-0">
+                              <b className="block truncate text-[13.5px] text-ink">{r.name}</b>
+                              <span className="mono-label text-[10.5px] text-ink-3">${r.symbol}</span>
+                            </span>
+                          </Link>
+                        </td>
+                        <td className={TD}>
+                          <span className={`mono-label rounded-md border px-1.5 py-px text-[9.5px] tracking-[.12em] ${r.graduated ? "border-signal/60 text-signal" : "border-brand/60 text-brand"}`}>{r.graduated ? t("tcard.graduated") : t("tcard.live")}</span>
+                        </td>
+                        <td className={TD_NUM}>{r.lastPrice != null ? `${fmtPrice(r.lastPrice)} ${r.quoteSymbol}` : "—"}</td>
+                        <td className={TD_NUM}>
+                          {fmtNum(reserve, 2)} {r.quoteSymbol}
+                        </td>
+                        <td className={`${TD_NUM} ${r.graduated ? "text-signal" : "text-pos"}`}>{p}%</td>
+                      </tr>
+                    );
+                  })}
+                </DataTable>
               )}
-            </div>
+            </Panel>
+
+            {hasIndexer() && (
+              <Panel>
+                <SectionHead
+                  title={
+                    <span className="inline-flex items-center gap-2.5">
+                      <LiveDot /> {t("live.tape")}
+                    </span>
+                  }
+                  aside={t("live.tapeSub")}
+                />
+                {trades.length === 0 ? (
+                  <Empty>{t("live.noTrades")}</Empty>
+                ) : (
+                  <ul className="divide-y divide-stroke">
+                    {trades.map((tr, i) => (
+                      <li key={tr.txHash + tr.side + i} className="flex items-center justify-between gap-3 py-2.5 text-[13px]">
+                        <span className="flex min-w-0 items-center gap-2.5">
+                          <span className={`mono-label w-10 rounded-md px-1.5 py-0.5 text-center text-[10px] uppercase tracking-[.08em] ${tr.side === "buy" ? "bg-[rgba(108,199,154,.14)] text-pos" : "bg-[rgba(240,102,90,.14)] text-neg"}`}>{tr.side === "buy" ? t("trade.buy") : t("trade.sell")}</span>
+                          <Link href={`/token/${tr.token}`} className="font-semibold text-ink hover:text-brand">
+                            ${tr.symbol || "?"}
+                          </Link>
+                          <AddressAvatar address={tr.trader} size={16} />
+                          <Link href={`/profile/${tr.trader}`} className="tnum truncate font-mono text-[12px] text-ink-3 hover:text-brand">
+                            {shortAddr(tr.trader)}
+                          </Link>
+                        </span>
+                        <span className="flex flex-none items-center gap-3">
+                          <span className="tnum text-ink">
+                            {fmtNum(Number(formatUnits(BigInt(tr.quote), tr.quoteDecimals ?? 18)), 3)} {tr.quoteSymbol ?? "USDC"}
+                          </span>
+                          <a href={`${net.explorer}/tx/${tr.txHash}`} target="_blank" rel="noreferrer" className="tnum w-8 text-right text-[11px] text-ink-3 hover:text-brand">
+                            {ago(tr.ts, now)}
+                          </a>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Panel>
+            )}
+            <p className="text-center text-[11.5px] text-ink-3">{hasIndexer() ? t("live.indexed", { chain: net.chainName }) : t("live.autoRefresh")}</p>
           </div>
         )}
-        <p className="hint" style={{ marginTop: 12 }}>
-          {hasIndexer() ? "Indexed live from Arc." : "Auto-refreshes every 30s."}
-        </p>
-      </>)}
-      </main>
-    </>
+        <Footer />
+      </div>
+    </Shell>
   );
 }
