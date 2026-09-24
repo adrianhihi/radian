@@ -1,10 +1,10 @@
 "use client";
 
 // Creator ranking: rank · avatar · address · "Top $SYM · progress" · launches · graduated.
-// Rows link to the explorer until the creator profile page exists (phase 3).
+// Rows open the creator's page.
 import { useT } from "@/components/LangProvider";
 import { AddressAvatar } from "@/components/ui/AddressAvatar";
-import { explorer } from "@/lib/radian";
+import Link from "next/link";
 import { shortAddr } from "@/lib/ui/format";
 import type { CreatorRow } from "@/lib/explore";
 
@@ -16,7 +16,7 @@ export function CreatorBoard({ rows }: { rows: CreatorRow[] }) {
         const topP = r.top.graduated ? 100 : Math.round(r.top.progress * 100);
         return (
           <li key={r.addr}>
-            <a href={explorer.address(r.addr)} target="_blank" rel="noreferrer" className="glass-panel flex items-center gap-3 rounded-xl px-3.5 py-3.5 transition-colors hover:border-stroke-2 nav:gap-4 nav:px-5">
+            <Link href={`/profile/${r.addr}`} className="glass-panel flex items-center gap-3 rounded-xl px-3.5 py-3.5 transition-colors hover:border-stroke-2 nav:gap-4 nav:px-5">
               <span className="tnum w-5 flex-none text-center text-xs text-ink-3">{i + 1}</span>
               <AddressAvatar address={r.addr} size={40} />
               <span className="min-w-0 flex-1">
@@ -38,7 +38,7 @@ export function CreatorBoard({ rows }: { rows: CreatorRow[] }) {
               <span aria-hidden="true" className="hidden text-brand nav:inline">
                 →
               </span>
-            </a>
+            </Link>
           </li>
         );
       })}

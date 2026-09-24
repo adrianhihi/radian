@@ -135,7 +135,7 @@ export function ChartTrade({
       </div>
       <div className="p-5">
         <SwapForm tk={tk} onTraded={onTraded} onPending={onPending} />
-        <Link href="/launch" className="mono-label mt-4 flex items-center justify-center gap-1.5 text-[10.5px] tracking-[.14em] text-ink-3 hover:text-brand">
+        <Link href="/create" className="mono-label mt-4 flex items-center justify-center gap-1.5 text-[10.5px] tracking-[.14em] text-ink-3 hover:text-brand">
           {t("detail.launchOwn")} <ArrowRight size={11} strokeWidth={1.8} aria-hidden="true" />
         </Link>
       </div>

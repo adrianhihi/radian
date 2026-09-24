@@ -4,6 +4,7 @@
 // so the first frame is never "connected"), signed out, signed in (address with
 // copy / explorer / sign out).
 import { ChevronDown } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRadianWallet } from "@/lib/useRadianWallet";
 import { useNetwork } from "@/lib/networks";
@@ -73,6 +74,9 @@ export function WalletPill() {
           <button type="button" className={MENU_ITEM} onClick={copy}>
             {copied ? t("wallet.copied") : t("wallet.copy")}
           </button>
+          <Link className={MENU_ITEM} href={`/profile/${address}`} onClick={() => setOpen(false)}>
+            {t("wallet.mine")}
+          </Link>
           <a className={MENU_ITEM} href={`${net.explorer}/address/${address}`} target="_blank" rel="noreferrer">
             {t("wallet.explorer")}
           </a>

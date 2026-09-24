@@ -145,7 +145,7 @@ function LaunchCta() {
       <p className="text-[15px] text-ink">
         <b className="font-semibold">{t("explore.ctaTitle")}</b> <span className="text-muted">{t("explore.ctaBody")}</span>
       </p>
-      <Link href="/launch" className="grad-fill mono-label rounded-lg px-4 py-2.5 text-[11px] tracking-[.12em]">
+      <Link href="/create" className="grad-fill mono-label rounded-lg px-4 py-2.5 text-[11px] tracking-[.12em]">
         {t("explore.ctaBtn")}
       </Link>
     </li>

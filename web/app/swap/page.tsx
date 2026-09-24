@@ -74,7 +74,7 @@ function SwapConsole() {
             ) : (
               <Empty>
                 <p>{t("swap.emptyLive", { chain: net.chainName })}</p>
-                <HeroLink href="/launch" className="mt-4">
+                <HeroLink href="/create" className="mt-4">
                   {t("explore.emptyCta")}
                 </HeroLink>
               </Empty>

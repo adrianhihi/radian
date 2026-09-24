@@ -217,7 +217,7 @@ export default function FactoryPage() {
                   </div>
                 ))}
               </div>
-              <p className="hint" style={{ marginTop: 12 }}><Link href="/launch" style={{ color: "var(--radian-2)" }}>Launch with a template →</Link></p>
+              <p className="hint" style={{ marginTop: 12 }}><Link href="/create" style={{ color: "var(--radian-2)" }}>Launch with a template →</Link></p>
             </div>
 
             <div className="panel reveal" style={{ marginTop: 18 }}>

@@ -12,7 +12,7 @@ import { useT } from "@/components/LangProvider";
 import { AddressAvatar } from "@/components/ui/AddressAvatar";
 import { AssetLogo } from "@/components/ui/AssetLogo";
 import { OutlineButton, OutlineLink } from "@/components/ui/primitives";
-import { explorer, hasPound, type LaunchRow, type LaunchTemplate } from "@/lib/radian";
+import { hasPound, type LaunchRow, type LaunchTemplate } from "@/lib/radian";
 import type { Sunset } from "@/lib/indexer";
 import { projectLinks, safeHttpUrl, xUrl } from "@/lib/projects";
 import { useRadianWallet } from "@/lib/useRadianWallet";
@@ -159,9 +159,9 @@ export function DetailHead({
                 <div className="nav:text-right">
                   <div className="mono-label text-[10px] tracking-[.08em] text-ink-3">{t("detail.creator")}</div>
                   <div className="tnum text-sm font-medium text-ink">{shortAddr(creator)}</div>
-                  <a href={explorer.address(creator)} target="_blank" rel="noreferrer" className="mono-label text-[11px] text-brand hover:underline">
+                  <Link href={`/profile/${creator}`} className="mono-label text-[11px] text-brand hover:underline">
                     {t("detail.viewCreator")}
-                  </a>
+                  </Link>
                 </div>
                 <AddressAvatar address={creator} size={42} />
               </div>

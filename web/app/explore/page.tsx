@@ -99,7 +99,7 @@ export default function ExplorePage() {
               <RichText text={t("explore.heroTitle")} />
             </h2>
             <p className="my-4 max-w-[46ch] text-[15px] leading-[1.7] text-muted">{t("explore.heroBody")}</p>
-            <HeroLink href="/launch">{t("explore.createCta")}</HeroLink>
+            <HeroLink href="/create">{t("explore.createCta")}</HeroLink>
           </div>
           {featured && <TokenCard row={featured} badge={featured.token === backedToken} />}
         </div>
@@ -231,7 +231,7 @@ export default function ExplorePage() {
                   <Empty>
                     {t("explore.emptyLive", { chain: net.chainName })}
                     <br />
-                    <Link href="/launch" className="mt-3 inline-block text-brand hover:underline">
+                    <Link href="/create" className="mt-3 inline-block text-brand hover:underline">
                       {t("explore.emptyCta")}
                     </Link>
                   </Empty>

@@ -42,7 +42,7 @@ export default function BuildersPage() {
         </div>
 
         <div className="reveal" style={{ marginTop: 28, display: "flex", gap: 14, flexWrap: "wrap" }}>
-          <Link href="/launch" className="btn btn-primary">Launch a token →</Link>
+          <Link href="/create" className="btn btn-primary">Launch a token →</Link>
           <Link href="/docs" className="btn btn-ghost">Read the docs</Link>
         </div>
         <p className="hint" style={{ marginTop: 20 }}>

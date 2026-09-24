@@ -11,7 +11,7 @@ import { useT, useTDynamic } from "@/components/LangProvider";
 import { AddressAvatar } from "@/components/ui/AddressAvatar";
 import { AssetLogo } from "@/components/ui/AssetLogo";
 import { DitherChart } from "@/components/ui/DitherChart";
-import { explorer, type LaunchRow } from "@/lib/radian";
+import type { LaunchRow } from "@/lib/radian";
 import { pct, shortAddr } from "@/lib/ui/format";
 import { PERIODS, sparkValues, type Period } from "@/lib/explore";
 
@@ -19,20 +19,18 @@ export type CardView = "curve" | "graph";
 
 const fmtQ = (v: bigint, dec: number, digits = 2) => Number(formatUnits(v, dec)).toLocaleString(undefined, { maximumFractionDigits: digits });
 
-/** Creator chip: avatar + short address. Links to the explorer until the creator profile page exists. */
+/** Creator chip: avatar + short address, linking to the creator's page. */
 export function CreatorChip({ address }: { address: string }) {
   const t = useT();
   return (
-    <a
-      href={explorer.address(address)}
-      target="_blank"
-      rel="noreferrer"
+    <Link
+      href={`/profile/${address}`}
       aria-label={t("tcard.creatorAria", { addr: shortAddr(address) })}
       className="mono-label inline-flex flex-none items-center gap-1.5 rounded-full border border-stroke bg-glass-2 py-1 pl-1 pr-2.5 text-[10.5px] text-muted transition-colors hover:border-brand hover:text-ink"
     >
       <AddressAvatar address={address} size={18} />
       {shortAddr(address)}
-    </a>
+    </Link>
   );
 }
 

@@ -20,7 +20,8 @@ export const NAV: NavItem[] = [
 ];
 
 export const NAV_MORE: NavItem[] = [
-  { name: "launch", href: "/launch" },
+  { name: "create", href: "/create" },
+  { name: "creators", href: "/creators" },
   { name: "earn", href: "/earn" },
   { name: "builders", href: "/builders" },
   { name: "factory", href: "/factory" },
@@ -46,6 +47,9 @@ const SUB: Record<string, string> = {
   live: "explore",
   stats: "explore",
   docs: "learn",
+  profile: "explore",
+  create: MORE_NAME,
+  creators: MORE_NAME,
   launch: MORE_NAME,
   earn: MORE_NAME,
   builders: MORE_NAME,

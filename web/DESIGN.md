@@ -58,6 +58,8 @@ components/landing, the cave sequence under public/cave; `/explore` on baskvia's
 with the shared trade path lib/useTrade.ts and the indexer's spark / 24h fields) · 2 token page + swap (done 2026-09-24:
 `/token/[address]` on the basket-detail skeleton — components/token/{DetailHead,DetailBody}; `/swap` console with
 components/swap/TokenAside; one trade form components/trade/SwapForm on useTrade for both; Swap in the main nav,
-Launch under More) · 3 create wizard,
-creators, my launches, creator profile · 4 portfolio, fees, earn, activity feed, learn, integrate,
+Launch under More) · 3 create wizard, creators, creator profile (done 2026-09-24: `/create` = components/create/{Stepper,
+NameStep,MarketStep,LaunchStep,FeeSplitPreview,Field} on lib/draft.ts + lib/feeSplit.ts, `/launch` redirects there;
+`/creators` = components/creators/{QuickStart,Sections}; `/profile/[addr]` = the creator page, linked from creator chips,
+the creator board, the token head and the wallet menu's "My launches") · 4 portfolio, fees, earn, activity feed, learn, integrate,
 verify, rules, risk.
