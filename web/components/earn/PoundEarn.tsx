@@ -4,12 +4,14 @@
 // and your link, what you can claim, the two ways to earn, the Pack's numbers,
 // the Pack itself, the ledger and the top referrers. Every number is read from
 // the vault / burner or decoded from their events by the indexer.
-import { ArrowRight, Check, ChevronDown, Coins, Link2 } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, Coins, Link2, ShieldCheck, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { formatUnits, type Address, type Hex } from "viem";
 import { useT } from "@/components/LangProvider";
 import { CondCell, CondGrid, Panel, SectionHead } from "@/components/ui/primitives";
+import { Info } from "@/components/ui/Info";
+import { Spinner } from "@/components/ui/rows";
 import { DataTable, TD, TD_MONO, TD_NUM } from "@/components/ui/DataTable";
 import { IdentityBanner, PendingBar } from "@/components/TrustBanners";
 import type { NetworkConfig } from "@/lib/networks";
@@ -169,6 +171,12 @@ export function PoundEarn({ net }: { net: NetworkConfig }) {
           <p className="mt-3 text-[12.5px] text-ink-3">{t("pound.needWallet")}</p>
         )}
         <p className="mt-2 text-[11.5px] text-ink-3">{t("pound.linkNote")}</p>
+        <p className="mono-label mt-5 text-[10.5px] tracking-[.14em] text-ink-3">
+          {t("pound.createLine")}{" "}
+          <Link href="/create" className="text-brand hover:underline">
+            {t("pound.createLink")}
+          </Link>
+        </p>
       </header>
 
       <Panel className="mx-auto mt-10 max-w-[760px]">
@@ -193,7 +201,7 @@ export function PoundEarn({ net }: { net: NetworkConfig }) {
                     <span className="text-[11.5px] text-ink-3">{t("pound.accruedAllTime", { v: fmt(v.accrued, m.decimals, 6), sym: m.symbol })}</span>
                   </span>
                   <button type="button" disabled={busy || v.claimable === 0n} onClick={() => claim(asset as Address)} className="mono-label rounded-[10px] border border-brand/50 px-3 py-1.5 text-[10.5px] tracking-[.14em] text-brand transition-colors hover:bg-glass-2 disabled:border-stroke disabled:text-ink-3 disabled:opacity-60">
-                    {busy ? "…" : t("portfolio.claim")}
+                    {busy ? <Spinner size={12} /> : t("portfolio.claim")}
                   </button>
                 </li>
               );
@@ -225,12 +233,28 @@ export function PoundEarn({ net }: { net: NetworkConfig }) {
         </div>
       </section>
 
+      <div className="mx-auto mt-10 grid max-w-[980px] gap-4 min-[720px]:grid-cols-3">
+        {(
+          [
+            [Coins, "pound.feat1Title", "pound.feat1Body"],
+            [Wallet, "pound.feat2Title", "pound.feat2Body"],
+            [ShieldCheck, "pound.feat3Title", "pound.feat3Body"],
+          ] as const
+        ).map(([Icon, title, body]) => (
+          <article key={title} className="glass-panel rounded-2xl p-5">
+            <Icon size={18} strokeWidth={1.8} aria-hidden="true" className="text-brand" />
+            <h3 className="mt-3 text-[15px] font-semibold text-ink">{t(title)}</h3>
+            <p className="mt-1.5 text-[13px] leading-[1.7] text-muted">{t(body)}</p>
+          </article>
+        ))}
+      </div>
+
       <CondGrid className="mt-10">
-        <CondCell label={t("pound.coinsInPack")} value={view ? String(view.packs.filter((p) => p.active).length) : "—"} />
-        <CondCell label={t("pound.spentOnBurns")} value={spentRows.length ? spentRows.map((a) => `${fmt(a.burnSpent, a.decimals, 2)} ${a.symbol}`).join(" · ") : view ? "0" : "—"} small />
-        <CondCell label={t("pound.burnPool")} value={poolRows.length ? poolRows.map((a) => `${fmt(a.burnPool, a.decimals, a.decimals >= 18 ? 5 : 2)} ${a.symbol}`).join(" · ") : view ? "0" : "—"} small />
+        <CondCell label={<>{t("pound.coinsInPack")} <Info text={t("pound.infoPack")} /></>} value={view ? String(view.packs.filter((p) => p.active).length) : "—"} />
+        <CondCell label={<>{t("pound.spentOnBurns")} <Info text={t("pound.infoSpent")} /></>} value={spentRows.length ? spentRows.map((a) => `${fmt(a.burnSpent, a.decimals, 2)} ${a.symbol}`).join(" · ") : view ? "0" : "—"} small />
+        <CondCell label={<>{t("pound.burnPool")} <Info text={t("pound.infoPool")} /></>} value={poolRows.length ? poolRows.map((a) => `${fmt(a.burnPool, a.decimals, a.decimals >= 18 ? 5 : 2)} ${a.symbol}`).join(" · ") : view ? "0" : "—"} small />
         <CondCell
-          label={t("pound.earnedByReferrers")}
+          label={<>{t("pound.earnedByReferrers")} <Info text={t("pound.infoReferrers")} /></>}
           value={
             view
               ? view.assets

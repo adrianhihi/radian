@@ -106,6 +106,14 @@ export const useHydrated = (): boolean => useSyncExternalStore(noopSubscribe, ()
 
 // ---- validation ----
 
+// Angle brackets, quotes, backticks, backslashes and control characters are refused at input
+// time, not only escaped at render: a name is a name. The description is a textarea, so line
+// breaks and tabs stay allowed there.
+export const NAME_BAD = /[<>"'`\\\x00-\x1f]/;
+export const DESC_BAD = /[<>`\x00-\x08\x0b\x0c\x0e-\x1f]/;
+export const nameCharsOk = (v: string) => !NAME_BAD.test(v);
+export const descCharsOk = (v: string) => !DESC_BAD.test(v);
+
 export const httpOk = (u: string) => !u.trim() || /^https?:\/\/\S+$/i.test(u.trim());
 export const handleOk = (v: string) => !v.trim() || /^@?[A-Za-z0-9_]{1,15}$/.test(v.trim()) || /^https?:\/\/(x|twitter)\.com\/\S+$/i.test(v.trim());
 export const taxOk = (v: string, maxPct: number) => {
@@ -120,4 +128,5 @@ export const amountOk = (v: string) => {
 };
 
 /** Step 1 is complete when the token has a valid name and ticker and the links parse. */
-export const nameDone = (d: LaunchDraft) => d.name.trim().length > 0 && d.name.trim().length <= NAME_MAX && /^[A-Z0-9]{1,10}$/.test(d.symbol) && httpOk(d.website) && handleOk(d.twitter);
+export const nameDone = (d: LaunchDraft) =>
+  d.name.trim().length > 0 && d.name.trim().length <= NAME_MAX && nameCharsOk(d.name) && descCharsOk(d.description) && /^[A-Z0-9]{1,10}$/.test(d.symbol) && httpOk(d.website) && handleOk(d.twitter);

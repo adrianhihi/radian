@@ -5,8 +5,12 @@
 import { useT } from "@/components/LangProvider";
 import { AssetLogo } from "@/components/ui/AssetLogo";
 import { Panel, SectionHead } from "@/components/ui/primitives";
-import { DESC_MAX, NAME_MAX, SYMBOL_MAX, cleanSymbol, handleOk, httpOk, type LaunchDraft } from "@/lib/draft";
+import { AddressAvatar } from "@/components/ui/AddressAvatar";
+import { DESC_MAX, NAME_MAX, SYMBOL_MAX, cleanSymbol, descCharsOk, handleOk, httpOk, nameCharsOk, nameDone, type LaunchDraft } from "@/lib/draft";
+import { useProfile } from "@/lib/profile";
+import { shortAddr } from "@/lib/ui/format";
 import { Field, FieldRow, INPUT_CLASS } from "./Field";
+import { StepTitle } from "./Stepper";
 
 type TextKey = "name" | "symbol" | "logo" | "description" | "website" | "twitter";
 
@@ -16,6 +20,7 @@ export function NameStep({
   onPickImage,
   uploading,
   touched,
+  address,
 }: {
   draft: LaunchDraft;
   onField: (key: TextKey, value: string) => void;
@@ -23,17 +28,21 @@ export function NameStep({
   uploading: boolean;
   /** show errors only after the person tried to continue */
   touched: boolean;
+  /** the connected wallet, shown as the creator identity */
+  address?: string;
 }) {
   const t = useT();
+  const profile = useProfile(address);
   const logoUrl = /^https?:\/\//.test(draft.logo) ? draft.logo : null;
-  const nameErr = touched && !draft.name.trim() ? t("create.nameErr") : undefined;
+  const nameErr = !nameCharsOk(draft.name) ? t("create.nameBad") : touched && !draft.name.trim() ? t("create.nameErr") : undefined;
+  const descErr = !descCharsOk(draft.description) ? t("create.descBad") : undefined;
   const symErr = touched && !/^[A-Z0-9]{1,10}$/.test(draft.symbol) ? t("create.symbolErr") : undefined;
   const siteErr = !httpOk(draft.website) ? t("create.websiteErr") : undefined;
   const xErr = !handleOk(draft.twitter) ? t("create.xErr") : undefined;
 
   return (
     <Panel className="mb-6">
-      <SectionHead title={t("create.stepNameTitle")} />
+      <SectionHead title={<StepTitle n={1} done={nameDone(draft)}>{t("create.stepNameTitle")}</StepTitle>} />
 
       {/* how it will read on Explore */}
       <div className="mb-5 flex items-center gap-3 rounded-[14px] border border-stroke bg-glass-2 p-4">
@@ -74,8 +83,8 @@ export function NameStep({
           </div>
         </Field>
 
-        <Field id="draft-desc" label={t("create.descLabel")} aside={`${draft.description.length}/${DESC_MAX}`}>
-          <textarea id="draft-desc" rows={3} maxLength={DESC_MAX} placeholder={t("create.descPh")} value={draft.description} onChange={(e) => onField("description", e.target.value)} className={INPUT_CLASS} />
+        <Field id="draft-desc" label={t("create.descLabel")} aside={`${draft.description.length}/${DESC_MAX}`} error={descErr}>
+          <textarea id="draft-desc" rows={3} maxLength={DESC_MAX} placeholder={t("create.descPh")} value={draft.description} onChange={(e) => onField("description", e.target.value)} className={INPUT_CLASS} aria-invalid={!!descErr} />
         </Field>
 
         <FieldRow>
@@ -86,6 +95,16 @@ export function NameStep({
             <input id="draft-x" type="text" autoComplete="off" placeholder={t("create.xPh")} value={draft.twitter} onChange={(e) => onField("twitter", e.target.value)} className={INPUT_CLASS} aria-invalid={!!xErr} />
           </Field>
         </FieldRow>
+
+        {/* the creator: a wallet, not a username */}
+        <div className="flex items-center gap-3 rounded-[12px] border border-stroke px-4 py-3">
+          {address ? <AddressAvatar address={address} size={30} /> : <span className="size-[30px] rounded-full border border-dashed border-stroke-2" aria-hidden="true" />}
+          <span className="min-w-0">
+            <span className="mono-label block text-[10px] tracking-[.14em] text-ink-3">{t("create.creatorLabel")}</span>
+            <span className={`block truncate text-[13px] text-ink ${profile?.name ? "" : "tnum"}`}>{address ? profile?.name || shortAddr(address) : t("create.noWalletYet")}</span>
+            <span className="block text-[11.5px] text-ink-3">{profile?.name ? `@${profile.x || shortAddr(address ?? "")}` : t("create.creatorNote")}</span>
+          </span>
+        </div>
       </div>
     </Panel>
   );

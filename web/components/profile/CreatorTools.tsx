@@ -91,7 +91,18 @@ export function CreatorTools({ mine, onPending, onChanged }: { mine: LaunchRow[]
       if (r.ok) {
         setLogoMsg({ token, text: t("logo.saved"), error: false });
         onChanged?.();
-      } else setLogoMsg({ token, text: t(r.reason === "rejected" ? "hw.errRejected" : r.reason === "creator" ? "logo.errCreator" : r.reason === "too-large" ? "logo.errSize" : "hw.errNetwork"), error: true });
+      } else {
+        const key =
+          r.reason === "rejected" ? "hw.errRejected"
+          : r.reason === "creator" ? "logo.errCreator"
+          : r.reason === "too-large" ? "logo.errSize"
+          : r.reason === "stale" ? "hw.errStale"
+          : r.reason === "signature" ? "hw.errSignature"
+          : r.reason === "rate" ? "hw.errRate"
+          : r.reason === "bad-input" ? "logo.errDecode"
+          : "hw.errNetwork";
+        setLogoMsg({ token, text: t(key), error: true });
+      }
     } catch {
       setLogoMsg({ token, text: t("logo.errDecode"), error: true });
     } finally {
@@ -132,7 +143,7 @@ export function CreatorTools({ mine, onPending, onChanged }: { mine: LaunchRow[]
                 </label>
                 <Note className="min-w-0 flex-1">{t("logo.note")}</Note>
               </div>
-              {logoMsg && logoMsg.token === r.token && <Note tone={logoMsg.error ? "neg" : undefined} className="mt-1.5">{logoMsg.text}</Note>}
+              {logoMsg && logoMsg.token === r.token && <Note role="status" tone={logoMsg.error ? "neg" : undefined} className="mt-1.5">{logoMsg.text}</Note>}
               {open && (
                 <div className="mt-2 flex flex-wrap gap-2">
                   <input value={next} onChange={(e) => setNext(e.target.value.trim())} placeholder="0x…" aria-label={t("profile.recipient")} className={`${INPUT_CLASS} min-w-0 flex-1 py-2 font-mono text-[12.5px]`} />
@@ -144,7 +155,7 @@ export function CreatorTools({ mine, onPending, onChanged }: { mine: LaunchRow[]
                   </OutlineButton>
                 </div>
               )}
-              {msg && msg.token === r.token && <Note tone={msg.error ? "neg" : undefined} className="mt-1.5">{msg.text}</Note>}
+              {msg && msg.token === r.token && <Note role="status" tone={msg.error ? "neg" : undefined} className="mt-1.5">{msg.text}</Note>}
             </li>
           );
         })}

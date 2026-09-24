@@ -13,8 +13,9 @@ import type { TKey } from "@/lib/i18n";
 import type { NetworkConfig } from "@/lib/networks";
 import type { QuoteAsset } from "@/lib/radian";
 import { fmtNum } from "@/lib/ui/format";
-import { Field, INPUT_CLASS } from "./Field";
+import { Field } from "./Field";
 import { FeeSplitPreview } from "./FeeSplitPreview";
+import { StepTitle } from "./Stepper";
 
 export type LaunchCheck = { key: TKey; ok: boolean };
 
@@ -63,7 +64,7 @@ export function LaunchStep({
 
   return (
     <Panel className="mb-6">
-      <SectionHead title={t("create.checksTitle")} />
+      <SectionHead title={<StepTitle n={3} done={false}>{t("create.checksTitle")}</StepTitle>} />
 
       <div className="rounded-[14px] border border-stroke bg-glass-2 p-4">
         <div className="flex items-center gap-3">
@@ -109,15 +110,20 @@ export function LaunchStep({
         {checks.map((c) => (
           <li key={c.key} className={`flex items-center gap-2 text-[13px] ${c.ok ? "text-ink-2" : "text-ink-3"}`}>
             <span className={`grid size-5 flex-none place-items-center rounded-full border ${c.ok ? "border-pos/60 text-pos" : "border-stroke"}`}>{c.ok && <Check size={11} strokeWidth={2.4} aria-hidden="true" />}</span>
+            <span className="sr-only">{c.ok ? t("create.chkDone") : t("create.chkTodo")} </span>
             {t(c.key)}
           </li>
         ))}
       </ul>
+      {/* the live verdict, always visible: what passes, or the first thing still to do */}
+      <p id="create-status" role="status" className={`mt-2 min-h-5 text-[13px] ${allOk && !buyErr ? "text-pos" : "text-neg"}`}>
+        {buyErr ? buyErr : allOk ? t("create.statusOk") : t("create.statusTodo", { what: t(checks.find((c) => !c.ok)!.key) })}
+      </p>
 
       <div className="mt-5">
         <Field id="draft-first-buy" label={t("create.firstBuyLabel")} hint={t("create.firstBuyHint")} error={buyErr}>
           <div className="flex items-center rounded-[10px] border border-stroke-2 bg-[rgba(255,238,220,.04)] px-3.5 focus-within:border-brand">
-            <input id="draft-first-buy" type="text" inputMode="decimal" autoComplete="off" placeholder="0.00" value={draft.firstBuy} onChange={(e) => onFirstBuy(e.target.value)} className="tnum min-w-0 flex-1 bg-transparent py-3 text-[16px] text-ink outline-none" aria-invalid={!!buyErr} />
+            <input id="draft-first-buy" type="text" inputMode="decimal" autoComplete="off" placeholder="0.00" value={draft.firstBuy} onChange={(e) => onFirstBuy(e.target.value.replace(/[^\d.]/g, ""))} className="tnum min-w-0 flex-1 bg-transparent py-3 text-[16px] text-ink outline-none" aria-invalid={!!buyErr} disabled={busy} />
             <span className="mono-label text-[11px] text-ink-3">{quote.symbol}</span>
           </div>
         </Field>

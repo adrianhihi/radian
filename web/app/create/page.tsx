@@ -70,6 +70,16 @@ export default function CreatePage() {
   }, []);
 
   const [step, setStep] = useState(1);
+  // A restored draft opens on its first incomplete step, not always on step 1.
+  const [resumed, setResumed] = useState(false);
+  useEffect(() => {
+    if (!hydrated || resumed || edited) return;
+    setResumed(true);
+    if (!(restored.name || restored.symbol)) return;
+    if (!nameDone(restored)) return;
+    setStep(2);
+  }, [hydrated, resumed, edited, restored]);
+  const [confirmReset, setConfirmReset] = useState(false);
   const [touched, setTouched] = useState(false);
   const [ack, setAck] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -162,6 +172,11 @@ export default function CreatePage() {
   const onFeeMode = (m: FeeMode) => commit({ ...draft, feeMode: m });
   const onQuote = (q: QuoteAsset) => commit({ ...draft, quoteKey: q.key });
   const reset = () => {
+    if (!confirmReset) {
+      setConfirmReset(true); // the draft is work: a second press discards it
+      return;
+    }
+    setConfirmReset(false);
     commit(emptyDraft());
     setAck(false);
     setTouched(false);
@@ -306,8 +321,10 @@ export default function CreatePage() {
       recordTx(account, { hash, kind: "launch", token: tokenAddr ?? undefined, time: Date.now() });
 
       // No router: the creator's first buy is a second transaction on the new curve
-      // (untaxed — the creator is snipe-tax-exempt).
-      if (!viaRouter && curveAddr && buyAmt > 0n) {
+      // (untaxed — the creator is snipe-tax-exempt). The launch is already on chain, so
+      // a failed or declined buy is reported and the page still moves on to the token.
+      let extra = "";
+      if (!viaRouter && curveAddr && buyAmt > 0n) try {
         if (quote.native) {
           setStatus(t("create.confirmFirstBuy"));
           const bh = await client.writeContract({ account, chain: arcTestnet, address: curveAddr, abi: curveAbi, functionName: "buy", args: [buyAmt, 0n, account], value: buyAmt });
@@ -320,9 +337,12 @@ export default function CreatePage() {
           const bh = await client.writeContract({ account, chain: arcTestnet, address: curveAddr, abi: curveAbi, functionName: "buy", args: [buyAmt, 0n, account] });
           await waitReceipt(bh, "buy", { token: tokenAddr ?? "" });
         }
+      } catch (e: unknown) {
+        extra = e instanceof ReceiptTimeout ? t("create.pending") : txErrorText(t, e, { fallback: t("create.failed") });
       }
 
       setStatus(t("create.launched"));
+      if (extra) setToast(t("create.launchedBuyFailed", { m: extra }));
       saveDraft(emptyDraft()); // the launch is on chain; the draft has done its job
       router.push(tokenAddr ? `/token/${tokenAddr}` : "/explore");
     } catch (e: unknown) {
@@ -340,16 +360,25 @@ export default function CreatePage() {
   return (
     <Shell>
       <div className="screen-in">
-        <PageHead eyebrow={t("create.eyebrow")} title={t("create.title")} sub={t("create.sub")} aside={<OutlineButton type="button" onClick={reset}>{t("create.reset")}</OutlineButton>} />
+        <PageHead
+          eyebrow={t("create.eyebrow")}
+          title={t("create.title")}
+          sub={t("create.sub")}
+          aside={
+            <OutlineButton type="button" onClick={reset} onBlur={() => setConfirmReset(false)} className={confirmReset ? "border-neg text-neg" : ""}>
+              {confirmReset ? t("create.resetConfirm") : t("create.reset")}
+            </OutlineButton>
+          }
+        />
         <IdentityBanner identity={identity} />
         <PendingBar hash={pendingHash} onClose={() => setPendingHash(null)} />
 
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <Stepper current={step} reachable={reachable} onGoto={goto} />
+          <Stepper current={step} reachable={reachable} onGoto={goto} onBack={() => goto(step - 1)} />
           {hydrated && (draft.name || draft.symbol) && <span className="mono-label text-[10px] tracking-[.12em] text-ink-3">{t("create.draftSaved")}</span>}
         </div>
 
-        {step === 1 && <NameStep draft={draft} onField={onField} onPickImage={onPickImage} uploading={uploading} touched={touched} />}
+        {step === 1 && <NameStep draft={draft} onField={onField} onPickImage={onPickImage} uploading={uploading} touched={touched} address={address} />}
         {step === 2 && (
           <MarketStep
             draft={effective}
@@ -366,6 +395,8 @@ export default function CreatePage() {
             onWall={onWall}
             onPof={onPof}
             templateError={templateError}
+            done={marketDone}
+            myAddress={address}
           />
         )}
         {step === 3 && (

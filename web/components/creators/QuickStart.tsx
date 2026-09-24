@@ -16,6 +16,7 @@ export function QuickStart() {
   const router = useRouter();
   const hydrated = useHydrated();
   const [dismissed, setDismissed] = useState(false);
+  const [confirmFresh, setConfirmFresh] = useState(false); // "Start fresh" needs a second press: the draft is someone's work
   const existing = useMemo(() => (hydrated ? loadDraft() : null), [hydrated]);
   const resumable = !dismissed && existing && (existing.name || existing.symbol);
   const [name, setName] = useState("");
@@ -28,6 +29,10 @@ export function QuickStart() {
     router.push("/create");
   };
   const fresh = () => {
+    if (!confirmFresh) {
+      setConfirmFresh(true);
+      return;
+    }
     saveDraft(emptyDraft());
     setDismissed(true);
   };
@@ -50,8 +55,8 @@ export function QuickStart() {
           <button type="button" onClick={() => router.push("/create")} className="grad-fill mono-label inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[11px] tracking-[.12em]">
             {t("cr.continueDraft")} <ArrowRight size={12} strokeWidth={1.8} aria-hidden="true" />
           </button>
-          <button type="button" onClick={fresh} className="mono-label inline-flex items-center gap-1 text-[10.5px] tracking-[.12em] text-ink-3 hover:text-neg">
-            <X size={12} strokeWidth={2} aria-hidden="true" /> {t("cr.startFresh")}
+          <button type="button" onClick={fresh} onBlur={() => setConfirmFresh(false)} className={`mono-label inline-flex items-center gap-1 text-[10.5px] tracking-[.12em] ${confirmFresh ? "text-neg underline" : "text-ink-3 hover:text-neg"}`}>
+            <X size={12} strokeWidth={2} aria-hidden="true" /> {confirmFresh ? t("cr.startFreshConfirm") : t("cr.startFresh")}
           </button>
         </div>
       ) : (

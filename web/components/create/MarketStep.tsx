@@ -14,6 +14,7 @@ import { POF_BOUNDS, WALL_BOUNDS, type PoFConfigInput, type WallConfigInput } fr
 import { fmtNum } from "@/lib/ui/format";
 import { ChoiceCard, Field, INPUT_CLASS } from "./Field";
 import { FeeSplitPreview } from "./FeeSplitPreview";
+import { StepTitle } from "./Stepper";
 
 export function MarketStep({
   draft,
@@ -30,6 +31,8 @@ export function MarketStep({
   onWall,
   onPof,
   templateError,
+  done = false,
+  myAddress,
 }: {
   draft: LaunchDraft;
   quote: QuoteAsset;
@@ -46,6 +49,10 @@ export function MarketStep({
   onPof: (patch: Partial<PoFConfigInput>) => void;
   /** the template settings' validation message (from buildWallConfig / buildPoFConfig) */
   templateError: string | null;
+  /** the step's data is complete (shown as a check in the heading) */
+  done?: boolean;
+  /** the connected wallet, for "Use my address" */
+  myAddress?: string;
 }) {
   const t = useT();
   const standard = draft.template === "standard";
@@ -56,7 +63,7 @@ export function MarketStep({
   return (
     <>
       <Panel className="mb-6">
-        <SectionHead title={t("create.marketTitle")} />
+        <SectionHead title={<StepTitle n={2} done={done}>{t("create.marketTitle")}</StepTitle>} />
         <p className="-mt-3 mb-4 text-[13px] leading-[1.7] text-muted">{t("create.marketSub")}</p>
         <div className="grid gap-2.5 min-[620px]:grid-cols-2">
           {net.quoteAssets.map((qa) => (
@@ -162,10 +169,36 @@ export function MarketStep({
             {draft.feeMode === "creator" && (
               <div className="mt-4 grid gap-4 min-[620px]:grid-cols-[1fr_1.4fr]">
                 <Field id="draft-tax" label={t("create.taxLabel")} hint={t("create.taxHint", { max: maxTaxPct })} error={taxErr}>
-                  <input id="draft-tax" type="number" min="0" max={maxTaxPct} step="0.5" value={draft.creatorTax} onChange={(e) => onField("creatorTax", e.target.value)} className={numCls} aria-invalid={!!taxErr} />
+                  {/* a slider with the number large: the tax is the one knob a creator sets */}
+                  <div className="rounded-[10px] border border-stroke-2 bg-[rgba(255,238,220,.04)] px-3.5 py-3">
+                    <div className="tnum text-[26px] font-light leading-none text-ink">{Number(draft.creatorTax) || 0}%</div>
+                    <input
+                      id="draft-tax"
+                      type="range"
+                      min={0}
+                      max={maxTaxPct}
+                      step={0.5}
+                      value={Math.min(maxTaxPct, Math.max(0, Number(draft.creatorTax) || 0))}
+                      onChange={(e) => onField("creatorTax", e.target.value)}
+                      aria-valuetext={`${Number(draft.creatorTax) || 0}%`}
+                      className="mt-2 w-full accent-[var(--brand)]"
+                      aria-invalid={!!taxErr}
+                    />
+                    <div className="mono-label mt-1 flex justify-between text-[9.5px] tracking-[.1em] text-ink-3">
+                      <span>{t("create.taxMin")}</span>
+                      <span>{t("create.taxMax", { max: maxTaxPct })}</span>
+                    </div>
+                  </div>
                 </Field>
-                <Field id="draft-recipient" label={t("create.recipientLabel")} error={recErr}>
-                  <input id="draft-recipient" type="text" autoComplete="off" spellCheck={false} placeholder={t("create.recipientPh")} value={draft.feeRecipient} onChange={(e) => onField("feeRecipient", e.target.value.trim())} className={`${INPUT_CLASS} font-mono text-[12.5px]`} aria-invalid={!!recErr} />
+                <Field id="draft-recipient" label={t("create.recipientLabel")} error={recErr} hint={draft.feeRecipient.trim() ? undefined : t("create.recipientBlank")}>
+                  <div className="flex gap-2">
+                    <input id="draft-recipient" type="text" autoComplete="off" spellCheck={false} placeholder={t("create.recipientPh")} value={draft.feeRecipient} onChange={(e) => onField("feeRecipient", e.target.value.trim())} className={`${INPUT_CLASS} min-w-0 flex-1 font-mono text-[12.5px]`} aria-invalid={!!recErr} />
+                    {myAddress && (
+                      <button type="button" onClick={() => onField("feeRecipient", myAddress)} className="mono-label flex-none rounded-[10px] border border-stroke-2 px-3 text-[10.5px] tracking-[.1em] text-ink-2 hover:border-brand hover:text-brand">
+                        {t("create.useMyAddress")}
+                      </button>
+                    )}
+                  </div>
                 </Field>
               </div>
             )}

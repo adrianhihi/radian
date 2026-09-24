@@ -33,8 +33,12 @@ export function Divider() {
   return <div className="my-2.5 h-px bg-stroke" aria-hidden="true" />;
 }
 
-export function Note({ children, tone, className = "" }: { children: React.ReactNode; tone?: "neg"; className?: string }) {
-  return <p className={`text-[12px] leading-[1.6] ${tone === "neg" ? "text-neg" : "text-ink-3"} ${className}`}>{children}</p>;
+export function Note({ children, tone, className = "", role }: { children: React.ReactNode; tone?: "neg"; className?: string; role?: "status" | "alert" }) {
+  return (
+    <p role={role} className={`text-[12px] leading-[1.6] ${tone === "neg" ? "text-neg" : "text-ink-3"} ${className}`}>
+      {children}
+    </p>
+  );
 }
 
 /** A row of exclusive chips (intervals, caps, assets). */
