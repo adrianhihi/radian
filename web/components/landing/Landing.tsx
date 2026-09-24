@@ -55,6 +55,8 @@ export function Landing() {
   const net = useNetwork();
   const live = net.live && !isTestnet(net);
 
+  const hintRef = useRef<HTMLDivElement | null>(null);
+
   const rootRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -106,6 +108,8 @@ export function Landing() {
       paint(stages.mid, STAGES.mid, smoothed);
       paint(stages.cards, STAGES.cards, smoothed);
       paint(stages.final, STAGES.final, smoothed);
+      // the scroll hint is gone by 12.5% progress, so it never sits on a later title
+      if (hintRef.current) hintRef.current.style.opacity = String(Math.max(0, Math.min(1, 1 - smoothed * 8)));
       raf = requestAnimationFrame(tick);
     };
 
@@ -253,7 +257,7 @@ export function Landing() {
               </section>
             </div>
 
-            <div className="l-hint" aria-hidden="true">
+            <div className="l-hint" aria-hidden="true" ref={hintRef}>
               <i />
               {t("landing.scrollHint")}
             </div>

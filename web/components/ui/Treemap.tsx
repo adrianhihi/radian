@@ -1,4 +1,5 @@
 "use client";
+import { useId } from "react";
 
 // Weighted treemap: slice-and-dice layout, each cell coloured by its own share
 // (absolute ramp, so 30% looks the same in every split) or by a given colour,
@@ -50,7 +51,8 @@ export function treemapLayout(items: TreemapItem[], vw: number = TREEMAP_W): Tre
 export function Treemap({ id, items, label, vw = TREEMAP_W }: { id: string; items: TreemapItem[]; label: string; vw?: number }) {
   if (!items.length) return null;
   const rects = treemapLayout(items, vw);
-  const base = `tm${svgId(id)}`;
+  const uid = useId().replace(/[^A-Za-z0-9_-]/g, "");
+  const base = `tm${svgId(id)}${uid}`; // two treemaps of one token on a page must not share clip ids
   return (
     <svg viewBox={`0 0 ${vw} 100`} preserveAspectRatio="xMidYMid meet" role="img" aria-label={label} className="block w-full rounded-xl bg-glass-2" style={{ aspectRatio: `${vw} / 100` }}>
       <defs>

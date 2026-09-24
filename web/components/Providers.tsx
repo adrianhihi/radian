@@ -1,56 +1,26 @@
 "use client";
-import { PrivyProvider } from "@privy-io/react-auth";
-import { arcTestnet } from "@/lib/radian";
 
-const APP_ID = process.env.NEXT_PUBLIC_PRIVY_APP_ID ?? "cmtuqige5005e0bl9kg12ftjq";
+// The wallet boundary. Privy lives in components/PrivyRoot.tsx and is loaded as its
+// own chunk after the page has painted; until then (and on the server) the tree
+// renders with a "loading" wallet, so nothing depends on Privy being in the main
+// bundle. Without an app id the wallet is simply off: the site still reads the chain.
+import { Suspense, lazy, useEffect, useState, type ReactNode } from "react";
+import { DISABLED_WALLET, LOADING_WALLET, WalletContext } from "@/lib/walletContext";
 
-// Privy has an unconditional effect that fetches WalletConnect's wallet directory
-// (explorer-api.walletconnect.com) even when no WalletConnect option is offered.
-// The CSP (middleware.ts) does not allow that host, and Privy does not handle the
-// blocked request: a console error in production, a "Failed to fetch" overlay in
-// dev. Answer that one host locally with an empty directory; everything else goes
-// to the real fetch. WalletConnect itself is not in the wallet list below.
-const WC_EXPLORER = "explorer-api.walletconnect.com";
-if (typeof window !== "undefined" && !(window as { __radianWcPatched?: boolean }).__radianWcPatched) {
-  (window as { __radianWcPatched?: boolean }).__radianWcPatched = true;
-  const original = window.fetch.bind(window);
-  window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-    try {
-      if (new URL(url, location.href).hostname === WC_EXPLORER) {
-        return Promise.resolve(new Response(JSON.stringify({ listings: {}, count: 0, total: 0 }), { status: 200, headers: { "content-type": "application/json" } }));
-      }
-    } catch {
-      /* not a URL: let fetch decide */
-    }
-    return original(input, init);
-  };
-}
+const APP_ID = process.env.NEXT_PUBLIC_PRIVY_APP_ID ?? "";
+const PrivyRoot = lazy(() => import("./PrivyRoot"));
 
-export function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({ children }: { children: ReactNode }) {
+  // Privy reads window and IndexedDB: never on the server, and only after mount.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  if (!APP_ID) return <WalletContext.Provider value={DISABLED_WALLET}>{children}</WalletContext.Provider>;
+  const waiting = <WalletContext.Provider value={LOADING_WALLET}>{children}</WalletContext.Provider>;
+  if (!mounted) return waiting;
   return (
-    <PrivyProvider
-      appId={APP_ID}
-      config={{
-        appearance: {
-          theme: "dark",
-          accentColor: "#4f7cff",
-          logo: undefined,
-          walletChainType: "ethereum-only",
-          // Injected wallets plus Coinbase Wallet; no WalletConnect (its relay and
-          // directory are third parties the CSP keeps out). Email / Google give
-          // everyone else an embedded wallet.
-          walletList: ["detected_ethereum_wallets", "metamask", "coinbase_wallet", "rabby_wallet", "phantom", "okx_wallet"],
-        },
-        // Email / Google / wallet — low-friction onboarding like PONS/PAIR.
-        loginMethods: ["email", "google", "wallet"],
-        // Users without a wallet get one automatically on first login.
-        embeddedWallets: { createOnLogin: "users-without-wallets" },
-        defaultChain: arcTestnet,
-        supportedChains: [arcTestnet],
-      }}
-    >
-      {children}
-    </PrivyProvider>
+    <Suspense fallback={waiting}>
+      <PrivyRoot appId={APP_ID}>{children}</PrivyRoot>
+    </Suspense>
   );
 }

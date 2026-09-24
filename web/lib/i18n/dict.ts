@@ -47,7 +47,7 @@ export const en = {
   // ---- shell ----
   "shell.brandAria": "Radian, back to home",
   "shell.navAria": "Main navigation",
-  "shell.tabbarAria": "Main navigation",
+  "shell.tabbarAria": "Mobile navigation",
   "shell.langAria": "Language",
   "shell.netAria": "Network",
   "shell.themeAria": "Toggle light / dark theme",
@@ -86,9 +86,6 @@ export const en = {
   "more.termsDesc": "What you are agreeing to and the risks you take.",
 
   // ---- 404 ----
-  "nf.title": "This page does not exist",
-  "nf.body": "Nothing lives at this path. Every Radian page is reachable from the top navigation.",
-  "nf.cta": "Back to Explore",
 
   // ---- explore ----
   "gstats.creators": "Creators",
@@ -159,6 +156,8 @@ export const en = {
   "explore.pauseCarousel": "Pause carousel",
   "explore.noChange": "No 24h changes yet — a token needs two trades before it has one; until then the list stays in Top order.",
   "explore.noNewest": "No launch times yet; the list stays in Top order.",
+  "portfolio.exploreCta": "Explore tokens →",
+  "verify.fingerprintNote": "The three words are a fingerprint of the whole address: a look-alike address gets different words.",
   "tx.errRejected": "You declined in the wallet. Nothing was sent.",
   "tx.errGas": "Not enough {sym} to pay gas. Send a little to {addr} and try again.",
   "tx.errReverted": "The transaction reverted on chain: your funds did not move, only gas was spent.",
@@ -1154,7 +1153,7 @@ export const zh: Record<TKey, string> = {
 
   "shell.brandAria": "Radian，回到首页",
   "shell.navAria": "主导航",
-  "shell.tabbarAria": "主导航",
+  "shell.tabbarAria": "移动导航",
   "shell.langAria": "语言",
   "shell.netAria": "网络",
   "shell.themeAria": "切换明暗主题",
@@ -1189,9 +1188,6 @@ export const zh: Record<TKey, string> = {
   "more.statsDesc": "24 小时与全期的协议数据。",
   "more.termsDesc": "你在同意什么，以及你承担的风险。",
 
-  "nf.title": "这个页面不存在",
-  "nf.body": "这个路径下没有内容。Radian 的每一页都能从顶部导航进入。",
-  "nf.cta": "回到探索",
 
   "gstats.creators": "创作者",
   "gstats.tokens": "代币",
@@ -1261,6 +1257,8 @@ export const zh: Record<TKey, string> = {
   "explore.pauseCarousel": "暂停轮播",
   "explore.noChange": "还没有 24 小时涨跌——一个币要有两笔成交才算得出；在此之前按综合排序。",
   "explore.noNewest": "还没有发射时间；按综合排序。",
+  "portfolio.exploreCta": "浏览代币 →",
+  "verify.fingerprintNote": "这三个词是整个地址的指纹：形似的地址会得到不同的词。",
   "tx.errRejected": "你在钱包里拒绝了，什么都没发出。",
   "tx.errGas": "{sym} 不够付 gas。往 {addr} 转一点再试。",
   "tx.errReverted": "交易在链上回滚：资金没有动，只花了 gas。",

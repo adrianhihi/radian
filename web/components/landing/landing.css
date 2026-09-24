@@ -167,9 +167,10 @@
   color: #f2f7fd;
 }
 
+/* titles wrap at every width: a long line must never run into the right column */
 .l-line {
   display: block;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 /* the accent line is the brand's moment on the cold stage */

@@ -59,9 +59,11 @@ export function Chrome({ crumbSuffix }: { crumbSuffix?: string }) {
           <NavMore active={active === MORE_NAME} />
         </nav>
 
-        <div className="ml-auto flex items-center gap-2.5 nav:ml-0 nav:gap-3.5">
+        {/* wraps on tiny phones instead of pushing the bar wider than the screen */}
+        <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2 min-[400px]:gap-2.5 nav:ml-0 nav:gap-3.5">
           <NetworkPill />
           <LangToggle />
+          <ThemeButton />
           <WalletPill />
         </div>
       </header>
@@ -93,6 +95,43 @@ function LangToggle() {
         中
       </button>
     </div>
+  );
+}
+
+/**
+ * Light / dark. No React state: the source of truth is `<html data-theme>`, set by the
+ * pre-paint script in app/layout.tsx; both icons are in the DOM and globals.css shows the
+ * one for the current theme, so the first frame is never wrong.
+ */
+function ThemeButton() {
+  const t = useT();
+  const toggle = () => {
+    const root = document.documentElement;
+    const toLight = root.getAttribute("data-theme") !== "light";
+    if (toLight) root.setAttribute("data-theme", "light");
+    else root.removeAttribute("data-theme");
+    try {
+      window.localStorage.setItem("radian.theme", toLight ? "light" : "dark");
+    } catch {
+      /* private mode: this session only */
+    }
+  };
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      aria-label={t("shell.themeAria")}
+      title={t("shell.themeAria")}
+      className="theme-btn grid size-[34px] flex-none place-items-center rounded-[10px] border border-stroke-2 bg-glass-2 text-ink-2 backdrop-blur-[10px] transition hover:-translate-y-px hover:border-brand hover:text-brand"
+    >
+      <svg className="theme-icon-dark" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z" />
+      </svg>
+      <svg className="theme-icon-light" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="4.2" />
+        <path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M5.3 18.7 7 17M17 7l1.7-1.7" />
+      </svg>
+    </button>
   );
 }
 

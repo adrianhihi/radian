@@ -265,7 +265,7 @@ export default function PortfolioPage() {
                       {read ? t("portfolio.noHoldings") : t("portfolio.reading")}
                       <br />
                       <Link href="/explore" className="mt-2 inline-block text-brand hover:underline">
-                        {t("nf.cta")}
+                        {t("portfolio.exploreCta")}
                       </Link>
                     </Empty>
                   ) : (

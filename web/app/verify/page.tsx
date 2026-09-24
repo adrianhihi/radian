@@ -13,6 +13,7 @@ import { useT } from "@/components/LangProvider";
 import { Footer, Panel } from "@/components/ui/primitives";
 import { useNetwork } from "@/lib/networks";
 import { useIdentity, pinnedContracts } from "@/lib/identity";
+import { fingerprint } from "@/lib/ui/fingerprint";
 
 const CODE_HASH_CMD = "cast keccak $(cast code <address> --rpc-url <rpc>)";
 
@@ -65,6 +66,10 @@ export default function VerifyPage() {
                         </span>
                       </div>
                       <div className="min-w-0">
+                        <span className="mono-label mb-1.5 inline-block rounded-full border border-brand/40 bg-glass-2 px-2.5 py-0.5 text-[10.5px] tracking-[.1em] text-brand" title={t("verify.fingerprintNote")}>
+                          {fingerprint(e.address)}
+                        </span>
+                        <br />
                         <a href={`${net.explorer}/address/${e.address}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 break-all font-mono text-[12px] text-ink-2 hover:text-brand">
                           {e.address} <ExternalLink size={11} strokeWidth={1.8} aria-hidden="true" className="flex-none" />
                         </a>
@@ -91,9 +96,15 @@ export default function VerifyPage() {
                     <div className="mono-label text-[10.5px] tracking-[.14em] text-ink-2">{o.name}</div>
                     <div className="mt-1 text-[11.5px] text-ink-3">{o.note}</div>
                   </div>
-                  <a href={`${net.explorer}/address/${o.address}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 break-all font-mono text-[12px] text-ink-2 hover:text-brand">
-                    {o.address} <ExternalLink size={11} strokeWidth={1.8} aria-hidden="true" className="flex-none" />
-                  </a>
+                  <div className="min-w-0">
+                    <span className="mono-label mb-1.5 inline-block rounded-full border border-brand/40 bg-glass-2 px-2.5 py-0.5 text-[10.5px] tracking-[.1em] text-brand" title={t("verify.fingerprintNote")}>
+                      {fingerprint(o.address)}
+                    </span>
+                    <br />
+                    <a href={`${net.explorer}/address/${o.address}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 break-all font-mono text-[12px] text-ink-2 hover:text-brand">
+                      {o.address} <ExternalLink size={11} strokeWidth={1.8} aria-hidden="true" className="flex-none" />
+                    </a>
+                  </div>
                 </li>
               ))}
             </ul>

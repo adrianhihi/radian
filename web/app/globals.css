@@ -107,30 +107,6 @@
   --streak-opacity: 0.5;
 
   color-scheme: dark;
-
-  /* ---- legacy aliases ----------------------------------------------------
-     The pre-migration pages and their stylesheet (further down) still read
-     these names. They now resolve to the Ember palette so the whole site
-     changes skin at once; each page drops them when it is rebuilt. */
-  --bg: var(--ground);
-  --bg-soft: #10152400;
-  --panel: #1d1610;
-  --panel-2: #261d15;
-  --border: var(--stroke);
-  --border-soft: rgba(228, 170, 108, 0.1);
-  --fg: var(--ink);
-  --fg-dim: var(--ink-2);
-  --fg-faint: var(--ink-3);
-  --radian: var(--brand);
-  --radian-2: var(--brand-3);
-  --arc-a: var(--brand);
-  --arc-b: var(--brand-2);
-  --up: var(--pos);
-  --down: var(--neg);
-  --grad: var(--brand-3);
-  --font-display: var(--font-sans);
-  --font-body: var(--font-sans);
-  --ease: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 :root[data-theme="light"] {
@@ -169,10 +145,6 @@
   --grid: rgba(150, 110, 70, 0.07);
   --streak-opacity: 0.3;
 
-  --panel: #fbf6ee;
-  --panel-2: #ffffff;
-  --border-soft: rgba(150, 110, 70, 0.12);
-
   color-scheme: light;
 }
 
@@ -195,13 +167,6 @@ body {
     linear-gradient(90deg, var(--grid) 1px, transparent 1px);
   background-size: 46px 46px;
   background-position: center top;
-}
-
-/* room for the fixed bottom tab bar on phones */
-@media (max-width: 767px) {
-  body {
-    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
-  }
 }
 
 /* two blurred aurora streaks at the page edges */

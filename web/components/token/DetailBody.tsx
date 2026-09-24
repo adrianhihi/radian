@@ -28,6 +28,7 @@ import type { TokenTrade } from "@/lib/indexer";
 import { poundVaultAbi } from "@/lib/pound";
 import { explorer, hasPound, POUND, publicClient, RADIAN, type LaunchRow, type LaunchTemplate } from "@/lib/radian";
 import { ago, fmtNum, fmtPrice, pct, shortAddr } from "@/lib/ui/format";
+import { fingerprint } from "@/lib/ui/fingerprint";
 import { ZERO_ADDR, type TokenState } from "./types";
 
 const pctOf = (bps: bigint) => `${(Number(bps) / 100).toFixed(Number(bps) % 100 === 0 ? 0 : 2)}%`;
@@ -338,9 +339,12 @@ export function FeesContracts({ token, st, template }: { token: Address; st: Tok
               {contracts.map(([label, addr]) => (
                 <li key={label} className="flex items-center justify-between gap-2 text-[12px]">
                   <span className="text-ink-2">{label}</span>
-                  <a href={explorer.address(addr)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-mono text-[11px] text-brand hover:underline">
-                    {shortAddr(addr)} <ExternalLink size={10} strokeWidth={1.8} aria-hidden="true" />
-                  </a>
+                  <span className="flex items-center gap-2">
+                    <span className="mono-label text-[9.5px] tracking-[.08em] text-ink-3">{fingerprint(addr)}</span>
+                    <a href={explorer.address(addr)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-mono text-[11px] text-brand hover:underline">
+                      {shortAddr(addr)} <ExternalLink size={10} strokeWidth={1.8} aria-hidden="true" />
+                    </a>
+                  </span>
                 </li>
               ))}
             </ul>
