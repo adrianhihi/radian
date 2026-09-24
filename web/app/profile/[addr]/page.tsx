@@ -55,7 +55,7 @@ export default function ProfilePage() {
 
   const raw = params?.addr;
   const addr = String(Array.isArray(raw) ? (raw[0] ?? "") : (raw ?? ""));
-  const valid = isAddress(addr);
+  const valid = isAddress(addr, { strict: false });
   const isMe = !!me && me.toLowerCase() === addr.toLowerCase();
   const profile = useProfile(valid ? addr : null);
 

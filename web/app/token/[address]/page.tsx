@@ -71,7 +71,7 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
     // Curve address comes from the local registry (getLogs is unreliable on
     // Arc). If this token wasn't launched in this browser, fall back to the
     // indexer so any token visible on Explore also opens here.
-    if (!isAddress(token)) {
+    if (!isAddress(token, { strict: false })) {
       setNotFound(true);
       return;
     }
@@ -197,7 +197,7 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
 
   // The trade log (indexer only): the chart when the launch row has no spark, and the list.
   useEffect(() => {
-    if (!hasIndexer() || !isAddress(token)) return;
+    if (!hasIndexer() || !isAddress(token, { strict: false })) return;
     let alive = true;
     const pull = () =>
       fetchTokenTrades(token)
@@ -216,7 +216,7 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
   }, [token]);
 
   useEffect(() => {
-    if (!account || !isAddress(token)) return;
+    if (!account || !isAddress(token, { strict: false })) return;
     publicClient
       .readContract({ address: token, abi: tokenAbi, functionName: "balanceOf", args: [account] })
       .then((b) => setMyTokens(b as bigint))
@@ -254,7 +254,7 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
           {notFound ? (
             <Empty>
               <div className="text-lg font-semibold text-ink">{t("detail.notFound")}</div>
-              <p className="mt-2">{isAddress(token) ? t("detail.notFoundBody") : t("detail.badAddr")}</p>
+              <p className="mt-2">{isAddress(token, { strict: false }) ? t("detail.notFoundBody") : t("detail.badAddr")}</p>
               <OutlineLink href="/explore" className="mt-4">
                 {t("detail.browse")}
               </OutlineLink>
