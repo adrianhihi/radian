@@ -1,6 +1,18 @@
-import { createWalletClient, http, formatUnits, type Address, type Hex } from "viem";
+import { createWalletClient, createPublicClient, defineChain, http, formatUnits, decodeEventLog, type Address, type Hex, type Chain } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { store, type StoredAuth } from "./store.js";
+import { bsc, base } from "viem/chains";
+import { store, type StoredAuth, type PoundEvent } from "./store.js";
+import { indicativeQuote, firmQuote, reportTxHash, isHalfMoonConfigured, HALFMOON_ROUTERS, type FirmQuote } from "./halfmoon.js";
+import {
+  OTHER_CHAIN_PACK,
+  OTHER_CHAIN_RPC,
+  OTHER_CHAIN_NAMES,
+  OTHER_CHAIN_MIN_INTERVAL_S,
+  OTHER_CHAIN_MAX_SLIPPAGE_BPS,
+  isDryRun,
+  erc20SpendAbi,
+  type OtherChainPack,
+} from "./config.js";
 import {
   arcTestnet,
   singleClient,
@@ -58,8 +70,9 @@ export function startKeeper() {
   account = privateKeyToAccount(KEEPER_PRIVATE_KEY);
   wallet = createWalletClient({ account, chain: arcTestnet, transport: http(undefined, { batch: false, timeout: 30_000 }) });
   console.log(`[keeper] ${account.address}, every ${KEEPER_INTERVAL_MS / 1000}s`);
-  setInterval(() => void tick(), KEEPER_INTERVAL_MS);
-  setTimeout(() => void tick(), 15_000);
+  // unref: the server and the scanner keep the process alive, never these timers (tests import this too)
+  setInterval(() => void tick(), KEEPER_INTERVAL_MS).unref();
+  setTimeout(() => void tick(), 15_000).unref();
 }
 
 async function tick() {
@@ -105,6 +118,13 @@ async function tick() {
         await poundTick();
       } catch (e) {
         console.warn("[keeper] pound:", short(e));
+      }
+    }
+    if (OTHER_CHAIN_PACK.length) {
+      try {
+        await otherChainBurns();
+      } catch (e) {
+        console.warn("[keeper] pack other chains:", short(e));
       }
     }
     for (const a of store.auths.values()) {
@@ -495,6 +515,356 @@ function mark(a: StoredAuth, status: StoredAuth["status"]) {
     a.status = status;
     console.log(`[keeper] auth ${a.authId.slice(0, 10)} → ${status}`);
   }
+}
+
+// ---- The Pack on other chains ----
+// A Pack coin that lives on BSC or Base is out of the home-chain PackBurner's reach. The keeper
+// buys it on that chain through HalfMoon (firm quote → Router.swap with the dead address as the
+// recipient) with the quote asset the operator bridged there, one coin per interval, in rotation,
+// and writes a ledger row the web shows next to the home-chain burns. The home-chain wallet is
+// never used here: every read and every send goes through a client built for that chain, and the
+// spend is bounded by the coin's `cap` and by what the firm quote names as amount_in.
+//
+// Dry-run (KEEPER_DRY_RUN=1, or no RPC for the chain) walks the whole path up to and including
+// the firm quote, logs the plan and stops before the approval. Funded runs additionally check the
+// router against the known table, approve the exact amount, eth_call the calldata, send it, wait
+// for the receipt, report the hash to HalfMoon and record the row.
+
+const DEAD = "0x000000000000000000000000000000000000dEaD" as Address; // sent checksummed; compared lower-cased
+const DEAD_LC = DEAD.toLowerCase();
+const OTHER_DEADLINE_S = 180; // approve + swap must both land before the firm quote's deadline
+const OTHER_DRY_RUN_INTERVAL_S = Number(process.env.OTHER_CHAIN_DRY_RUN_INTERVAL_S ?? 3600);
+const OTHER_BALANCE_TTL_MS = 30_000;
+const OTHER_EXPLORERS: Record<number, string> = { 56: "https://bscscan.com", 8453: "https://basescan.org" };
+
+type OtherQuote = {
+  at: number; // unix s
+  dryRun: boolean;
+  swapId: string;
+  amountIn: string;
+  amountOut: string;
+  amountOutMin: string;
+  feeRateBps: number;
+  router: Address;
+  routerKnown: boolean;
+  deadline: number;
+  calldataBytes: number;
+};
+type OtherState = {
+  balance: bigint | null;
+  gas: bigint | null;
+  balanceAt: number; // ms
+  lastAttemptAt: number; // unix s: the last plan (dry) or send (live) for this coin
+  lastQuote: OtherQuote | null;
+  lastError: string | null;
+  reason: string | null; // why the last tick did not burn this coin
+};
+const otherState = new Map<string, OtherState>();
+const keyOf = (c: OtherChainPack) => `${c.chainId}:${c.token}`;
+const stateOf = (c: OtherChainPack): OtherState => {
+  let s = otherState.get(keyOf(c));
+  if (!s) otherState.set(keyOf(c), (s = { balance: null, gas: null, balanceAt: 0, lastAttemptAt: 0, lastQuote: null, lastError: null, reason: null }));
+  return s;
+};
+let otherCursor = 0; // index of the next coin in OTHER_CHAIN_PACK to consider
+let otherLastBurnAt = 0; // unix s, funded burns only (seeded from the ledger)
+let otherLastPlanAt = 0; // unix s, dry-run plans
+let otherBusy = false;
+
+// The ledger is the only durable record: after a restart the cadence and the rotation resume from
+// the last burned row rather than from zero. Seeded on first use, after the snapshot is loaded.
+let otherSeeded = false;
+function seedOtherChains() {
+  if (otherSeeded) return;
+  otherSeeded = true;
+  const rows = store.pound.filter((e) => e.kind === "burned" && e.chainId != null);
+  if (!rows.length) return;
+  const last = rows.reduce((a, b) => (b.ts > a.ts ? b : a));
+  otherLastBurnAt = Math.floor(last.ts / 1000);
+  const i = OTHER_CHAIN_PACK.findIndex((c) => c.chainId === last.chainId && c.token === (last.token ?? "").toLowerCase());
+  if (i >= 0) otherCursor = (i + 1) % OTHER_CHAIN_PACK.length;
+}
+
+// Clients for one other chain, built from viem's preset with the configured RPC. The wallet signs
+// with the keeper's key; it exists only when the keeper runs.
+function makeOtherClients(chain: Chain, url: string) {
+  const pub = createPublicClient({ chain, transport: http(url, { batch: false, retryCount: 2, timeout: 20_000 }) });
+  const wallet = account ? createWalletClient({ account, chain, transport: http(url, { batch: false, timeout: 30_000 }) }) : null;
+  return { pub, wallet, chain };
+}
+const otherClients = new Map<number, ReturnType<typeof makeOtherClients>>();
+function otherChain(chainId: number) {
+  const hit = otherClients.get(chainId);
+  if (hit) return hit;
+  const url = OTHER_CHAIN_RPC[chainId];
+  if (!url) return null;
+  const preset = chainId === 56 ? bsc : chainId === 8453 ? base : null;
+  if (!preset) return null;
+  const entry = makeOtherClients(defineChain({ ...preset, rpcUrls: { default: { http: [url] } } }), url);
+  otherClients.set(chainId, entry);
+  return entry;
+}
+
+// The keeper's quote-asset and gas balances on that chain, cached briefly (the status route and the
+// tick share the reads). `null` when the chain has no RPC or the keeper has no key.
+async function readOtherBalances(c: OtherChainPack, force = false): Promise<OtherState> {
+  const st = stateOf(c);
+  if (!force && Date.now() - st.balanceAt < OTHER_BALANCE_TTL_MS) return st;
+  const oc = otherChain(c.chainId);
+  if (!oc || !account) {
+    st.balance = null;
+    st.gas = null;
+    return st;
+  }
+  const [bal, gas] = await Promise.all([
+    oc.pub.readContract({ address: c.quote, abi: erc20SpendAbi, functionName: "balanceOf", args: [account.address] }) as Promise<bigint>,
+    oc.pub.getBalance({ address: account.address }),
+  ]);
+  st.balance = bal;
+  st.gas = gas;
+  st.balanceAt = Date.now();
+  return st;
+}
+
+// The cadence and the slippage bound are the home burner's when there is one, so the whole Pack
+// rotates at one rhythm; otherwise the env fallbacks apply.
+let burnParamsCache: { at: number; minInterval: number; maxSlippageBps: number } | null = null;
+async function otherBurnParams() {
+  if (burnParamsCache && Date.now() - burnParamsCache.at < 300_000) return burnParamsCache;
+  let minInterval = OTHER_CHAIN_MIN_INTERVAL_S;
+  let maxSlippageBps = OTHER_CHAIN_MAX_SLIPPAGE_BPS;
+  if (HAS_POUND && PACK_BURNER !== NATIVE) {
+    try {
+      const [mi, ms] = (await singleClient.multicall({
+        allowFailure: false,
+        contracts: [
+          { address: PACK_BURNER, abi: packBurnerAbi, functionName: "minInterval" },
+          { address: PACK_BURNER, abi: packBurnerAbi, functionName: "maxSlippageBps" },
+        ],
+      })) as unknown as [number, number];
+      minInterval = Number(mi);
+      maxSlippageBps = Number(ms);
+    } catch (e) {
+      console.warn("[keeper] pack other chains: burner params unreadable, using env fallbacks:", short(e));
+    }
+  }
+  burnParamsCache = { at: Date.now(), minInterval, maxSlippageBps };
+  return burnParamsCache;
+}
+
+export async function otherChainBurns() {
+  if (!OTHER_CHAIN_PACK.length || !account || otherBusy) return;
+  otherBusy = true;
+  seedOtherChains();
+  try {
+    const { minInterval, maxSlippageBps } = await otherBurnParams();
+    const t = Number(now());
+    if (otherLastBurnAt !== 0 && t < otherLastBurnAt + minInterval) return; // one burn per interval across the other chains
+    if (!isHalfMoonConfigured()) {
+      for (const c of OTHER_CHAIN_PACK) stateOf(c).reason = "HalfMoon not configured (HALFMOON_API_KEY)";
+      return;
+    }
+    const n = OTHER_CHAIN_PACK.length;
+    for (let k = 0; k < n; k++) {
+      const i = (otherCursor + k) % n;
+      const c = OTHER_CHAIN_PACK[i];
+      const st = stateOf(c);
+      const dry = isDryRun(c.chainId);
+      const tag = `[keeper] pack ${OTHER_CHAIN_NAMES[c.chainId] ?? c.chainId} ${c.symbol}`;
+      if (dry && otherLastPlanAt !== 0 && t < otherLastPlanAt + OTHER_DRY_RUN_INTERVAL_S) {
+        st.reason = "dry-run: next plan after the dry-run interval";
+        continue;
+      }
+      let fq: FirmQuote | null = null;
+      try {
+        st.lastError = null;
+        // 1) what the keeper holds there
+        const bal = (await readOtherBalances(c, true)).balance;
+        let amount: bigint;
+        if (bal == null) {
+          if (!dry) {
+            st.reason = "no RPC for this chain";
+            continue;
+          }
+          amount = BigInt(c.cap); // nothing to read: plan the largest allowed burn
+          st.reason = "balance unknown (no RPC): dry-run plans at cap";
+        } else if (bal < BigInt(c.floor)) {
+          st.reason = `below floor: ${formatUnits(bal, c.quoteDecimals)} < ${formatUnits(BigInt(c.floor), c.quoteDecimals)} ${c.quoteSymbol}`;
+          continue;
+        } else {
+          amount = min(bal, BigInt(c.cap));
+          st.reason = null;
+        }
+        if (!dry && (st.gas ?? 0n) === 0n) {
+          st.reason = "no gas on this chain";
+          continue;
+        }
+        // 2) indicative → the slippage-bound minimum, 3) the firm quote with the dead address as recipient
+        const ind = await indicativeQuote({ chainId: c.chainId, tokenIn: c.quote, tokenOut: c.token, amountIn: amount });
+        if (ind.amountOut === 0n) {
+          st.reason = "no indicative fill";
+          continue;
+        }
+        const amountOutMin = (ind.amountOut * (BPS - BigInt(maxSlippageBps))) / BPS;
+        const deadline = t + OTHER_DEADLINE_S;
+        fq = await firmQuote({ chainId: c.chainId, from: account.address, to: DEAD, tokenIn: c.quote, tokenOut: c.token, amountIn: amount, amountOutMin, deadline });
+        // 4) the quote must be exactly what was asked: never more than planned (≤ cap), never to another
+        //    recipient or token, never under the slippage bound
+        if (fq.amountIn > amount) throw new Error(`firm quote amount_in ${fq.amountIn} exceeds the planned ${amount}`);
+        if (fq.amountIn === 0n) throw new Error("firm quote amount_in is zero");
+        if (fq.amountOut < amountOutMin) throw new Error(`firm quote amount_out ${fq.amountOut} under the bound ${amountOutMin}`);
+        if (fq.to !== DEAD_LC) throw new Error(`firm quote recipient ${fq.to} is not the dead address`);
+        if (fq.tokenIn !== c.quote || fq.tokenOut !== c.token) throw new Error("firm quote token pair differs from the request");
+        if (fq.deadline < t + 30) throw new Error(`firm quote deadline ${fq.deadline} too close`);
+        const known = HALFMOON_ROUTERS[c.chainId];
+        const routerKnown = !!known && fq.routerAddress === known.toLowerCase();
+        st.lastQuote = {
+          at: t, dryRun: dry, swapId: fq.swapId, amountIn: fq.amountIn.toString(), amountOut: fq.amountOut.toString(), amountOutMin: amountOutMin.toString(),
+          feeRateBps: fq.feeRateBps, router: fq.routerAddress, routerKnown, deadline: fq.deadline, calldataBytes: (fq.calldata.length - 2) / 2,
+        };
+        st.lastAttemptAt = t;
+        otherCursor = (i + 1) % n;
+        const plan = `${formatUnits(fq.amountIn, c.quoteDecimals)} ${c.quoteSymbol} → ≥${formatUnits(amountOutMin, c.decimals)} (quoted ${formatUnits(fq.amountOut, c.decimals)}) ${c.symbol} → 0x…dEaD via ${fq.routerAddress} (${routerKnown ? "known router" : "UNKNOWN ROUTER"}), fee ${fq.feeRateBps} bps, deadline ${fq.deadline}, swap ${fq.swapId}`;
+        if (dry) {
+          otherLastPlanAt = t;
+          st.reason = "dry-run: planned, not sent";
+          console.log(`${tag} DRY-RUN plan: ${plan}`);
+          return;
+        }
+        if (!routerKnown) throw new Error(`router ${fq.routerAddress} is not the known HalfMoon router for chain ${c.chainId}; add it to HALFMOON_ROUTERS_JSON if the partner rotated it`);
+        console.log(`${tag} burn: ${plan}`);
+      } catch (e) {
+        st.lastError = short(e);
+        console.warn(`${tag} skipped:`, short(e));
+        continue; // a failed quote on one chain never blocks the next coin
+      }
+      // 5) funded: approve exactly amount_in, check the calldata with eth_call, send, wait, report, record
+      try {
+        await sendOtherBurn(c, fq, t);
+      } catch (e) {
+        st.lastError = short(e);
+        console.warn(`${tag} failed:`, short(e));
+      }
+      return; // one burn attempt per tick once a firm quote was accepted
+    }
+  } finally {
+    otherBusy = false;
+  }
+}
+
+async function sendOtherBurn(c: OtherChainPack, fq: FirmQuote, t: number) {
+  const st = stateOf(c);
+  const oc = otherChain(c.chainId);
+  if (!oc?.wallet) throw new Error("no wallet client for this chain");
+  const tag = `[keeper] pack ${OTHER_CHAIN_NAMES[c.chainId] ?? c.chainId} ${c.symbol}`;
+  const allowance = (await oc.pub.readContract({ address: c.quote, abi: erc20SpendAbi, functionName: "allowance", args: [account!.address, fq.routerAddress] })) as bigint;
+  if (allowance < fq.amountIn) {
+    const ah = await oc.wallet.writeContract({ address: c.quote, abi: erc20SpendAbi, functionName: "approve", args: [fq.routerAddress, fq.amountIn], account: account!, chain: oc.chain });
+    const ar = await oc.pub.waitForTransactionReceipt({ hash: ah, timeout: 90_000 });
+    if (ar.status !== "success") throw new Error(`approve reverted ${ah}`);
+    console.log(`${tag} approved ${formatUnits(fq.amountIn, c.quoteDecimals)} ${c.quoteSymbol} to ${fq.routerAddress} ${ah}`);
+  }
+  await oc.pub.call({ account: account!.address, to: fq.routerAddress, data: fq.calldata, value: 0n }); // reverts here cost nothing
+  const hash = await oc.wallet.sendTransaction({ account: account!, chain: oc.chain, to: fq.routerAddress, data: fq.calldata, value: 0n });
+  otherLastBurnAt = t; // the interval starts at the broadcast, even if the receipt is late or reverted
+  let receipt;
+  try {
+    receipt = await oc.pub.waitForTransactionReceipt({ hash, timeout: 180_000 });
+  } finally {
+    try {
+      await reportTxHash(c.chainId, [{ quoteId: fq.swapId, txHash: hash }]);
+    } catch (e) {
+      console.warn(`${tag} reportTxHash:`, short(e));
+    }
+  }
+  if (receipt.status !== "success") throw new Error(`swap reverted ${hash}`);
+  // what actually reached the dead address, from the coin's own Transfer logs; the quote as a fallback
+  let tokensOut = 0n;
+  for (const log of receipt.logs) {
+    if (log.address.toLowerCase() !== c.token) continue;
+    try {
+      const ev = decodeEventLog({ abi: erc20SpendAbi, data: log.data, topics: log.topics });
+      if (ev.eventName === "Transfer" && (ev.args as { to: Address }).to.toLowerCase() === DEAD_LC) tokensOut += (ev.args as { value: bigint }).value;
+    } catch {
+      /* not a Transfer */
+    }
+  }
+  if (tokensOut === 0n) tokensOut = fq.amountOut;
+  const row: PoundEvent = {
+    txHash: hash, logIndex: 0, block: receipt.blockNumber.toString(), ts: Date.now(), kind: "burned",
+    chainId: c.chainId, token: c.token, symbol: c.symbol, asset: c.quote, quoteIn: fq.amountIn.toString(), tokensOut: tokensOut.toString(),
+    caller: account!.address, via: "halfmoon",
+  };
+  store.addPound(row);
+  store.save(); // real money moved: the audit row must survive a crash
+  st.lastError = null;
+  st.reason = null;
+  st.balanceAt = 0; // re-read on the next look
+  console.log(`${tag} burned ${formatUnits(tokensOut, c.decimals)} ${c.symbol} for ${formatUnits(fq.amountIn, c.quoteDecimals)} ${c.quoteSymbol} ${hash}`);
+}
+
+// What /pound/otherchains and /pound.otherChains serve: the configured coins with the keeper's live
+// balance there, the last burn, the next eligible time, the last quote and why the last tick passed.
+export async function otherChainStatus() {
+  seedOtherChains();
+  const { minInterval, maxSlippageBps } = OTHER_CHAIN_PACK.length ? await otherBurnParams() : { minInterval: OTHER_CHAIN_MIN_INTERVAL_S, maxSlippageBps: OTHER_CHAIN_MAX_SLIPPAGE_BPS };
+  await Promise.all(
+    OTHER_CHAIN_PACK.map(async (c) => {
+      try {
+        await readOtherBalances(c);
+      } catch (e) {
+        stateOf(c).lastError = `balance: ${short(e)}`;
+      }
+    }),
+  );
+  const burned = store.pound.filter((e) => e.kind === "burned" && e.chainId != null).sort((a, b) => b.ts - a.ts);
+  const nextEligibleAt = otherLastBurnAt === 0 ? 0 : otherLastBurnAt + minInterval;
+  const coins = OTHER_CHAIN_PACK.map((c, i) => {
+    const st = stateOf(c);
+    const rows = burned.filter((e) => e.chainId === c.chainId && (e.token ?? "").toLowerCase() === c.token);
+    const floor = BigInt(c.floor);
+    return {
+      index: i,
+      chainId: c.chainId,
+      chainName: OTHER_CHAIN_NAMES[c.chainId] ?? `chain-${c.chainId}`,
+      explorer: OTHER_EXPLORERS[c.chainId] ?? "",
+      token: c.token,
+      symbol: c.symbol,
+      decimals: c.decimals,
+      quote: c.quote,
+      quoteSymbol: c.quoteSymbol,
+      quoteDecimals: c.quoteDecimals,
+      floor: c.floor,
+      cap: c.cap,
+      rpc: Boolean(OTHER_CHAIN_RPC[c.chainId]),
+      dryRun: isDryRun(c.chainId),
+      balance: st.balance == null ? null : st.balance.toString(),
+      gas: st.gas == null ? null : st.gas.toString(),
+      balanceAt: st.balanceAt ? Math.floor(st.balanceAt / 1000) : 0,
+      funded: st.balance != null && st.balance >= floor,
+      next: i === otherCursor,
+      lastBurn: rows[0] ?? null,
+      burnCount: rows.length,
+      burnedQuote: rows.reduce((s, e) => s + BigInt(e.quoteIn ?? "0"), 0n).toString(),
+      burnedTokens: rows.reduce((s, e) => s + BigInt(e.tokensOut ?? "0"), 0n).toString(),
+      nextEligibleAt,
+      lastAttemptAt: st.lastAttemptAt,
+      lastQuote: st.lastQuote,
+      lastError: st.lastError,
+      reason: st.reason,
+    };
+  });
+  return {
+    keeper: account?.address ?? null,
+    halfmoon: isHalfMoonConfigured(),
+    minInterval,
+    maxSlippageBps,
+    lastBurnAt: otherLastBurnAt,
+    nextEligibleAt,
+    cursor: otherCursor,
+    coins,
+    ledger: burned.slice(0, 50),
+  };
 }
 
 export { NATIVE };

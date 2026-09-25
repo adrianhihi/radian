@@ -259,6 +259,42 @@ TO DO from the Safe, in this order:
    batch and the web default network flip.
 Note: the $RADIAN flywheel v2 is retired unused; `safe/robinhood-mainnet-flywheel-v2.json` must not run.
 
+## 5g. The Pack, pairing and cross-chain buys (2026-09-24)
+
+What the narrative needs and where each piece stands. Testnet (Robinhood Chain 46630) is the demo; mainnet
+waits on the Safe for the owner-gated steps.
+
+**Testnet, live today**
+- Pack: 5 coins — `RHSMK` plus the stand-ins `RHDOG 0x1Ad078768676Af931388f7eBCA9370e677b30502`,
+  `ZCAT 0xe0180e013CC68e9973393963fD4666949D1609d6`, `PUPPY 0x7c1005F17180c4a2FF6a340Fab70E4698d63cc9b`,
+  `KITTY 0xE26bC245B07B3553e85318c3d9A7802Dc5dD5032` (each launched + graduated in one tx by
+  `script/SeedPack.s.sol`), floor 0.1 USDGx, cap 5 USDGx per burn, `minInterval` 3600 s so the rotation is
+  visible within a day. The keeper burns on rotation; every burn is a `burn` ledger row and an item in
+  `GET /pound/feed.rss` / `feed.json` (wire any auto-poster to it; the Earn page has "Post on X").
+- Pairing: the four Pack coins are approved pair assets (phantom 4M, goal 10M coins); `$DOGALLY
+  0x765339B1ff0C97AAC11c5Ee1119BdB038016a9E6` is priced in RHDOG (`script/LaunchPackPaired.s.sol`).
+- Cross-chain buy receiver: `CrossBuyReceiver 0xEbadbC5Bb65499c17fb68a6234893F984A4A53AA` (router v4).
+  Relay does not serve the testnet, so the web flow is gated there; see `docs/CROSS_CHAIN_BUY.md`.
+
+**Mainnet, in order (Safe unless noted)**
+1. Pack coins: pick from `docs/PACK_CANDIDATES.md` (every V4 pool on the chain, ranked), then submit
+   `safe/pack-mainnet.json` — `addPack(token, key, floor, maxPerBurn)` per coin, `setParams(7 days, …)` for
+   the weekly rotation, `setPairTokenEconomics` + `setPairTokenApproved` for the coins worth pairing.
+   Floors: min($25K-equivalent, 0.1 % of supply) in the pack's quote asset. Nothing burns until the first
+   coin is active; the pool accrues meanwhile.
+2. Pack coins on BSC / Base (the "picks on the other chains"): set `OTHER_CHAIN_PACK_JSON`,
+   `OTHER_CHAIN_RPC_JSON` on the Railway service (the `HALFMOON_API_KEY` is already there, `KEEPER_DRY_RUN=1`),
+   fund the keeper with gas + the quote asset on that chain, review the dry-run plan in the logs and
+   `GET /pound/otherchains`, then `KEEPER_DRY_RUN=0`. Bridging the burn pool's share to that chain is an
+   operator step for now (CCTP for USDC → Base). Details: `docs/PACK_OTHER_CHAINS.md`.
+3. Cross-chain buys (deployer, not the Safe — the receiver has no owner):
+   `ROUTER=<mainnet RadianLaunchRouter> forge script script/DeployCrossBuyReceiver.s.sol --rpc-url
+   https://rpc.mainnet.chain.robinhood.com --broadcast`, then fill `crossBuy.receiver` for the `robinhood`
+   network in `web/lib/networks.ts`, add it to the Verify page's addresses and redeploy the web. Relay
+   serves Robinhood Chain mainnet (4663); Base and BNB origins are configured in the same block.
+4. Omnichain (post-graduation) token: decision and plan in `docs/OMNICHAIN_FEASIBILITY.md`; nothing is
+   deployable until a messaging layer serves Robinhood Chain.
+
 ## 5e. Keeper roles (before the handover)
 
 The bot key that runs `indexer/src/keeper.ts` must be: `hook.setFeeSweepOperator(keeper)` (fees sit

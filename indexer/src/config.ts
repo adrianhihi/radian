@@ -72,6 +72,34 @@ export function quoteMeta(pairToken?: string): { symbol: string; decimals: numbe
   return QUOTE_ASSETS[a] ?? { symbol: "TOKEN", decimals: 18 };
 }
 
+// A pair token the static table does not know (a Pack coin approved after this build, a new
+// stock token) is read from the chain once and remembered, so its launches never show "TOKEN".
+const quoteMetaInFlight = new Map<string, Promise<void>>();
+export function ensureQuoteMeta(pairToken?: string): Promise<void> {
+  const a = (pairToken ?? "").toLowerCase();
+  if (!a || a === "0x0000000000000000000000000000000000000000" || QUOTE_ASSETS[a]) return Promise.resolve();
+  let p = quoteMetaInFlight.get(a);
+  if (!p) {
+    p = (async () => {
+      try {
+        const [symbol, decimals] = await Promise.all([
+          singleClient.readContract({ address: a as Address, abi: erc20MetaAbi, functionName: "symbol" }) as Promise<string>,
+          singleClient.readContract({ address: a as Address, abi: erc20MetaAbi, functionName: "decimals" }) as Promise<number>,
+        ]);
+        QUOTE_ASSETS[a] = { symbol, decimals: Number(decimals) };
+        console.log(`[config] pair token ${a} → ${symbol} (${decimals} decimals)`);
+      } catch (e) {
+        console.warn(`[config] pair token ${a} metadata unreadable:`, (e as Error).message);
+      } finally {
+        quoteMetaInFlight.delete(a);
+      }
+    })();
+    quoteMetaInFlight.set(a, p);
+  }
+  return p;
+}
+const erc20MetaAbi = parseAbi(["function symbol() view returns (string)", "function decimals() view returns (uint8)"]);
+
 // Launches retired in favour of a successor. Hidden from the lists (Explore,
 // activity, stats) but still resolvable at /token/:addr so a direct link can
 // explain what happened and point to the current version.
@@ -422,4 +450,100 @@ export const poundEventsAbi = parseAbi([
   "event PackAdded(uint256 indexed index, address indexed token, address asset, uint128 floor, uint128 maxPerBurn)",
   "event PackSet(uint256 indexed index, uint128 floor, uint128 maxPerBurn, bool active)",
   "event Burned(uint256 indexed index, address indexed token, address indexed asset, uint256 quoteIn, uint256 tokensOut, address caller, uint256 bounty)",
+]);
+
+// ---- The Pack on other chains (2026-09-24) ----
+// Pack coins that live on BSC (56) or Base (8453) cannot be bought by the home-chain PackBurner.
+// The keeper buys them on their own chain through HalfMoon's aggregated firm quotes (src/halfmoon.ts)
+// and sends the coins to 0x…dEaD (keeper.ts otherChainBurns). The same key as KEEPER_PRIVATE_KEY
+// signs on those chains; it needs the gas coin there (BNB / ETH) and the quote asset it spends,
+// which the operator bridges from the home-chain burn pool (docs/PACK_OTHER_CHAINS.md).
+//
+// OTHER_CHAIN_PACK_JSON: '[{"chainId":56,"token":"0x…","symbol":"DOGE","decimals":8,
+//   "quote":"0x55d398326f99059fF775485246999027B3197955","quoteSymbol":"USDT","quoteDecimals":18,
+//   "floor":"25000000000000000000000","cap":"50000000000000000000000"}]'
+//   token    the Pack coin on that chain; symbol/decimals for display
+//   quote    the USDC/USDT the keeper spends on that chain (an ERC-20, never the gas coin)
+//   floor    smallest burn, in the quote asset's own units: below it the keeper waits for more funds
+//   cap      largest burn per interval, in quote units: the keeper never spends more than this per burn
+// OTHER_CHAIN_RPC_JSON: '{"56":"https://…","8453":"https://…"}' — an RPC per chain id. Without one
+//   the coin is listed but its balance is unknown and only a dry-run plan (quoted at `cap`) is possible.
+// KEEPER_DRY_RUN: "1" plans (balance → indicative → firm quote → log) without approving or sending;
+//   "0" sends. Unset: dry-run unless the coin's chain has an RPC configured. A funded run therefore
+//   needs the RPC, the key with gas and quote funds on that chain, and HALFMOON_API_KEY.
+export type OtherChainPack = {
+  chainId: 56 | 8453;
+  token: Address;
+  symbol: string;
+  decimals: number;
+  quote: Address;
+  quoteSymbol: string;
+  quoteDecimals: number;
+  floor: string; // quote units
+  cap: string; // quote units
+};
+export const OTHER_CHAIN_NAMES: Record<number, string> = { 56: "BNB Smart Chain", 8453: "Base" };
+export const OTHER_CHAIN_PACK: OtherChainPack[] = (() => {
+  try {
+    const j = JSON.parse(process.env.OTHER_CHAIN_PACK_JSON ?? "[]");
+    if (!Array.isArray(j)) throw new Error("not an array");
+    const out: OtherChainPack[] = [];
+    for (const e of j as Record<string, unknown>[]) {
+      const chainId = Number(e.chainId);
+      const isAddr = (v: unknown) => typeof v === "string" && /^0x[0-9a-fA-F]{40}$/.test(v);
+      if (!(chainId in OTHER_CHAIN_NAMES) || !isAddr(e.token) || !isAddr(e.quote)) {
+        console.error("[config] OTHER_CHAIN_PACK_JSON entry skipped (chainId must be 56 or 8453, token/quote addresses):", JSON.stringify(e));
+        continue;
+      }
+      let floor = 0n, cap = 0n;
+      try { floor = BigInt(String(e.floor ?? "0")); cap = BigInt(String(e.cap ?? "0")); } catch { /* reported below */ }
+      if (floor <= 0n || cap <= 0n || cap < floor) {
+        console.error("[config] OTHER_CHAIN_PACK_JSON entry skipped (need 0 < floor <= cap, in quote units):", JSON.stringify(e));
+        continue;
+      }
+      out.push({
+        chainId: chainId as 56 | 8453,
+        token: (e.token as string).toLowerCase() as Address,
+        symbol: String(e.symbol ?? "?"),
+        decimals: Number(e.decimals ?? 18),
+        quote: (e.quote as string).toLowerCase() as Address,
+        quoteSymbol: String(e.quoteSymbol ?? (chainId === 56 ? "USDT" : "USDC")),
+        quoteDecimals: Number(e.quoteDecimals ?? (chainId === 56 ? 18 : 6)),
+        floor: floor.toString(),
+        cap: cap.toString(),
+      });
+    }
+    return out;
+  } catch (e) {
+    console.error("[config] OTHER_CHAIN_PACK_JSON unreadable:", (e as Error).message);
+    return [];
+  }
+})();
+export const OTHER_CHAIN_RPC: Record<number, string> = (() => {
+  try {
+    const j = JSON.parse(process.env.OTHER_CHAIN_RPC_JSON ?? "{}") as Record<string, unknown>;
+    const out: Record<number, string> = {};
+    for (const [k, v] of Object.entries(j)) if (typeof v === "string" && /^https?:\/\//.test(v)) out[Number(k)] = v;
+    return out;
+  } catch (e) {
+    console.error("[config] OTHER_CHAIN_RPC_JSON unreadable:", (e as Error).message);
+    return {};
+  }
+})();
+// true = plan only, false = send. Per chain: an explicit KEEPER_DRY_RUN wins, otherwise "no RPC → dry".
+export const KEEPER_DRY_RUN_ENV = process.env.KEEPER_DRY_RUN;
+export function isDryRun(chainId: number): boolean {
+  if (KEEPER_DRY_RUN_ENV === "1" || KEEPER_DRY_RUN_ENV === "true") return true;
+  if (KEEPER_DRY_RUN_ENV === "0" || KEEPER_DRY_RUN_ENV === "false") return false;
+  return !OTHER_CHAIN_RPC[chainId];
+}
+// Fallbacks for the burn cadence and the slippage bound when no home-chain PackBurner is configured
+// (otherwise the burner's own minInterval / maxSlippageBps apply to the other chains too).
+export const OTHER_CHAIN_MIN_INTERVAL_S = Number(process.env.OTHER_CHAIN_MIN_INTERVAL_S ?? 86_400);
+export const OTHER_CHAIN_MAX_SLIPPAGE_BPS = Number(process.env.OTHER_CHAIN_MAX_SLIPPAGE_BPS ?? 500);
+export const erc20SpendAbi = parseAbi([
+  "function balanceOf(address) view returns (uint256)",
+  "function allowance(address owner, address spender) view returns (uint256)",
+  "function approve(address spender, uint256 amount) returns (bool)",
+  "event Transfer(address indexed from, address indexed to, uint256 value)",
 ]);

@@ -110,7 +110,9 @@ The same process runs the **keeper** when `KEEPER_PRIVATE_KEY` is set: fee sweep
 ladder beats, Proof-of-Fee `claimAndBuy`, executor buys, and The Pound's hourly `settle` per asset and
 `burn` when the burner's interval has passed. Config is env (`CHAIN_ID`, `RPC_URL`, `FACTORY`,
 `LAUNCH_ROUTER`, `LEGACY_ROUTERS`, `POF_ROUTER`, `EXECUTOR`, `EXECUTOR_VERSION`, `POUND_VAULT`,
-`PACK_BURNER`, `CODE_HASHES_JSON`, `SNAPSHOT_PATH`, `UPLOAD_DIR`, `PUBLIC_URL`, `SCAN_MODE`).
+`PACK_BURNER`, `CODE_HASHES_JSON`, `SNAPSHOT_PATH`, `UPLOAD_DIR`, `PUBLIC_URL`, `SCAN_MODE`). Pack coins that live
+on BSC / Base are burned there by the same keeper through HalfMoon firm quotes (`OTHER_CHAIN_PACK_JSON`,
+`OTHER_CHAIN_RPC_JSON`, `HALFMOON_API_KEY`, `KEEPER_DRY_RUN`; status at `/pound/otherchains`; docs/PACK_OTHER_CHAINS.md).
 
 ```bash
 cd indexer && npm install && npm test && npm start

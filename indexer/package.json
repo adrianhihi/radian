@@ -7,7 +7,7 @@
     "start": "tsx src/index.ts",
     "dev": "tsx watch src/index.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --import tsx --test test/store.test.ts"
+    "test": "node --import tsx --test test/store.test.ts test/halfmoon.test.ts test/otherchains.test.ts"
   },
   "dependencies": {
     "cors": "2.8.5",

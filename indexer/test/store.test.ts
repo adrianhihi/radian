@@ -75,6 +75,21 @@ test("treasury ledger rows dedupe by (txHash, logIndex) and survive a snapshot r
   assert.equal(fresh.addFlywheel(row), false, "index rebuilt on load");
 });
 
+test("Pound ledger rows from another chain are keyed by chain id, so a BSC hash never collides with a home one", () => {
+  const home = { txHash: "0xSAME", logIndex: 0, block: "10", ts: 100, kind: "burn" as const, asset: "0xA", token: "0xT", quoteIn: "1", tokensOut: "2" };
+  const bsc = { ...home, kind: "burned" as const, chainId: 56, symbol: "DOGE", via: "halfmoon" as const, block: "999" };
+  assert.equal(store.addPound(home), true);
+  assert.equal(store.addPound(bsc), true, "same hash and logIndex on chain 56 is a different row");
+  assert.equal(store.addPound({ ...bsc, txHash: "0xsame" }), false, "re-add of the chain row is ignored");
+  store.save();
+  const fresh = new (Object.getPrototypeOf(store).constructor)();
+  fresh.load();
+  const rows = fresh.pound.filter((e: { txHash: string }) => e.txHash.toLowerCase() === "0xsame");
+  assert.equal(rows.length, 2);
+  assert.equal(rows.find((e: { chainId?: number }) => e.chainId === 56)?.via, "halfmoon");
+  assert.equal(fresh.addPound(bsc), false, "chain-keyed index rebuilt on load");
+});
+
 test("templates attach to known launches and auths persist across a snapshot", () => {
   assert.equal(store.setTemplate("0xnope", { kind: "pof", vault: "0xV" as never, pofRouter: "0xR" as never }), false);
   assert.equal(store.setTemplate("0xt0ken", { kind: "wall", treasury: "0xTR" as never, staking: "0xST" as never }), true);

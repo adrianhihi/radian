@@ -15,6 +15,7 @@ import {
   tokenReadAbi,
   vaultAbi,
   quoteMeta,
+  ensureQuoteMeta,
   LAUNCH_ROUTER,
   treasuryEventsAbi,
   poundEventsAbi,
@@ -95,11 +96,14 @@ async function refreshState() {
   ]);
   const PER = 8;
 
+  // pair tokens the static table does not know (Pack coins approved after this build) are read once
+  await Promise.all(launches.map((l) => ensureQuoteMeta(l.pairToken)));
   const res = await singleClient.multicall({ contracts, allowFailure: true });
   const ok = <T,>(i: number): T | undefined => (res[i]?.status === "success" ? (res[i].result as T) : undefined);
 
   launches.forEach((l, i) => {
     const b = i * PER;
+    const qm = !l.quoteSymbol || l.quoteSymbol === "TOKEN" ? quoteMeta(l.pairToken) : null;
     const reserves = ok<[bigint, bigint]>(b + 4);
     const trackedQuote = ok<bigint>(b + 5);
     const graduated = ok<boolean>(b + 6);
@@ -109,6 +113,8 @@ async function refreshState() {
       curve: l.curve,
       deployer: l.deployer,
       graduationThreshold: l.graduationThreshold,
+      quoteSymbol: qm ? qm.symbol : l.quoteSymbol,
+      quoteDecimals: qm ? qm.decimals : l.quoteDecimals,
       name: ok<string>(b) ?? l.name,
       symbol: ok<string>(b + 1) ?? l.symbol,
       logo: ok<string>(b + 2) ?? l.logo,

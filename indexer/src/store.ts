@@ -62,17 +62,20 @@ export type Trade = {
 
 // One RadianTreasury event: a fee claim or a flush (buyback + burn + stream).
 // The Pound ledger: vault settlements, referral accruals and claims, Pack burns.
+// A row with `chainId` happened on another chain: a Pack coin the keeper bought
+// there through HalfMoon (`via`) and sent to the dead address (kind "burned").
 export type PoundEvent = {
   txHash: string;
   logIndex: number;
   block: string;
   ts: number; // ms
-  kind: "settle" | "burn" | "referralClaim" | "attributed" | "packAdded" | "packSet";
+  kind: "settle" | "burn" | "referralClaim" | "attributed" | "packAdded" | "packSet" | "burned";
   asset?: string; // quote asset (zero = gas coin)
   intake?: string; toReferrals?: string; toBurn?: string; toTreasury?: string; // settle
   index?: number; token?: string; quoteIn?: string; tokensOut?: string; caller?: string; bounty?: string; // burn / pack
   floor?: string; maxPerBurn?: string; active?: boolean; // packAdded / packSet
   referrer?: string; user?: string; amount?: string; launcher?: boolean; // attributed / referralClaim
+  chainId?: number; symbol?: string; via?: "halfmoon"; // burned (other chain)
 };
 export type ReferrerAgg = { referrer: string; asset: string; accrued: string; trades: number; lastAt: number };
 
@@ -230,7 +233,8 @@ class Store {
 
   // `aggregate` is false when replaying a snapshot (its referrer totals are already stored).
   addPound(e: PoundEvent, aggregate = true): boolean {
-    const key = `${e.txHash.toLowerCase()}:${e.logIndex}`;
+    // Other-chain rows carry their chain id in the key: a BSC hash never collides with a home-chain one.
+    const key = `${e.chainId != null ? `${e.chainId}:` : ""}${e.txHash.toLowerCase()}:${e.logIndex}`;
     if (this.poundKeys.has(key)) return false;
     this.poundKeys.add(key);
     this.pound.push(e);

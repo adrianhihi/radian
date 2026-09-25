@@ -8,6 +8,7 @@ import { fmt } from "./scanner.js";
 import { mountAgentApi } from "./agentApi.js";
 import { mountMeta } from "./meta.js";
 import { reconcile } from "./reconcile.js";
+import { otherChainStatus } from "./keeper.js";
 import {
   publicClient,
   RADIAN,
@@ -23,6 +24,8 @@ import {
   RADIAN_QUOTE_DECIMALS,
   RADIAN_QUOTE_SYMBOL,
   erc20BalanceAbi,
+  CHAIN_ID,
+  CHAIN_NAME,
   HAS_POUND,
   POUND_VAULT,
   PACK_BURNER,
@@ -563,6 +566,18 @@ export function startServer() {
     }
   });
 
+  // Where a transaction link points on this chain (override with EXPLORER_URL). Used by the burn feed,
+  // whose readers are auto-posters that cannot resolve a bare hash.
+  const EXPLORER = (
+    process.env.EXPLORER_URL ??
+    ({ 5042002: "https://testnet.arcscan.app", 5042: "https://arcscan.app", 46630: "https://explorer.testnet.chain.robinhood.com", 4663: "https://robinhoodchain.blockscout.com", 8453: "https://basescan.org" } as Record<number, string>)[CHAIN_ID] ??
+    ""
+  ).replace(/\/$/, "");
+  const txUrl = (hash: string) => (EXPLORER ? `${EXPLORER}/tx/${hash}` : hash);
+  const WEB_URL = (process.env.WEB_URL ?? "https://radian-sable.vercel.app").replace(/\/$/, "");
+  // Pack coin symbols already read on chain (by /pound or the feed), so naming a coin costs one read ever.
+  const packSymbols = new Map<string, string>();
+
   // The Pound: vault totals per quote asset, the Pack, burner parameters, the
   // ledger (settlements, burns, claims) and the referrer leaderboard.
   app.get("/pound", async (_req, res) => {
@@ -632,11 +647,33 @@ export function startServer() {
             { address: PACK_BURNER, abi: packBurnerAbi, functionName: "burnedOf" as const, args: [p.token] },
           ]),
         })) as { status: string; result?: unknown }[];
+        // Per coin, what the burner has spent on it so far (the sum of its Burned events' quoteIn, in the
+        // pack's asset), how many burns and when the last one was: the Pack picture sizes its tiles by this.
+        const agg = new Map<string, { quote: bigint; n: number; last: number }>();
+        for (const e of store.pound) {
+          if (e.kind !== "burn" || !e.token) continue;
+          const k = e.token.toLowerCase();
+          const a = agg.get(k) ?? { quote: 0n, n: 0, last: 0 };
+          a.quote += BigInt(e.quoteIn ?? "0");
+          a.n += 1;
+          a.last = Math.max(a.last, e.ts);
+          agg.set(k, a);
+        }
         packs.forEach((p, i) => {
+          const l = store.launches.get(p.token.toLowerCase());
+          const symbol = extra[i * 2]?.status === "success" ? String(extra[i * 2].result) : (l?.symbol ?? "?");
+          if (symbol !== "?") packSymbols.set(p.token.toLowerCase(), symbol);
+          const a = agg.get(p.token.toLowerCase());
           Object.assign(p, {
-            symbol: extra[i * 2]?.status === "success" ? String(extra[i * 2].result) : "?",
+            symbol,
             burned: extra[i * 2 + 1]?.status === "success" ? String(extra[i * 2 + 1].result) : "0",
             assetSymbol: quoteMeta(p.asset).symbol, assetDecimals: quoteMeta(p.asset).decimals,
+            // one of our launches: its name and logo (a creator-signed logo replaces the on-chain one)
+            name: l?.name ?? "",
+            logo: l ? (store.logos.get(p.token.toLowerCase()) ?? l.logo ?? "") : "",
+            burnedQuote: (a?.quote ?? 0n).toString(),
+            burnCount: a?.n ?? 0,
+            lastBurnAt: a ? Math.floor(a.last / 1000) : 0,
           });
         });
       }
@@ -659,8 +696,133 @@ export function startServer() {
         assets: assetRows,
         packs,
         referrers,
-        ledger: [...store.pound].filter((e) => e.kind !== "attributed").sort((a, b) => b.ts - a.ts || b.logIndex - a.logIndex).slice(0, 100),
+        // home-chain rows only; the other chains' burns travel under otherChains (their own explorer, ledger)
+        ledger: [...store.pound].filter((e) => e.kind !== "attributed" && e.chainId == null).sort((a, b) => b.ts - a.ts || b.logIndex - a.logIndex).slice(0, 100),
+        // The Pack coins that live on BSC / Base and are burned there by the keeper through HalfMoon
+        otherChains: await otherChainStatus().catch((e: any) => ({ error: String(e?.shortMessage ?? e?.message ?? e) })),
       });
+    } catch (e: any) {
+      res.status(500).json({ error: e?.shortMessage ?? String(e) });
+    }
+  });
+
+  // The burn feed: the newest 50 Pack burns as plain items, one per Burned event, the transaction link
+  // as the item link. "Every burn auto-posts" is delivered by pointing any RSS-to-X / Zapier / IFTTT
+  // automation at /pound/feed.rss (or the JSON Feed twin), so this service never holds social
+  // credentials. A coin is named from our launches, from a symbol /pound already read, or from one
+  // cached symbol() read; a coin that cannot be named is shown by its address, never dropped.
+  const fmtEn = (v: string | undefined, decimals: number, whole = false) => {
+    const n = Number(formatUnits(BigInt(v ?? "0"), decimals));
+    if (whole) return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
+    return n >= 1 ? n.toLocaleString("en-US", { maximumFractionDigits: 2 }) : n.toLocaleString("en-US", { maximumSignificantDigits: 3 });
+  };
+  const burnFeedItems = async () => {
+    const burns = [...store.pound].filter((e) => e.kind === "burn" && !!e.token).sort((a, b) => b.ts - a.ts || b.logIndex - a.logIndex).slice(0, 50);
+    const unknown = [...new Set(burns.map((e) => e.token!.toLowerCase()))].filter((k) => !packSymbols.has(k) && !store.launches.get(k)?.symbol);
+    if (unknown.length) {
+      try {
+        const r = (await publicClient.multicall({ allowFailure: true, contracts: unknown.map((k) => ({ address: k as Address, abi: symbolAbi, functionName: "symbol" as const })) })) as { status: string; result?: unknown }[];
+        unknown.forEach((k, i) => {
+          if (r[i]?.status === "success") packSymbols.set(k, String(r[i].result));
+        });
+      } catch {
+        /* the feed still serves; unnamed coins show their address */
+      }
+    }
+    return burns.map((e) => {
+      const token = e.token!;
+      const k = token.toLowerCase();
+      const symbol = store.launches.get(k)?.symbol || packSymbols.get(k) || `${token.slice(0, 6)}…${token.slice(-4)}`;
+      const m = quoteMeta(e.asset);
+      const tokensText = fmtEn(e.tokensOut, 18, true);
+      const quoteText = fmtEn(e.quoteIn, m.decimals);
+      const url = txUrl(e.txHash);
+      return {
+        id: `${e.txHash}:${e.logIndex}`,
+        url,
+        txHash: e.txHash,
+        ts: e.ts,
+        token,
+        symbol,
+        index: e.index ?? null,
+        asset: e.asset ?? ZERO_ADDR,
+        assetSymbol: m.symbol,
+        assetDecimals: m.decimals,
+        quoteIn: e.quoteIn ?? "0",
+        tokensOut: e.tokensOut ?? "0",
+        bounty: e.bounty ?? "0",
+        caller: e.caller ?? null,
+        title: `The Pound burned ${tokensText} $${symbol} (${quoteText} ${m.symbol})`,
+        text: `The Pound just burned ${tokensText} $${symbol} (${quoteText} ${m.symbol}) · tx: ${url}`,
+      };
+    });
+  };
+  const feedTitle = `The Pound · Pack burns · ${CHAIN_NAME}`;
+  const feedDescription = "Every Pack burn by The Pound, newest first: the coin, the amount burned, what it cost in the quote asset and the transaction. Rotation, not a contest; everyone gets fed.";
+  const xml = (s: string) => s.replace(/[<>&'"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '"': "&quot;" })[c] ?? c);
+
+  app.get("/pound/feed.json", async (_req, res) => {
+    if (!HAS_POUND) return res.status(404).json({ error: "no Pound on this chain" });
+    try {
+      const items = await burnFeedItems();
+      pub(res, 60);
+      res.json({
+        version: "https://jsonfeed.org/version/1.1",
+        title: feedTitle,
+        home_page_url: `${WEB_URL}/earn`,
+        feed_url: `${PUBLIC_URL}/pound/feed.json`,
+        description: feedDescription,
+        items: items.map((i) => ({
+          id: i.id,
+          url: i.url,
+          title: i.title,
+          content_text: i.text,
+          date_published: new Date(i.ts).toISOString(),
+          _radian: { txHash: i.txHash, ts: i.ts, token: i.token, symbol: i.symbol, index: i.index, asset: i.asset, assetSymbol: i.assetSymbol, assetDecimals: i.assetDecimals, quoteIn: i.quoteIn, tokensOut: i.tokensOut, bounty: i.bounty, caller: i.caller },
+        })),
+      });
+    } catch (e: any) {
+      res.status(500).json({ error: e?.shortMessage ?? String(e) });
+    }
+  });
+
+  app.get("/pound/feed.rss", async (_req, res) => {
+    if (!HAS_POUND) return res.status(404).type("text/plain").send("no Pound on this chain");
+    try {
+      const items = await burnFeedItems();
+      pub(res, 60);
+      res.setHeader("Content-Type", "application/rss+xml; charset=utf-8");
+      const body = [
+        `<?xml version="1.0" encoding="UTF-8"?>`,
+        `<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">`,
+        `<channel>`,
+        `<title>${xml(feedTitle)}</title>`,
+        `<link>${xml(`${WEB_URL}/earn`)}</link>`,
+        `<description>${xml(feedDescription)}</description>`,
+        `<language>en</language>`,
+        `<lastBuildDate>${new Date(items[0]?.ts ?? Date.now()).toUTCString()}</lastBuildDate>`,
+        `<atom:link href="${xml(`${PUBLIC_URL}/pound/feed.rss`)}" rel="self" type="application/rss+xml"/>`,
+        ...items.map(
+          (i) =>
+            `<item><title>${xml(i.title)}</title><link>${xml(i.url)}</link><guid isPermaLink="${EXPLORER ? "true" : "false"}">${xml(EXPLORER ? i.url : i.id)}</guid><pubDate>${new Date(i.ts).toUTCString()}</pubDate><description>${xml(i.text)}</description></item>`,
+        ),
+        `</channel>`,
+        `</rss>`,
+      ].join("\n");
+      res.send(body);
+    } catch (e: any) {
+      res.status(500).type("text/plain").send(e?.shortMessage ?? String(e));
+    }
+  });
+
+  // The Pack coins on other chains (OTHER_CHAIN_PACK_JSON) with their live status: the keeper's quote
+  // and gas balances there, the last burn, the next eligible time, the last HalfMoon quote and why the
+  // last tick passed. Same object as /pound.otherChains (docs/PACK_OTHER_CHAINS.md).
+  app.get("/pound/otherchains", async (_req, res) => {
+    try {
+      const view = await otherChainStatus();
+      res.setHeader("Cache-Control", "public, max-age=30");
+      res.json(view);
     } catch (e: any) {
       res.status(500).json({ error: e?.shortMessage ?? String(e) });
     }
