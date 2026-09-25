@@ -103,8 +103,9 @@
   --blur: 18px;
   --grid: rgba(122, 170, 232, 0.05);
 
-  --streak-a: linear-gradient(180deg, #f4c06a, #e8944c 38%, #c76a45 68%, #7c5cff);
-  --streak-b: linear-gradient(180deg, #e8a15a, #cf6d45 42%, #b5583f 72%, #6a4ff0);
+  /* the side streaks are backdrop, not accent: baskvia's blue → violet, so a phone screen (where they cover the whole width) stays navy */
+  --streak-a: linear-gradient(180deg, #8fd3ff, #61a6f6 38%, #4b62e0 68%, #7c5cff);
+  --streak-b: linear-gradient(180deg, #6fb6f0, #3d7fd6 42%, #3f56c8 72%, #6a4ff0);
   --streak-opacity: 0.5;
 
   color-scheme: dark;
