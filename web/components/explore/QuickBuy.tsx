@@ -126,17 +126,19 @@ export function QuickBuy({ rows, token, onToken }: { rows: LaunchRow[]; token: s
         </div>
         <div className="flex items-center gap-2.5 border-t border-stroke px-3 py-2.5">
           {candidates.length > 1 ? (
-            <span className="relative flex-shrink-0">
-              <select aria-label={t("quick.selectAria")} value={row.token} onChange={(e) => onToken(e.target.value)} className="mono-label appearance-none rounded-full border border-stroke-2 bg-glass-2 py-1.5 pl-3 pr-7 text-[11px] text-ink focus-visible:border-brand">
+            <span className="relative flex flex-shrink-0 items-center gap-1.5 rounded-full border border-stroke-2 bg-glass-2 py-1.5 pl-3 pr-2.5 focus-within:border-brand">
+              {/* the pill shows only the ticker: a native select grows to its longest option and would squeeze the amount; the transparent select on top keeps the native list (name · ticker), keyboard and phone pickers */}
+              <span aria-hidden="true" className="mono-label whitespace-nowrap text-[11px] text-ink">
+                {row.symbol}
+              </span>
+              <ChevronDown size={12} strokeWidth={1.8} aria-hidden="true" className="text-muted" />
+              <select aria-label={t("quick.selectAria")} value={row.token} onChange={(e) => onToken(e.target.value)} className="absolute inset-0 h-full w-full cursor-pointer appearance-none rounded-full opacity-0">
                 {candidates.map((r) => (
                   <option key={r.token} value={r.token}>
                     {r.name} · {r.symbol}
                   </option>
                 ))}
               </select>
-              <span aria-hidden="true" className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted">
-                <ChevronDown size={12} strokeWidth={1.8} aria-hidden="true" />
-              </span>
             </span>
           ) : (
             <span className="mono-label flex-none rounded-full border border-stroke-2 bg-glass-2 px-2.5 py-1 text-[11px] text-ink">{row.symbol}</span>

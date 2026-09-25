@@ -188,7 +188,7 @@ export default function ProfilePage() {
               ))}
             </div>
           ) : (
-            <Empty>{loading ? t("profile.loading") : t("profile.noLaunches", { chain: net.chainName })}</Empty>
+            <Empty>{loading ? t("profile.loading") : isMe ? t("profile.noLaunchesMine", { addr: shortAddr(addr), chain: net.chainName }) : t("profile.noLaunches", { chain: net.chainName })}</Empty>
           )}
         </section>
 

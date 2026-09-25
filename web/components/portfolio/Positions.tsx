@@ -11,6 +11,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { formatUnits } from "viem";
 import { useT } from "@/components/LangProvider";
 import { AssetLogo } from "@/components/ui/AssetLogo";
+import { CopyAddress } from "@/components/ui/CopyAddress";
 import { DitherChart } from "@/components/ui/DitherChart";
 import { Info } from "@/components/ui/Info";
 import { Panel } from "@/components/ui/primitives";
@@ -218,6 +219,7 @@ function PositionList({ positions, totals, order, matches, color, hidden, m, sha
                     <span className="mono-label block truncate text-[10.5px] text-ink-3">
                       {h.row.name} · {h.row.graduated ? t("tcard.graduated") : t("tcard.live")}
                     </span>
+                    <CopyAddress address={h.row.token} symbol={h.row.symbol} />
                   </span>
                   <span className="tnum hidden w-36 text-right text-[12.5px] text-muted nav:block">
                     {hidden ? MASK : fmtNum(Number(formatUnits(h.bal, 18)), 0)}

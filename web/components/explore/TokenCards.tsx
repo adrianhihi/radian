@@ -10,6 +10,7 @@ import { formatUnits } from "viem";
 import { useT, useTDynamic } from "@/components/LangProvider";
 import { AddressAvatar } from "@/components/ui/AddressAvatar";
 import { AssetLogo } from "@/components/ui/AssetLogo";
+import { CopyAddress } from "@/components/ui/CopyAddress";
 import { DitherChart } from "@/components/ui/DitherChart";
 import { quoteByAddress, type LaunchRow } from "@/lib/radian";
 import { CurveTiles } from "@/components/token/CurveTiles";
@@ -124,11 +125,10 @@ export function TokenCard({ row, view = "curve", badge = false }: { row: LaunchR
 
   return (
     <article className="glass-panel relative flex min-w-0 flex-col rounded-panel p-4 nav:p-5">
-      {badge && (
-        <span className="mono-label absolute -top-2.5 right-4 z-10 rounded-full border border-stroke-2 bg-bg-2 px-2.5 py-1 text-[9.5px] tracking-[.12em] text-ink-2">
-          {t("tcard.mostBacked")}
-        </span>
-      )}
+      <span className="absolute -top-2.5 right-4 z-10 flex items-center gap-1.5">
+        <CopyAddress address={row.token} symbol={row.symbol} variant="pill" />
+        {badge && <span className="mono-label rounded-full border border-stroke-2 bg-bg-2 px-2.5 py-1 text-[9.5px] tracking-[.12em] text-ink-2">{t("tcard.mostBacked")}</span>}
+      </span>
       <div className="rounded-xl border border-stroke bg-bg-2/60 p-2.5">
         {view === "graph" ? (
           <>

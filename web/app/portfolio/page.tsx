@@ -22,6 +22,7 @@ import { Approvals } from "@/components/portfolio/Approvals";
 import { Insights } from "@/components/portfolio/Insights";
 import { Overview } from "@/components/portfolio/Overview";
 import { Positions } from "@/components/portfolio/Positions";
+import { PortfolioLoading } from "@/components/portfolio/History";
 import { IdentityBanner, NotLive, PendingBar } from "@/components/TrustBanners";
 import { useNetwork } from "@/lib/networks";
 import { poundVaultAbi } from "@/lib/pound";
@@ -146,11 +147,7 @@ export default function PortfolioPage() {
                 </Empty>
               </Panel>
             ) : !ready ? (
-              <Panel>
-                <p role="status" className="flex items-center justify-center gap-2 py-10 text-sm text-muted">
-                  <Spinner size={18} /> {t("portfolio.reading")}
-                </p>
-              </Panel>
+              <PortfolioLoading period={period} />
             ) : (
               <div className="grid gap-5">
                 {bookHoldings.length > 0 && <ActionRail bookHoldings={bookHoldings} bookTotal={bookTotal} color={color} />}
@@ -173,10 +170,15 @@ export default function PortfolioPage() {
                 />
                 {nothing ? (
                   <Empty>
-                    {t("portfolio.noHoldings")}
+                    {t("portfolio.noHoldingsMine", { addr: shortAddr(address), chain: net.chainName })}
                     <br />
                     <Link href="/explore" className="mt-3 inline-block text-brand hover:underline">
                       {t("portfolio.exploreCta")}
+                    </Link>
+                    {/* the launches entry does not depend on holdings: a creator who sold out still manages them here */}
+                    <br />
+                    <Link href={`/profile/${address}`} className="mt-2 inline-block text-brand hover:underline">
+                      {t("pf.manageLaunches")}
                     </Link>
                   </Empty>
                 ) : (

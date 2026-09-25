@@ -310,3 +310,25 @@ html { scroll-behavior: smooth; scrollbar-gutter: stable; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 a { color: inherit; text-decoration: none; }
 .thin-scroll { scrollbar-width: thin; scrollbar-color: var(--stroke-2) transparent; }
+
+/* Loading states (baskvia 2026-09-25, after Spectrum): a wave drifting left one period, seamless at the
+   seam; a sheen sweeping a skeleton bar; a status dot breathing. Reduced-motion users get none of it. */
+@keyframes wave-drift {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@keyframes skel-sheen {
+  from { background-position: 150% 0; }
+  to { background-position: -50% 0; }
+}
+@keyframes dot-breathe {
+  0%, 100% { opacity: 0.35; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+.skel {
+  background: linear-gradient(90deg, var(--glass-2) 0%, color-mix(in srgb, var(--ink) 10%, transparent) 50%, var(--glass-2) 100%) 0 0 / 200% 100%;
+  animation: skel-sheen 1.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skel, [class*="wave-drift"], [class*="dot-breathe"] { animation: none !important; }
+}

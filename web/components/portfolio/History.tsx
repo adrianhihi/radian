@@ -6,7 +6,7 @@
 // the indexer's trades; holdings whose history does not reach the window start are left out
 // and named under the chart.
 import { ArrowDown, ArrowUp, TrendingDown, TrendingUp } from "lucide-react";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useT } from "@/components/LangProvider";
 import { DitherChart } from "@/components/ui/DitherChart";
 import { Info } from "@/components/ui/Info";
@@ -55,7 +55,10 @@ export function StartedCard({ h, period, sym, m }: { h?: HistoryView; period: Hi
           <p className="mt-2 text-[12.5px] leading-[1.6] text-ink-3">{t("pf.noHistoryYet")}</p>
         )
       ) : (
-        <div className="mt-3 h-12 animate-pulse rounded-lg bg-glass-2" aria-hidden="true" />
+        <div className="mt-3 grid gap-2" aria-hidden="true">
+          <span className="skel block h-7 w-[70%] rounded-md" />
+          <span className="skel block h-3.5 w-[45%] rounded" style={{ animationDelay: "120ms" }} />
+        </div>
       )}
     </div>
   );
@@ -63,7 +66,7 @@ export function StartedCard({ h, period, sym, m }: { h?: HistoryView; period: Hi
 
 export function HistoryChart({ h, m }: { h?: HistoryView; m: (v: number, d?: number) => string }) {
   const t = useT();
-  if (!h) return <div className="h-[220px] animate-pulse rounded-xl bg-glass-2/50" aria-hidden="true" />;
+  if (!h) return <ChartLoading />;
   const vals = h.values;
   const missing = h.assets.filter((a) => !a.covered).map((a) => a.symbol);
   if (vals.length < 2 || !h.assets.some((a) => a.covered)) {
@@ -102,10 +105,16 @@ export function HistoryChart({ h, m }: { h?: HistoryView; m: (v: number, d?: num
 }
 
 /** PAST {p} ±value · the three assets that moved most · +N more / fewer. */
-export function PnlStrip({ h, period, sym, m, onAsset }: { h?: HistoryView; period: HistoryPeriod; sym: string; m: (v: number, d?: number) => string; onAsset?: (token: string) => void }) {
+export function PnlStrip({ h, period, sym, m, onAsset, loading = false }: { h?: HistoryView; period: HistoryPeriod; sym: string; m: (v: number, d?: number) => string; onAsset?: (token: string) => void; loading?: boolean }) {
   const t = useT();
   const [all, setAll] = useState(false);
-  if (!h) return null;
+  if (!h)
+    return loading ? (
+      <div className="mt-5 flex items-center justify-center gap-2.5 rounded-2xl border border-stroke bg-glass-2 px-4 py-4">
+        <span className="size-1.5 rounded-full bg-brand [animation:dot-breathe_1.4s_ease-in-out_infinite]" aria-hidden="true" />
+        <span className="mono-label text-[10.5px] tracking-[.14em] text-ink-3">{t("pf.pnlLoading", { p: period })}</span>
+      </div>
+    ) : null;
   const rows = h.assets
     .filter((a) => a.covered && a.start != null && a.end != null && a.start !== a.end)
     .map((a) => ({ sym: a.symbol, token: a.token, d: (a.end ?? 0) - (a.start ?? 0) }))
@@ -135,6 +144,70 @@ export function PnlStrip({ h, period, sym, m, onAsset }: { h?: HistoryView; peri
           {all ? t("pf.fewer") : t("pf.moreN", { n: rows.length - 3 })}
         </button>
       )}
+    </div>
+  );
+}
+
+
+/** One sine wave as an area path across two canvas widths (two periods each), so wave-drift's −50 % loops seamlessly. */
+function wavePath(amp: number, mid: number): string {
+  const W = 1600;
+  const period = 400;
+  let d = `M0 100 L0 ${mid}`;
+  for (let x = 0; x <= W; x += 10) d += ` L${x} ${(mid - amp * Math.sin((x / period) * Math.PI * 2)).toFixed(1)}`;
+  return `${d} L${W} 100 Z`;
+}
+const WAVE_A = wavePath(9, 52);
+const WAVE_B = wavePath(6, 60);
+
+/** The chart's slot while the history is not here yet: two translucent waves drifting at different speeds, same height as the real chart so nothing jumps. */
+export function ChartLoading() {
+  const t = useT();
+  const id = useId().replace(/[^A-Za-z0-9_-]/g, "");
+  return (
+    <div role="status" aria-live="polite" className="relative h-[220px] overflow-hidden rounded-xl">
+      <svg className="absolute inset-y-0 left-0 h-full w-[200%] [animation:wave-drift_9s_linear_infinite]" viewBox="0 0 1600 100" preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          <linearGradient id={`${id}a`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset=".35" stopColor="var(--brand)" stopOpacity=".3" />
+            <stop offset=".85" stopColor="var(--brand)" stopOpacity="0" />
+          </linearGradient>
+          <linearGradient id={`${id}b`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset=".45" stopColor="var(--ink)" stopOpacity=".08" />
+            <stop offset=".9" stopColor="var(--ink)" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d={WAVE_A} fill={`url(#${id}a)`} />
+      </svg>
+      <svg className="absolute inset-y-0 left-0 h-full w-[200%] [animation:wave-drift_14s_linear_infinite_reverse]" viewBox="0 0 1600 100" preserveAspectRatio="none" aria-hidden="true">
+        <path d={WAVE_B} fill={`url(#${id}b)`} />
+      </svg>
+      <p className="mono-label absolute inset-x-0 bottom-4 text-center text-[10px] tracking-[.16em] text-ink-3">{t("pf.historyLoading")}</p>
+    </div>
+  );
+}
+
+/** The whole overview while the first read runs: the same shapes as the real card, so the page does not jump when the data lands. */
+export function PortfolioLoading({ period }: { period: HistoryPeriod }) {
+  const t = useT();
+  return (
+    <div className="glass-panel rounded-panel p-5 nav:p-6" role="status" aria-label={t("portfolio.reading")}>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <span className="skel block h-4 w-[40%] rounded" />
+          <span className="skel mt-3 block h-12 w-[55%] rounded-md" style={{ animationDelay: "120ms" }} />
+          <span className="skel mt-3 block h-2 w-full rounded-full" style={{ animationDelay: "240ms" }} />
+        </div>
+        <div className="w-full rounded-2xl border border-stroke bg-glass-2 p-4 nav:w-[260px]">
+          <span className="skel block h-3 w-[60%] rounded" />
+          <span className="skel mt-3 block h-7 w-[70%] rounded-md" style={{ animationDelay: "120ms" }} />
+          <span className="skel mt-2 block h-3.5 w-[45%] rounded" style={{ animationDelay: "240ms" }} />
+        </div>
+      </div>
+      <div className="mt-5">
+        <ChartLoading />
+      </div>
+      <PnlStrip period={period} sym="" m={(v) => String(v)} loading />
     </div>
   );
 }

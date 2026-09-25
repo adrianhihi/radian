@@ -57,9 +57,10 @@ export default function CreatorsPage() {
           </h2>
           <p className="mono-label mt-2 text-center text-[10.5px] tracking-[.16em] text-ink-3">{t("cr.whatSub")}</p>
 
-          <div className="mt-8 grid gap-4 nav:grid-cols-3">
-            <article className="glass-panel rounded-2xl p-5">
-              <div className="rounded-[14px] border border-stroke p-4" aria-hidden="true">
+          {/* three cards aligned: the art boxes share one height and, on wide screens, each card is a subgrid of art · number · title · body so a two-line title in one card moves every body down together */}
+          <div className="mt-8 grid gap-4 nav:grid-cols-3 nav:gap-y-0">
+            <article className="glass-panel rounded-2xl p-5 nav:row-span-4 nav:grid nav:grid-rows-subgrid nav:gap-0">
+              <div className="flex h-[140px] flex-col justify-center rounded-[14px] border border-stroke p-4" aria-hidden="true">
                 <CurveTiles symbol="YOURS" quoteSymbol={net.quoteAssets[0]?.symbol ?? "USDC"} quoteTicker={net.quoteAssets[0]?.stock?.refSymbol} progress={0.62} graduated={false} height={88} radius={10} />
                 <p className="mono-label mt-2 text-[9.5px] tracking-[.12em] text-ink-3">{t("cr.card1Visual")}</p>
               </div>
@@ -67,8 +68,8 @@ export default function CreatorsPage() {
               <h3 className="mt-1 text-[16px] font-semibold text-ink">{t("cr.card1Title")}</h3>
               <p className="mt-2 text-[13px] leading-[1.7] text-muted">{t("cr.card1Body")}</p>
             </article>
-            <article className="glass-panel rounded-2xl p-5">
-              <div className="flex flex-col items-center gap-3 rounded-[14px] border border-stroke p-4" aria-hidden="true">
+            <article className="glass-panel rounded-2xl p-5 nav:row-span-4 nav:grid nav:grid-rows-subgrid nav:gap-0">
+              <div className="flex h-[140px] flex-col items-center justify-center gap-3 rounded-[14px] border border-stroke p-4" aria-hidden="true">
                 <span className="flex -space-x-2.5">
                   {net.quoteAssets.slice(0, 5).map((q) => (
                     <span key={q.key} className="rounded-full bg-night p-[3px] shadow-[inset_0_0_0_2px_var(--stroke-2)]">
@@ -82,8 +83,8 @@ export default function CreatorsPage() {
               <h3 className="mt-1 text-[16px] font-semibold text-ink">{t("cr.card2Title")}</h3>
               <p className="mt-2 text-[13px] leading-[1.7] text-muted">{t("cr.card2Body")}</p>
             </article>
-            <article className="glass-panel rounded-2xl p-5">
-              <div className="rounded-[14px] border border-stroke p-4" aria-hidden="true">
+            <article className="glass-panel rounded-2xl p-5 nav:row-span-4 nav:grid nav:grid-rows-subgrid nav:gap-0">
+              <div className="flex h-[140px] flex-col justify-center rounded-[14px] border border-stroke p-4" aria-hidden="true">
                 <div className="flex h-7 overflow-hidden rounded-md text-[10px] font-semibold">
                   <span className="grid place-items-center bg-brand text-night" style={{ width: `${100 - p}%` }}>
                     {t("cr.you")}

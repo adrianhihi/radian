@@ -18,6 +18,7 @@ import { emptyDraft, saveDraft } from "@/lib/draft";
 import type { Sunset } from "@/lib/indexer";
 import { projectLinks, safeHttpUrl, xUrl } from "@/lib/projects";
 import { useRadianWallet } from "@/lib/useRadianWallet";
+import { CopyAddress } from "@/components/ui/CopyAddress";
 import { fmtPrice, shortAddr } from "@/lib/ui/format";
 import { assetColor } from "@/lib/ui/tokens";
 import type { TokenState } from "./types";
@@ -130,6 +131,7 @@ export function DetailHead({
                   {t("detail.packPaired")}
                 </span>
               )}
+              <CopyAddress address={token} symbol={st.symbol} variant="chip" />
               {template && <span className={chip}>{template.kind === "wall" ? t("tcard.wall") : t("tcard.pof")}</span>}
               <span className={`mono-label rounded-md border px-2.5 py-1 text-[11px] ${sunset ? "border-stroke text-ink-3" : st.graduated ? "border-signal/60 text-signal" : "border-brand/60 text-brand"}`}>
                 {sunset ? t("detail.retired") : st.graduated ? t("tcard.graduated") : t("tcard.live")}
@@ -185,6 +187,11 @@ export function DetailHead({
                   <Link href={`/profile/${creator}`} className="mono-label text-[11px] text-brand hover:underline">
                     {t("detail.viewCreator")}
                   </Link>
+                  {account && account.toLowerCase() === creator.toLowerCase() && (
+                    <Link href={`/profile/${creator}`} className="mono-label mt-1 block text-[11px] text-brand hover:underline">
+                      {t("detail.manageMine")}
+                    </Link>
+                  )}
                 </div>
                 <AddressAvatar address={creator} size={42} />
               </div>

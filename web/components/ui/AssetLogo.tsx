@@ -37,6 +37,16 @@ export function pixelMark(seed: string, color: string): { bg: string; px: [numbe
   return { bg: mixHex(color, false, 0.72), px };
 }
 
+/** [background, sign] for the dollar / euro / gas coins we quote in. */
+const MARKS: Record<string, [string, string]> = {
+  USDC: ["#2775ca", "$"],
+  USDT: ["#26a17b", "₮"],
+  USDG: ["#1f9d55", "$"],
+  USDGX: ["#1f9d55", "$"],
+  EURC: ["#2775ca", "€"],
+  ETH: ["#627eea", "Ξ"],
+};
+
 export function AssetLogo({
   symbol,
   src,
@@ -60,6 +70,16 @@ export function AssetLogo({
   const [failed, setFailed] = useState(false);
   const url = src || (ticker ? tickerLogoUrl(ticker, size * 3) : null);
   const style = { width: size, height: size, borderRadius: radius } as const;
+
+  // Quote assets the logo service cannot name (it would return an unrelated company): a brand-coloured
+  // round mark with the currency sign, drawn here.
+  const mark = MARKS[symbol.toUpperCase()];
+  if (!src && mark)
+    return (
+      <span aria-hidden="true" className={`grid flex-none place-items-center font-bold leading-none text-white ${className ?? ""}`} style={{ ...style, borderRadius: size / 2, background: mark[0], fontSize: Math.max(9, size * 0.5) }}>
+        {mark[1]}
+      </span>
+    );
 
   if (!url || failed) {
     if (seed) {
