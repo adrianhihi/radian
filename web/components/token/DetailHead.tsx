@@ -125,6 +125,11 @@ export function DetailHead({
                 {st.quoteAsset.stock && <AssetLogo symbol={st.quoteSymbol} ticker={st.quoteAsset.stock.refSymbol} size={14} radius={4} />}
                 {t("detail.pricedIn", { sym: st.quoteSymbol })}
               </span>
+              {st.quoteAsset.pack && (
+                <span className={`${chip} border-brand/50 text-brand`} title={t("detail.packPairedTitle", { sym: st.quoteSymbol })}>
+                  {t("detail.packPaired")}
+                </span>
+              )}
               {template && <span className={chip}>{template.kind === "wall" ? t("tcard.wall") : t("tcard.pof")}</span>}
               <span className={`mono-label rounded-md border px-2.5 py-1 text-[11px] ${sunset ? "border-stroke text-ink-3" : st.graduated ? "border-signal/60 text-signal" : "border-brand/60 text-brand"}`}>
                 {sunset ? t("detail.retired") : st.graduated ? t("tcard.graduated") : t("tcard.live")}

@@ -26,6 +26,8 @@ export type QuoteAssetDef = {
   // reads it. `refSymbol` is the real ticker to price; `standIn` marks a testnet
   // placeholder (no real stock on Arc) vs. a real mainnet tokenized stock.
   stock?: { refSymbol: string; standIn: boolean };
+  /** a Pack coin: The Pound burns it on rotation, and a launch priced in it buys it on every trade */
+  pack?: boolean;
 };
 
 export type NetworkConfig = {
@@ -248,6 +250,12 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
       { key: "nvdax", symbol: "NVDAx", address: "0x4B2E6503e10708d5be2245DE0DED7D0ccF5AeF19", decimals: 18, native: false, gradGoal: 50, blurb: "Nvidia — priced in shares, not dollars", stock: { refSymbol: "NVDA", standIn: true } },
       { key: "tslax", symbol: "TSLAx", address: "0xE8a0d16201bfbA7c42712Fa000B86E0b3BfD0745", decimals: 18, native: false, gradGoal: 50, blurb: "Tesla — priced in shares, not dollars", stock: { refSymbol: "TSLA", standIn: true } },
       { key: "aaplx", symbol: "AAPLx", address: "0x176892e311fB4e517Ed2419626d6F9691bD7DcC6", decimals: 18, native: false, gradGoal: 50, blurb: "Apple — priced in shares, not dollars", stock: { refSymbol: "AAPL", standIn: true } },
+      // The Pack (testnet stand-ins for community dog / cat coins): every launch priced in one of
+      // these buys the ally coin on every trade, and The Pound burns it on rotation.
+      { key: "rhdog", symbol: "RHDOG", address: "0x1Ad078768676Af931388f7eBCA9370e677b30502", decimals: 18, native: false, gradGoal: 10_000_000, blurb: "Robinhood Dog — a Pack coin; every trade buys it", pack: true },
+      { key: "zcat", symbol: "ZCAT", address: "0xe0180e013CC68e9973393963fD4666949D1609d6", decimals: 18, native: false, gradGoal: 10_000_000, blurb: "Zcat — a Pack coin; every trade buys it", pack: true },
+      { key: "puppy", symbol: "PUPPY", address: "0x7c1005F17180c4a2FF6a340Fab70E4698d63cc9b", decimals: 18, native: false, gradGoal: 10_000_000, blurb: "Pack Puppy — a Pack coin; every trade buys it", pack: true },
+      { key: "kitty", symbol: "KITTY", address: "0xE26bC245B07B3553e85318c3d9A7802Dc5dD5032", decimals: 18, native: false, gradGoal: 10_000_000, blurb: "Alley Kitty — a Pack coin; every trade buys it", pack: true },
     ],
     codeHashes: {
       // recorded 2026-09-16; the three clone implementations hash identically to Arc's (no immutables)

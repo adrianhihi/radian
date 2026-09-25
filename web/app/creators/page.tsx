@@ -115,7 +115,7 @@ export default function CreatorsPage() {
                 {net.quoteAssets.map((q) => (
                   <li key={q.key} className="min-w-0">
                     <Link href="/create" className="block rounded-[14px] border border-stroke bg-bg-2/60 p-2 transition-colors hover:border-brand">
-                      <TokenTile symbol={q.symbol} ticker={q.stock?.refSymbol} color={quoteColors[q.symbol] ?? "#5d7fb6"} label={q.symbol} pct={q.stock ? (q.stock.standIn ? t("cr.priceStandIn") : t("cr.priceStock")) : t("cr.priceDollar")} logo={22} style={{ height: 72, borderRadius: 10 }} />
+                      <TokenTile symbol={q.symbol} ticker={q.stock?.refSymbol} color={quoteColors[q.symbol] ?? "#5d7fb6"} label={q.symbol} pct={q.pack ? t("cr.pricePack") : q.stock ? (q.stock.standIn ? t("cr.priceStandIn") : t("cr.priceStock")) : t("cr.priceDollar")} logo={22} style={{ height: 72, borderRadius: 10 }} />
                       <p className="mt-2 truncate px-1 text-[13px] font-semibold text-ink">{q.symbol}</p>
                       <p className="line-clamp-2 px-1 text-[11.5px] leading-[1.5] text-muted">{q.blurb}</p>
                     </Link>

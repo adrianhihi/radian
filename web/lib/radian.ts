@@ -34,6 +34,8 @@ export type QuoteAsset = {
   gradGoal: number;
   featured?: boolean;
   stock?: { refSymbol: string; standIn: boolean };
+  /** a Pack coin: burned by The Pound on rotation; a launch priced in it buys it on every trade */
+  pack?: boolean;
 };
 export const QUOTE_ASSETS: QuoteAsset[] = NET.quoteAssets;
 // Native (zero address) → USDC. A known ERC-20 → its config. An ERC-20 we have no

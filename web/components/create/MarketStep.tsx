@@ -72,6 +72,7 @@ export function MarketStep({
                 <AssetLogo symbol={qa.symbol} ticker={qa.stock?.refSymbol} size={26} radius={13} />
                 <b className="text-[15px] text-ink">{qa.symbol}</b>
                 {qa.stock && <span className="mono-label rounded-md border border-signal/50 px-1.5 py-px text-[9.5px] tracking-[.1em] text-signal">{t("create.stockTag")}{qa.stock.standIn ? ` · ${t("create.stockTest")}` : ""}</span>}
+                {qa.pack && <span className="mono-label rounded-md border border-brand/50 px-1.5 py-px text-[9.5px] tracking-[.1em] text-brand">{t("create.packTag")}</span>}
               </span>
               <span className="text-[12.5px] leading-[1.5] text-muted">{qa.blurb}</span>
               <span className="mono-label text-[10px] tracking-[.08em] text-ink-3">{t("create.goal", { v: fmtNum(qa.gradGoal, 4), sym: qa.symbol })}</span>
