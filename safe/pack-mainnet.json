@@ -1,0 +1,822 @@
+{
+  "version": "1.0",
+  "chainId": "4663",
+  "createdAt": 1790311084366,
+  "meta": {
+    "name": "Radian: The Pound's first Pack (weekly rotation)",
+    "description": "1) PackBurner.setParams(7 days, 50, 500, false, keeper) 2) PackBurner.addPack × 10: PENGU, GOAT, DEER, YORK, FROGE, RBD, ROBINCAT, BULL, ZODSCC, LONGCAT — floor = min($25K, 0.1% of supply, the pool's 5%-slippage cap) and maxPerBurn = the largest V4Quoter fill within 5% of spot, in the pool's quote asset at survey prices (block 71926523, ETH 2677 USDG) 3) factory.setPairTokenEconomics + setPairTokenApproved for RBD, ROBINCAT (4,000 / 10,000 USD in the token). Assumptions and how to submit: docs/PACK_CANDIDATES.md. Safe 0x6db9a7fF776c7091C0A3c9847bD8a43eBA6892D8",
+    "txBuilderVersion": "1.17.0",
+    "createdFromSafeAddress": "0x6db9a7fF776c7091C0A3c9847bD8a43eBA6892D8",
+    "createdFromOwnerAddress": "",
+    "checksum": ""
+  },
+  "transactions": [
+    {
+      "to": "0xBA7b0b8E33d64c14caFBd44cA808875A25713C34",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "minInterval_",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "bountyBps_",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "maxSlippageBps_",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "permissionless_",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "keeper_",
+            "type": "address",
+            "internalType": "address"
+          }
+        ],
+        "name": "setParams",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "minInterval_": "604800",
+        "bountyBps_": "50",
+        "maxSlippageBps_": "500",
+        "permissionless_": "false",
+        "keeper_": "0xA86480B3658d220f43c274E244A0c1b3d35d79FA"
+      }
+    },
+    {
+      "to": "0xBA7b0b8E33d64c14caFBd44cA808875A25713C34",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "token",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "key",
+            "type": "tuple",
+            "internalType": "struct PoolKey",
+            "components": [
+              {
+                "name": "currency0",
+                "type": "address",
+                "internalType": "Currency"
+              },
+              {
+                "name": "currency1",
+                "type": "address",
+                "internalType": "Currency"
+              },
+              {
+                "name": "fee",
+                "type": "uint24",
+                "internalType": "uint24"
+              },
+              {
+                "name": "tickSpacing",
+                "type": "int24",
+                "internalType": "int24"
+              },
+              {
+                "name": "hooks",
+                "type": "address",
+                "internalType": "contract IHooks"
+              }
+            ]
+          },
+          {
+            "name": "floor",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "maxPerBurn",
+            "type": "uint128",
+            "internalType": "uint128"
+          }
+        ],
+        "name": "addPack",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "token": "0x74BE72AFFAFbC8de30F0C11247814036314D625f",
+        "key": "[\"0x0000000000000000000000000000000000000000\",\"0x74BE72AFFAFbC8de30F0C11247814036314D625f\",\"10000\",\"100\",\"0x0000000000000000000000000000000000000000\"]",
+        "floor": "124627969709000000",
+        "maxPerBurn": "3735744449176000000"
+      }
+    },
+    {
+      "to": "0xBA7b0b8E33d64c14caFBd44cA808875A25713C34",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "token",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "key",
+            "type": "tuple",
+            "internalType": "struct PoolKey",
+            "components": [
+              {
+                "name": "currency0",
+                "type": "address",
+                "internalType": "Currency"
+              },
+              {
+                "name": "currency1",
+                "type": "address",
+                "internalType": "Currency"
+              },
+              {
+                "name": "fee",
+                "type": "uint24",
+                "internalType": "uint24"
+              },
+              {
+                "name": "tickSpacing",
+                "type": "int24",
+                "internalType": "int24"
+              },
+              {
+                "name": "hooks",
+                "type": "address",
+                "internalType": "contract IHooks"
+              }
+            ]
+          },
+          {
+            "name": "floor",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "maxPerBurn",
+            "type": "uint128",
+            "internalType": "uint128"
+          }
+        ],
+        "name": "addPack",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "token": "0x6e9aCBFbdD8b57649ffeAcEa4D26A81aE1395367",
+        "key": "[\"0x0000000000000000000000000000000000000000\",\"0x6e9aCBFbdD8b57649ffeAcEa4D26A81aE1395367\",\"2500\",\"50\",\"0x0000000000000000000000000000000000000000\"]",
+        "floor": "72900039646000000",
+        "maxPerBurn": "1867872224588000000"
+      }
+    },
+    {
+      "to": "0xBA7b0b8E33d64c14caFBd44cA808875A25713C34",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "token",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "key",
+            "type": "tuple",
+            "internalType": "struct PoolKey",
+            "components": [
+              {
+                "name": "currency0",
+                "type": "address",
+                "internalType": "Currency"
+              },
+              {
+                "name": "currency1",
+                "type": "address",
+                "internalType": "Currency"
+              },
+              {
+                "name": "fee",
+                "type": "uint24",
+                "internalType": "uint24"
+              },
+              {
+                "name": "tickSpacing",
+                "type": "int24",
+                "internalType": "int24"
+              },
+              {
+                "name": "hooks",
+                "type": "address",
+                "internalType": "contract IHooks"
+              }
+            ]
+          },
+          {
+            "name": "floor",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "maxPerBurn",
+            "type": "uint128",
+            "internalType": "uint128"
+          }
+        ],
+        "name": "addPack",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "token": "0x9a5d03de82F2bBE649871837C1BA7f9d879Def60",
+        "key": "[\"0x0000000000000000000000000000000000000000\",\"0x9a5d03de82F2bBE649871837C1BA7f9d879Def60\",\"2500\",\"50\",\"0x0000000000000000000000000000000000000000\"]",
+        "floor": "13843685833000000",
+        "maxPerBurn": "1867872224588000000"
+      }
+    },
+    {
+      "to": "0xBA7b0b8E33d64c14caFBd44cA808875A25713C34",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "token",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "key",
+            "type": "tuple",
+            "internalType": "struct PoolKey",
+            "components": [
+              {
+                "name": "currency0",
+                "type": "address",
+                "internalType": "Currency"
+              },
+              {
+                "name": "currency1",
+                "type": "address",
+                "internalType": "Currency"
+              },
+              {
+                "name": "fee",
+                "type": "uint24",
+                "internalType": "uint24"
+              },
+              {
+                "name": "tickSpacing",
+                "type": "int24",
+                "internalType": "int24"
+              },
+              {
+                "name": "hooks",
+                "type": "address",
+                "internalType": "contract IHooks"
+              }
+            ]
+          },
+          {
+            "name": "floor",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "maxPerBurn",
+            "type": "uint128",
+            "internalType": "uint128"
+          }
+        ],
+        "name": "addPack",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "token": "0x7817C85e4390Bc83A58A47A71f0A5FA83a4e16D4",
+        "key": "[\"0x0000000000000000000000000000000000000000\",\"0x7817C85e4390Bc83A58A47A71f0A5FA83a4e16D4\",\"10000\",\"200\",\"0x0000000000000000000000000000000000000000\"]",
+        "floor": "105084484621000000",
+        "maxPerBurn": "933936112294000000"
+      }
+    },
+    {
+      "to": "0xBA7b0b8E33d64c14caFBd44cA808875A25713C34",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "token",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "key",
+            "type": "tuple",
+            "internalType": "struct PoolKey",
+            "components": [
+              {
+                "name": "currency0",
+                "type": "address",
+                "internalType": "Currency"
+              },
+              {
+                "name": "currency1",
+                "type": "address",
+                "internalType": "Currency"
+              },
+              {
+                "name": "fee",
+                "type": "uint24",
+                "internalType": "uint24"
+              },
+              {
+                "name": "tickSpacing",
+                "type": "int24",
+                "internalType": "int24"
+              },
+              {
+                "name": "hooks",
+                "type": "address",
+                "internalType": "contract IHooks"
+              }
+            ]
+          },
+          {
+            "name": "floor",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "maxPerBurn",
+            "type": "uint128",
+            "internalType": "uint128"
+          }
+        ],
+        "name": "addPack",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "token": "0x1dF1F09c4Dd65C76746d53467361D536cDfDC719",
+        "key": "[\"0x0000000000000000000000000000000000000000\",\"0x1dF1F09c4Dd65C76746d53467361D536cDfDC719\",\"2500\",\"50\",\"0x0000000000000000000000000000000000000000\"]",
+        "floor": "61563582223000000",
+        "maxPerBurn": "933936112294000000"
+      }
+    },
+    {
+      "to": "0xBA7b0b8E33d64c14caFBd44cA808875A25713C34",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "token",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "key",
+            "type": "tuple",
+            "internalType": "struct PoolKey",
+            "components": [
+              {
+                "name": "currency0",
+                "type": "address",
+                "internalType": "Currency"
+              },
+              {
+                "name": "currency1",
+                "type": "address",
+                "internalType": "Currency"
+              },
+              {
+                "name": "fee",
+                "type": "uint24",
+                "internalType": "uint24"
+              },
+              {
+                "name": "tickSpacing",
+                "type": "int24",
+                "internalType": "int24"
+              },
+              {
+                "name": "hooks",
+                "type": "address",
+                "internalType": "contract IHooks"
+              }
+            ]
+          },
+          {
+            "name": "floor",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "maxPerBurn",
+            "type": "uint128",
+            "internalType": "uint128"
+          }
+        ],
+        "name": "addPack",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "token": "0xB41c7ac9d46A980f8bDf1894B392a2a07eC9992A",
+        "key": "[\"0x0000000000000000000000000000000000000000\",\"0xB41c7ac9d46A980f8bDf1894B392a2a07eC9992A\",\"0\",\"200\",\"0xE5e702641Ea86F4ae6cC3cDaeD2B886f976Be044\"]",
+        "floor": "933936112294000000",
+        "maxPerBurn": "933936112294000000"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "phantomQuote",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "graduationThreshold",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "decimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ],
+        "name": "setPairTokenEconomics",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0xB41c7ac9d46A980f8bDf1894B392a2a07eC9992A",
+        "phantomQuote": "494779726422890031000000",
+        "graduationThreshold": "1236949316057224991000000",
+        "decimals": "18"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approved",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setPairTokenApproved",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0xB41c7ac9d46A980f8bDf1894B392a2a07eC9992A",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0xBA7b0b8E33d64c14caFBd44cA808875A25713C34",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "token",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "key",
+            "type": "tuple",
+            "internalType": "struct PoolKey",
+            "components": [
+              {
+                "name": "currency0",
+                "type": "address",
+                "internalType": "Currency"
+              },
+              {
+                "name": "currency1",
+                "type": "address",
+                "internalType": "Currency"
+              },
+              {
+                "name": "fee",
+                "type": "uint24",
+                "internalType": "uint24"
+              },
+              {
+                "name": "tickSpacing",
+                "type": "int24",
+                "internalType": "int24"
+              },
+              {
+                "name": "hooks",
+                "type": "address",
+                "internalType": "contract IHooks"
+              }
+            ]
+          },
+          {
+            "name": "floor",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "maxPerBurn",
+            "type": "uint128",
+            "internalType": "uint128"
+          }
+        ],
+        "name": "addPack",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "token": "0xded852De9fe9bA9b6f27f39e8e81CF851A5C79cc",
+        "key": "[\"0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168\",\"0xded852De9fe9bA9b6f27f39e8e81CF851A5C79cc\",\"0\",\"200\",\"0xE5e702641Ea86F4ae6cC3cDaeD2B886f976Be044\"]",
+        "floor": "2500000000",
+        "maxPerBurn": "2500000000"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "phantomQuote",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "graduationThreshold",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "decimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ],
+        "name": "setPairTokenEconomics",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0xded852De9fe9bA9b6f27f39e8e81CF851A5C79cc",
+        "phantomQuote": "1347216879343186039000000",
+        "graduationThreshold": "3368042198357965332000000",
+        "decimals": "18"
+      }
+    },
+    {
+      "to": "0xe7e9a4c041a1356747b4369C55A9991784412f24",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "pairToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approved",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setPairTokenApproved",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "pairToken": "0xded852De9fe9bA9b6f27f39e8e81CF851A5C79cc",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0xBA7b0b8E33d64c14caFBd44cA808875A25713C34",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "token",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "key",
+            "type": "tuple",
+            "internalType": "struct PoolKey",
+            "components": [
+              {
+                "name": "currency0",
+                "type": "address",
+                "internalType": "Currency"
+              },
+              {
+                "name": "currency1",
+                "type": "address",
+                "internalType": "Currency"
+              },
+              {
+                "name": "fee",
+                "type": "uint24",
+                "internalType": "uint24"
+              },
+              {
+                "name": "tickSpacing",
+                "type": "int24",
+                "internalType": "int24"
+              },
+              {
+                "name": "hooks",
+                "type": "address",
+                "internalType": "contract IHooks"
+              }
+            ]
+          },
+          {
+            "name": "floor",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "maxPerBurn",
+            "type": "uint128",
+            "internalType": "uint128"
+          }
+        ],
+        "name": "addPack",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "token": "0x49bac47750F3dCdBa49350B5D74fd399e90f97C6",
+        "key": "[\"0x0000000000000000000000000000000000000000\",\"0x49bac47750F3dCdBa49350B5D74fd399e90f97C6\",\"0\",\"200\",\"0xE5e702641Ea86F4ae6cC3cDaeD2B886f976Be044\"]",
+        "floor": "373574444918000000",
+        "maxPerBurn": "373574444918000000"
+      }
+    },
+    {
+      "to": "0xBA7b0b8E33d64c14caFBd44cA808875A25713C34",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "token",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "key",
+            "type": "tuple",
+            "internalType": "struct PoolKey",
+            "components": [
+              {
+                "name": "currency0",
+                "type": "address",
+                "internalType": "Currency"
+              },
+              {
+                "name": "currency1",
+                "type": "address",
+                "internalType": "Currency"
+              },
+              {
+                "name": "fee",
+                "type": "uint24",
+                "internalType": "uint24"
+              },
+              {
+                "name": "tickSpacing",
+                "type": "int24",
+                "internalType": "int24"
+              },
+              {
+                "name": "hooks",
+                "type": "address",
+                "internalType": "contract IHooks"
+              }
+            ]
+          },
+          {
+            "name": "floor",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "maxPerBurn",
+            "type": "uint128",
+            "internalType": "uint128"
+          }
+        ],
+        "name": "addPack",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "token": "0xAEa817E4D2251b7eC16056126FbbC381497D1e61",
+        "key": "[\"0x0000000000000000000000000000000000000000\",\"0xAEa817E4D2251b7eC16056126FbbC381497D1e61\",\"10000\",\"200\",\"0x8526171645365821d0630F20bbe35284a3d1a040\"]",
+        "floor": "208747542229000000",
+        "maxPerBurn": "373574444918000000"
+      }
+    },
+    {
+      "to": "0xBA7b0b8E33d64c14caFBd44cA808875A25713C34",
+      "value": "0",
+      "data": null,
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "token",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "key",
+            "type": "tuple",
+            "internalType": "struct PoolKey",
+            "components": [
+              {
+                "name": "currency0",
+                "type": "address",
+                "internalType": "Currency"
+              },
+              {
+                "name": "currency1",
+                "type": "address",
+                "internalType": "Currency"
+              },
+              {
+                "name": "fee",
+                "type": "uint24",
+                "internalType": "uint24"
+              },
+              {
+                "name": "tickSpacing",
+                "type": "int24",
+                "internalType": "int24"
+              },
+              {
+                "name": "hooks",
+                "type": "address",
+                "internalType": "contract IHooks"
+              }
+            ]
+          },
+          {
+            "name": "floor",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "maxPerBurn",
+            "type": "uint128",
+            "internalType": "uint128"
+          }
+        ],
+        "name": "addPack",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "token": "0xbC487F82525e9478fD4aC63ec3085301d6b51E18",
+        "key": "[\"0x0000000000000000000000000000000000000000\",\"0xbC487F82525e9478fD4aC63ec3085301d6b51E18\",\"8388608\",\"8\",\"0x4e3468951D49f2EEa976eD0D6e75fFCb44a9a544\"]",
+        "floor": "18498924015000000",
+        "maxPerBurn": "373574444918000000"
+      }
+    }
+  ]
+}
