@@ -17,7 +17,7 @@ const BASE = "tnum whitespace-nowrap rounded-lg border px-3 py-2 text-[13px] bac
 export function WalletPill() {
   const t = useT();
   const net = useNetwork();
-  const { ready, authenticated, login, logout, address } = useRadianWallet();
+  const { ready, authenticated, login, logout, address, wallets, selectWallet } = useRadianWallet();
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -72,6 +72,20 @@ export function WalletPill() {
       </button>
       {open && (
         <div className="absolute right-0 top-[calc(100%+8px)] z-20 grid min-w-[200px] gap-0.5 rounded-xl border border-stroke-2 bg-night p-1.5 shadow-panel">
+          {wallets.length > 1 && (
+            <div className="mb-1 grid gap-0.5 border-b border-stroke pb-1">
+              <span className="mono-label px-2.5 pt-1 text-[9.5px] tracking-[.14em] text-ink-3">{t("wallet.switchTitle")}</span>
+              {wallets.map((w) => {
+                const current = w.address.toLowerCase() === address.toLowerCase();
+                return (
+                  <button key={w.address} type="button" aria-current={current ? "true" : undefined} className={`${MENU_ITEM} flex items-center justify-between gap-3 ${current ? "text-brand" : ""}`} onClick={() => { selectWallet(w.address); setOpen(false); }}>
+                    <span className="tnum">{shortAddr(w.address)}</span>
+                    <span className="mono-label text-[9.5px] tracking-[.1em] text-ink-3">{w.clientType === "privy" ? t("wallet.embedded") : w.clientType.replace(/_/g, " ")}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
           <button type="button" className={MENU_ITEM} onClick={copy}>
             {copied ? t("wallet.copied") : t("wallet.copy")}
           </button>

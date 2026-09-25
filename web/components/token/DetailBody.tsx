@@ -22,6 +22,7 @@ import { useT } from "@/components/LangProvider";
 import { Spinner } from "@/components/ui/rows";
 import { AddressAvatar } from "@/components/ui/AddressAvatar";
 import { DitherChart } from "@/components/ui/DitherChart";
+import { CurveTiles } from "@/components/token/CurveTiles";
 import { SwapForm, type TradeToken } from "@/components/trade/SwapForm";
 import { PERIODS, sparkValues, type Period } from "@/lib/explore";
 import type { TokenTrade } from "@/lib/indexer";
@@ -84,7 +85,7 @@ export function SinceCard({ st, spark }: { st: TokenState; spark: [number, numbe
 }
 
 /** Bonding progress. */
-export function CurveSection({ st }: { st: TokenState }) {
+export function CurveSection({ st, token }: { st: TokenState; token?: string }) {
   const t = useT();
   const p = st.graduated ? 100 : st.graduationThreshold > 0n ? Math.min(100, Number((st.trackedQuote * 10000n) / st.graduationThreshold) / 100) : 0;
   return (
@@ -93,7 +94,8 @@ export function CurveSection({ st }: { st: TokenState }) {
         <span className="mono-label text-[10.5px] tracking-[.16em] text-ink-3">{t("detail.progress")}</span>
         <span className="tnum mono-label text-[12px] text-ink">{p.toFixed(1)}%</span>
       </div>
-      <div role="progressbar" aria-valuenow={p} aria-valuemin={0} aria-valuemax={100} aria-label={t("tcard.progressAria", { p: p.toFixed(1) })} className="mt-2.5 h-2.5 overflow-hidden rounded-full bg-glass-2">
+      <CurveTiles symbol={st.symbol} token={token} logo={st.logo} quoteSymbol={st.quoteSymbol} quoteTicker={st.quoteAsset.stock?.refSymbol} progress={p / 100} graduated={st.graduated} height={172} radius={14} className="mt-3" />
+      <div role="progressbar" aria-valuenow={p} aria-valuemin={0} aria-valuemax={100} aria-label={t("tcard.progressAria", { p: p.toFixed(1) })} className="mt-3 h-2 overflow-hidden rounded-full bg-glass-2">
         <span className={`block h-full rounded-full ${st.graduated ? "bg-signal" : "grad-fill"}`} style={{ width: `${Math.max(2, p)}%` }} />
       </div>
       <div className="tnum mt-2 flex justify-between gap-2 text-[11px] text-muted">

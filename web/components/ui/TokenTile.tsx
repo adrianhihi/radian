@@ -14,6 +14,7 @@ export function TokenTile({
   logo = 18,
   logoSrc,
   ticker,
+  seed,
   className = "",
   style,
 }: {
@@ -25,6 +26,8 @@ export function TokenTile({
   logo?: number;
   logoSrc?: string | null;
   ticker?: string;
+  /** a launch token's address: without an image the logo is its pixel mark */
+  seed?: string;
   className?: string;
   style?: React.CSSProperties;
 }) {
@@ -39,7 +42,7 @@ export function TokenTile({
       </span>
       {logo > 0 && (
         <span className="absolute bottom-1.5 right-1.5 rounded-full bg-white p-[1.5px] shadow-[0_1px_3px_rgba(0,0,0,.4)]">
-          <AssetLogo symbol={symbol} src={logoSrc} ticker={ticker} size={logo} radius={logo / 2} />
+          <AssetLogo symbol={symbol} src={logoSrc} ticker={ticker} seed={seed} size={logo} radius={logo / 2} />
         </span>
       )}
     </span>

@@ -11,7 +11,8 @@ import { useT, useTDynamic } from "@/components/LangProvider";
 import { AddressAvatar } from "@/components/ui/AddressAvatar";
 import { AssetLogo } from "@/components/ui/AssetLogo";
 import { DitherChart } from "@/components/ui/DitherChart";
-import type { LaunchRow } from "@/lib/radian";
+import { quoteByAddress, type LaunchRow } from "@/lib/radian";
+import { CurveTiles } from "@/components/token/CurveTiles";
 import { pct, shortAddr } from "@/lib/ui/format";
 import { PERIODS, sparkValues, type Period } from "@/lib/explore";
 
@@ -82,16 +83,7 @@ export function CurveBlock({ row, wide = false }: { row: LaunchRow; wide?: boole
         </span>
         <span className="tnum mono-label text-[11px] text-ink-2">{p}%</span>
       </div>
-      <div
-        role="progressbar"
-        aria-valuenow={p}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-label={t("tcard.progressAria", { p })}
-        className={`mt-2 overflow-hidden rounded-full bg-glass-2 ${wide ? "h-2.5" : "h-2"}`}
-      >
-        <span className={`block h-full rounded-full ${row.graduated ? "bg-signal" : "grad-fill"}`} style={{ width: `${Math.max(2, p)}%` }} />
-      </div>
+      <CurveTiles symbol={row.symbol} token={row.token} logo={row.logo} quoteSymbol={row.quoteSymbol} quoteTicker={quoteByAddress(row.pairToken)?.stock?.refSymbol} progress={row.progress} graduated={row.graduated} height={wide ? 168 : 104} className="mt-2.5" />
       <div className="tnum mt-2 flex justify-between gap-2 text-[11px] text-muted">
         <span>{t("tcard.inCurve", { v: fmtQ(row.trackedQuote, row.quoteDecimals), sym: row.quoteSymbol })}</span>
         <span>{t("tcard.goal", { v: fmtQ(row.graduationThreshold, row.quoteDecimals, 0), sym: row.quoteSymbol })}</span>

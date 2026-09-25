@@ -14,6 +14,10 @@ export type WalletView = {
   address: Address | undefined;
   /** "privy" = embedded wallet; anything else is an injected / external wallet */
   clientType: string | null;
+  /** every wallet the provider knows for this login (external first, then embedded) */
+  wallets: { address: Address; clientType: string }[];
+  /** read and sign with this wallet from now on (remembered in this browser) */
+  selectWallet: (address: Address) => void;
   login: () => void;
   logout: () => void;
   getWalletClient: () => Promise<{ client: WalletClient; account: Address } | null>;
@@ -22,7 +26,7 @@ export type WalletView = {
 const none = async () => null;
 
 /** Before the Privy chunk has loaded. */
-export const LOADING_WALLET: WalletView = { ready: false, authenticated: false, address: undefined, clientType: null, login: () => {}, logout: () => {}, getWalletClient: none };
+export const LOADING_WALLET: WalletView = { ready: false, authenticated: false, address: undefined, clientType: null, wallets: [], selectWallet: () => {}, login: () => {}, logout: () => {}, getWalletClient: none };
 /** No wallet provider configured on this deployment (NEXT_PUBLIC_PRIVY_APP_ID unset). */
 export const DISABLED_WALLET: WalletView = { ...LOADING_WALLET, ready: true };
 

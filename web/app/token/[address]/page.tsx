@@ -278,7 +278,7 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
 
           <div className="glass-panel mt-6 overflow-hidden rounded-2xl p-0">
             <SinceCard st={st} spark={spark} />
-            <CurveSection st={st} />
+            <CurveSection st={st} token={token} />
             <ChartTrade st={st} spark={spark} tk={tk} onTraded={afterTrade} onPending={(h) => setPendingHash(h)} loaded={tradesLoaded || !hasIndexer()} />
             <StatsRow st={st} stats={stats} />
             {st.quoteAsset.stock && (

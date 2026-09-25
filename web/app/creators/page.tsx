@@ -7,7 +7,11 @@ import { ArrowRight } from "lucide-react";
 import { Shell } from "@/components/shell/Shell";
 import { useT } from "@/components/LangProvider";
 import { Footer } from "@/components/ui/primitives";
+import Link from "next/link";
 import { AssetLogo } from "@/components/ui/AssetLogo";
+import { TokenTile } from "@/components/ui/TokenTile";
+import { CurveTiles } from "@/components/token/CurveTiles";
+import { assetColors } from "@/lib/ui/tokens";
 import { QuickStart } from "@/components/creators/QuickStart";
 import { CreatorsUsing, EarnSimulator, Faq } from "@/components/creators/Sections";
 import { useFactoryState } from "@/lib/factory";
@@ -17,6 +21,7 @@ import { useLaunches } from "@/lib/useLaunches";
 export default function CreatorsPage() {
   const t = useT();
   const net = useNetwork();
+  const quoteColors = assetColors(net.quoteAssets.map((q) => q.symbol));
   const { rows } = useLaunches();
   const { state: factory } = useFactoryState();
   const protocol = factory?.hook.protocolFeeShareBps ?? null;
@@ -55,7 +60,7 @@ export default function CreatorsPage() {
           <div className="mt-8 grid gap-4 nav:grid-cols-3">
             <article className="glass-panel rounded-2xl p-5">
               <div className="rounded-[14px] border border-stroke p-4" aria-hidden="true">
-                <div className="grad-fill h-7 rounded-md" />
+                <CurveTiles symbol="YOURS" quoteSymbol={net.quoteAssets[0]?.symbol ?? "USDC"} quoteTicker={net.quoteAssets[0]?.stock?.refSymbol} progress={0.62} graduated={false} height={88} radius={10} />
                 <p className="mono-label mt-2 text-[9.5px] tracking-[.12em] text-ink-3">{t("cr.card1Visual")}</p>
               </div>
               <p className="mono-label mt-5 text-[10px] text-ink-3">01</p>
@@ -96,6 +101,28 @@ export default function CreatorsPage() {
           </div>
 
           <div className="mt-8">
+            <section aria-labelledby="cr-pick" className="glass-panel mt-6 rounded-2xl p-5 nav:p-6">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h3 id="cr-pick" className="text-[18px] font-bold text-ink">{t("cr.priceTitle")}</h3>
+                  <p className="mono-label mt-1 text-[10px] tracking-[.14em] text-ink-3">{t("cr.priceSub", { chain: net.chainName })}</p>
+                </div>
+                <Link href="/create" className="mono-label rounded-full border border-stroke-2 px-3.5 py-1.5 text-[10.5px] tracking-[.12em] text-ink-2 transition-colors hover:border-brand hover:text-brand">
+                  {t("cr.priceCta")}
+                </Link>
+              </div>
+              <ul className="mt-4 grid grid-cols-2 gap-3 min-[640px]:grid-cols-3 nav:grid-cols-4">
+                {net.quoteAssets.map((q) => (
+                  <li key={q.key} className="min-w-0">
+                    <Link href="/create" className="block rounded-[14px] border border-stroke bg-bg-2/60 p-2 transition-colors hover:border-brand">
+                      <TokenTile symbol={q.symbol} ticker={q.stock?.refSymbol} color={quoteColors[q.symbol] ?? "#5d7fb6"} label={q.symbol} pct={q.stock ? (q.stock.standIn ? t("cr.priceStandIn") : t("cr.priceStock")) : t("cr.priceDollar")} logo={22} style={{ height: 72, borderRadius: 10 }} />
+                      <p className="mt-2 truncate px-1 text-[13px] font-semibold text-ink">{q.symbol}</p>
+                      <p className="line-clamp-2 px-1 text-[11.5px] leading-[1.5] text-muted">{q.blurb}</p>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
             <QuickStart />
           </div>
         </section>

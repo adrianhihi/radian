@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* ============================================================================
-   Radian / The Pound design system — "Ember" skin
+   Radian / The Pound design system — ember accent on baskvia's navy ground
    Structure follows baskvia's three-layer scheme (2026-09-24 decision: same
    geometry and layering, different hue so the two products read as one family
    without being mistaken for each other):
@@ -66,12 +66,13 @@
 }
 
 :root {
-  /* dark (default). ink-3 / muted checked against --ground: 5.2 / 6.9, both AA */
-  --ink: #fdefe2;
-  --ink-2: #d9bda6;
-  --ink-3: #a2816a;
-  --muted: #b89a85;
-  --line: rgba(228, 170, 108, 0.16);
+  /* dark (default). Neutrals are baskvia's navy system (same company, same ground);
+     the accent is Radian's ember. ink-3 / muted on --ground: 6.3 / 8.5, both AA */
+  --ink: #e8f1fa;
+  --ink-2: #aec5dd;
+  --ink-3: #7c93ad;
+  --muted: #93aac4;
+  --line: rgba(122, 170, 232, 0.14);
 
   --brand: #e8944c;
   --brand-2: #cf6d45;
@@ -79,42 +80,42 @@
   --signal: #6ad0e0;
   --signal-2: #3fb2c6;
 
-  --ground: #140f0a;
-  --bg-2: rgba(255, 238, 220, 0.03);
-  --surface: rgba(255, 238, 220, 0.05);
-  --night: #16100a;
-  --glass: rgba(255, 238, 220, 0.05);
-  --glass-2: rgba(255, 238, 220, 0.085);
-  --glass-hi: rgba(255, 238, 220, 0.13);
+  --ground: #05090f;
+  --bg-2: rgba(200, 224, 255, 0.03);
+  --surface: rgba(200, 224, 255, 0.05);
+  --night: #070d16;
+  --glass: rgba(200, 224, 255, 0.05);
+  --glass-2: rgba(200, 224, 255, 0.085);
+  --glass-hi: rgba(200, 224, 255, 0.13);
 
-  --stroke: rgba(228, 170, 108, 0.16);
-  --stroke-2: rgba(224, 155, 95, 0.32);
+  --stroke: rgba(122, 170, 232, 0.16);
+  --stroke-2: rgba(232, 148, 76, 0.34);
 
-  --pos: #6cc79a;
-  --neg: #f0665a;
+  --pos: #4ade9b;
+  --neg: #f2685e;
 
   --brand-grad: linear-gradient(115deg, #f4c06a 0%, #e8944c 48%, #c76a45 100%);
   --grad-soft: linear-gradient(115deg, rgba(244, 192, 106, 0.16), rgba(232, 148, 76, 0.13) 50%, rgba(199, 106, 69, 0.12));
 
   --glow: 0 0 0 1px rgba(232, 148, 76, 0.26), 0 18px 44px -16px rgba(207, 109, 69, 0.45);
-  --shadow: 0 24px 58px -26px rgba(0, 0, 0, 0.72), 0 6px 18px -10px rgba(0, 0, 0, 0.5);
+  --shadow: 0 24px 58px -26px rgba(0, 0, 0, 0.75), 0 6px 18px -10px rgba(0, 0, 0, 0.55);
 
   --blur: 18px;
-  --grid: rgba(228, 170, 108, 0.05);
+  --grid: rgba(122, 170, 232, 0.05);
 
-  --streak-a: linear-gradient(180deg, #f4c06a, #e8944c 38%, #c76a45 68%, #8a5cff);
-  --streak-b: linear-gradient(180deg, #e8a15a, #cf6d45 42%, #b5583f 72%, #7c5cff);
+  --streak-a: linear-gradient(180deg, #f4c06a, #e8944c 38%, #c76a45 68%, #7c5cff);
+  --streak-b: linear-gradient(180deg, #e8a15a, #cf6d45 42%, #b5583f 72%, #6a4ff0);
   --streak-opacity: 0.5;
 
   color-scheme: dark;
 }
 
 :root[data-theme="light"] {
-  --ink: #2a2016;
-  --ink-2: #5c4a38;
-  --ink-3: #7d6a55;
-  --muted: #6e5c48;
-  --line: rgba(150, 110, 70, 0.2);
+  --ink: #101a26;
+  --ink-2: #35495f;
+  --ink-3: #54697d;
+  --muted: #47596c;
+  --line: rgba(60, 100, 150, 0.18);
 
   --brand: #c0692c;
   --brand-2: #b0532e;
@@ -122,31 +123,30 @@
   --signal: #0f7f95;
   --signal-2: #0b6273;
 
-  --ground: #f3ede3;
-  --bg-2: rgba(255, 251, 244, 0.5);
-  --surface: rgba(255, 251, 244, 0.7);
-  --night: #efe7db;
-  --glass: rgba(255, 251, 244, 0.72);
-  --glass-2: rgba(255, 251, 244, 0.9);
+  --ground: #eef3f9;
+  --bg-2: rgba(255, 255, 255, 0.5);
+  --surface: rgba(255, 255, 255, 0.72);
+  --night: #e6edf6;
+  --glass: rgba(255, 255, 255, 0.72);
+  --glass-2: rgba(255, 255, 255, 0.9);
   --glass-hi: #ffffff;
 
-  --stroke: rgba(150, 110, 70, 0.2);
+  --stroke: rgba(60, 100, 150, 0.18);
   --stroke-2: rgba(192, 105, 44, 0.34);
 
-  --pos: #1b7a4c;
+  --pos: #0d7a52;
   --neg: #c33f31;
 
   --brand-grad: linear-gradient(115deg, #d9852f 0%, #c0692c 48%, #a8482a 100%);
   --grad-soft: linear-gradient(115deg, rgba(217, 133, 47, 0.14), rgba(192, 105, 44, 0.12) 50%, rgba(168, 72, 42, 0.1));
 
   --glow: 0 0 0 1px rgba(192, 105, 44, 0.2), 0 16px 40px -18px rgba(192, 105, 44, 0.3);
-  --shadow: 0 20px 46px -26px rgba(90, 50, 20, 0.28), 0 5px 14px -10px rgba(90, 50, 20, 0.16);
+  --shadow: 0 20px 46px -26px rgba(20, 50, 90, 0.28), 0 5px 14px -10px rgba(20, 50, 90, 0.16);
 
-  --grid: rgba(150, 110, 70, 0.07);
+  --grid: rgba(60, 100, 150, 0.07);
   --streak-opacity: 0.3;
-
-  color-scheme: light;
 }
+
 
 /* ---------------------------------------------------------------------------
    base

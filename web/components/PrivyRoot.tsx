@@ -5,8 +5,11 @@
 // wallet SDK and its connectors; measured on baskvia: 787 KB with the split against
 // 3.5 MB with a static import. A runtime `if (!appId) return children` would not
 // help — the bundler pulls the tree in regardless.
-import { useCallback, useMemo, type ReactNode } from "react";
+import { useCallback, useMemo, type ReactNode, useState } from "react";
 import { PrivyProvider, usePrivy, useWallets } from "@privy-io/react-auth";
+import { readLS, writeLS } from "@/lib/ui/storage";
+
+const WALLET_KEY = "radian.wallet";
 import { createWalletClient, custom, type Address, type WalletClient } from "viem";
 import { arcTestnet } from "@/lib/radian";
 import { WalletContext, type WalletView } from "@/lib/walletContext";
@@ -41,7 +44,7 @@ export default function PrivyRoot({ appId, children }: { appId: string; children
       config={{
         appearance: {
           theme: "dark",
-          accentColor: "#4f7cff",
+          accentColor: "#e8944c",
           logo: undefined,
           walletChainType: "ethereum-only",
           // Injected wallets plus Coinbase Wallet; no WalletConnect (its relay and
@@ -66,9 +69,21 @@ export default function PrivyRoot({ appId, children }: { appId: string; children
 function Bridge({ children }: { children: ReactNode }) {
   const { ready, authenticated, login, logout } = usePrivy();
   const { wallets, ready: walletsReady } = useWallets();
-  // The embedded wallet first, deterministically; otherwise whichever external wallet is connected.
-  const wallet = wallets.find((w) => w.walletClientType === "privy") ?? wallets[0];
+  // Holdings live in the wallet people already own, so an external (injected) wallet comes first
+  // and the embedded one is the fallback for email / Google logins. A choice made in the menu is
+  // remembered in this browser (radian.wallet) and wins while that wallet is still connected.
+  const [chosen, setChosen] = useState<string | null>(() => readLS(WALLET_KEY));
+  const ordered = useMemo(() => {
+    const ext = wallets.filter((w) => w.walletClientType !== "privy");
+    const emb = wallets.filter((w) => w.walletClientType === "privy");
+    return [...ext, ...emb];
+  }, [wallets]);
+  const wallet = ordered.find((w) => chosen && w.address.toLowerCase() === chosen.toLowerCase()) ?? ordered[0];
   const address = (wallet?.address as Address | undefined) ?? undefined;
+  const selectWallet = useCallback((a: Address) => {
+    setChosen(a);
+    writeLS(WALLET_KEY, a);
+  }, []);
 
   const getWalletClient = useCallback(async (): Promise<{ client: WalletClient; account: Address } | null> => {
     if (!wallet) return null;
@@ -89,11 +104,13 @@ function Bridge({ children }: { children: ReactNode }) {
       authenticated: authenticated && !!address,
       address,
       clientType: wallet?.walletClientType ?? null,
+      wallets: ordered.map((w) => ({ address: w.address as Address, clientType: w.walletClientType })),
+      selectWallet,
       login: () => login(),
       logout: () => void logout(),
       getWalletClient,
     }),
-    [ready, walletsReady, authenticated, address, wallet, login, logout, getWalletClient],
+    [ready, walletsReady, authenticated, address, wallet, ordered, selectWallet, login, logout, getWalletClient],
   );
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
 }
