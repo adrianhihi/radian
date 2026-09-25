@@ -4,7 +4,7 @@
 // and your link, what you can claim, the two ways to earn, the Pack's numbers,
 // the Pack itself, the ledger and the top referrers. Every number is read from
 // the vault / burner or decoded from their events by the indexer.
-import { ArrowRight, Check, ChevronDown, Coins, Link2, ShieldCheck, Wallet } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, Coins, Link2, Rss, ShieldCheck, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { formatUnits, type Address, type Hex } from "viem";
@@ -23,6 +23,9 @@ import { poundVaultAbi, fetchPound, fetchReferral, type PoundView, type Referral
 import { referralLink } from "@/lib/referral";
 import { fmtNum, shortAddr } from "@/lib/ui/format";
 import { recordTx } from "@/lib/txLog";
+import { burnFeedUrl } from "@/lib/indexer";
+import { PackBasket, packColors, type PackRow } from "@/components/pound/PackBasket";
+import { BurnFeed } from "@/components/pound/BurnFeed";
 
 const ZERO = "0x0000000000000000000000000000000000000000";
 const fmt = (v: string | bigint | undefined, dec: number, max = 4) => (v === undefined ? "—" : fmtNum(Number(formatUnits(typeof v === "string" ? BigInt(v) : v, dec)), max));
@@ -44,6 +47,7 @@ export function PoundEarn({ net }: { net: NetworkConfig }) {
   const [now, setNow] = useState(0);
   const [open, setOpen] = useState<"buyer" | "creator" | null>(null);
   const [pendingHash, setPendingHash] = useState<Hex | null>(null);
+  const [readErr, setReadErr] = useState(false); // the last /pound read failed: never drawn as "no burns"
 
   const gasSym = net.nativeSymbol ?? "USDC";
   const assetMeta = (asset: string) => {
@@ -55,8 +59,12 @@ export function PoundEarn({ net }: { net: NetworkConfig }) {
 
   const refresh = useCallback(async () => {
     try {
-      setView(await fetchPound());
-    } catch {}
+      const v = await fetchPound();
+      if (v) setView(v);
+      setReadErr(!v); // null: no indexer on this network, or it answered with an error
+    } catch {
+      setReadErr(true); // unreachable: keep the last good view, but say the read failed
+    }
     if (address) {
       try {
         setMine(await fetchReferral(address));
@@ -273,10 +281,19 @@ export function PoundEarn({ net }: { net: NetworkConfig }) {
           {t("pound.packBody", { slip: view ? pct(view.burner.maxSlippageBps) : "—" })} {view && view.burner.nextPack != null && nextBurnIn > 0 ? t("pound.nextIn", { h: Math.ceil(nextBurnIn / 3600) }) : ""}
         </p>
         {!view ? (
-          <p className="text-[13px] text-muted">{t("pound.readingBurner")}</p>
+          readErr ? (
+            <p role="alert" className="rounded-[12px] border border-dashed border-neg/50 px-4 py-4 text-[13px] leading-[1.7] text-ink-2">
+              {t("pound.packReadFailed")}
+            </p>
+          ) : (
+            <p className="text-[13px] text-muted">{t("pound.readingBurner")}</p>
+          )
         ) : view.packs.length === 0 ? (
           <p className="rounded-[12px] border border-dashed border-stroke-2 px-4 py-5 text-center text-[13px] text-ink-3">{t("pound.packEmpty")}</p>
         ) : (
+          <>
+            <PackBasket view={view} now={now} explorer={net.explorer} />
+            <div className="mt-5">
           <DataTable head={["#", t("pound.colCoin"), t("pound.colPerBurn"), t("pound.colBurned"), t("pound.colStatus")]} align={["left", "left", "right", "right", "left"]}>
             {view.packs.map((p) => {
               const am = assetMeta(p.asset);
@@ -299,7 +316,40 @@ export function PoundEarn({ net }: { net: NetworkConfig }) {
               );
             })}
           </DataTable>
+            </div>
+          </>
         )}
+      </Panel>
+
+      <Panel className="mt-5">
+        <SectionHead
+          title={t("pound.feedTitle")}
+          aside={
+            <span className="inline-flex items-center gap-1.5">
+              <Rss size={12} strokeWidth={1.8} aria-hidden="true" className="text-brand" />
+              <a href={burnFeedUrl("rss")} target="_blank" rel="noreferrer" className="text-brand hover:underline">
+                {t("pound.feedRss")}
+              </a>
+              ·
+              <a href={burnFeedUrl("json")} target="_blank" rel="noreferrer" className="text-brand hover:underline">
+                {t("pound.feedJson")}
+              </a>
+            </span>
+          }
+        />
+        <p className="-mt-3 mb-4 text-[13px] leading-[1.7] text-muted">{t("pound.feedBody")}</p>
+        <BurnFeed packs={(view?.packs ?? []) as PackRow[]} colors={packColors((view?.packs ?? []) as PackRow[])} explorer={net.explorer} now={now} onToast={setToast} />
+        <p className="mt-4 text-[12px] leading-[1.7] text-ink-3">
+          {t("pound.feedLinks")}{" "}
+          <a href={burnFeedUrl("rss")} target="_blank" rel="noreferrer" className="font-mono text-brand hover:underline">
+            /pound/feed.rss
+          </a>{" "}
+          ·{" "}
+          <a href={burnFeedUrl("json")} target="_blank" rel="noreferrer" className="font-mono text-brand hover:underline">
+            /pound/feed.json
+          </a>{" "}
+          — {t("pound.feedLinksNote")}
+        </p>
       </Panel>
 
       <Panel className="mt-5">

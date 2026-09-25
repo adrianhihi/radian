@@ -2,7 +2,8 @@
 
 // /swap's right column: the picked token at a glance — logo · name · $SYMBOL,
 // the story, 24h change + period tabs + the spark chart, price / in curve,
-// the curve state, 24h volume and trades, and the way to its page.
+// the curve state, 24h volume and trades, the cross-chain buy panel where the
+// network has one, and the way to its page.
 import Link from "next/link";
 import { useState } from "react";
 import { formatUnits } from "viem";
@@ -10,11 +11,13 @@ import { useT } from "@/components/LangProvider";
 import { AssetLogo } from "@/components/ui/AssetLogo";
 import { DitherChart } from "@/components/ui/DitherChart";
 import { ChangePill, CurveBlock, Description, PeriodChips } from "@/components/explore/TokenCards";
+import { CrossChainBuy } from "@/components/trade/CrossChainBuy";
+import type { TradeToken } from "@/components/trade/SwapForm";
 import { sparkValues, type Period } from "@/lib/explore";
 import type { LaunchRow } from "@/lib/radian";
 import { fmtNum, fmtPrice } from "@/lib/ui/format";
 
-export function TokenAside({ row }: { row: LaunchRow }) {
+export function TokenAside({ row, tk, onTraded }: { row: LaunchRow; tk?: TradeToken | null; onTraded?: () => void }) {
   const t = useT();
   const [period, setPeriod] = useState<Period>("7D");
   const series = sparkValues(row.spark, period);
@@ -50,6 +53,8 @@ export function TokenAside({ row }: { row: LaunchRow }) {
       </div>
 
       <CurveBlock row={row} />
+
+      {tk && <CrossChainBuy tk={tk} onTraded={onTraded} className="mt-4" />}
 
       <Link
         href={`/token/${row.token}`}

@@ -157,6 +157,16 @@ export const ENDPOINTS: readonly Endpoint[] = [
     },
     limits: { en: "50 recent events.", zh: "50 条最近事件。" },
   },
+  {
+    method: "GET",
+    path: "/pound/feed.rss",
+    cache: { kind: "public", seconds: 60 },
+    returns: {
+      en: "The burn feed: the newest Pack burns as RSS 2.0, one item per Burned event with the transaction link as the item link; /pound/feed.json is the same list as a JSON Feed (raw amounts under _radian). Point any RSS-to-X, Zapier or IFTTT automation at it and every burn posts itself. 404 on chains without The Pound.",
+      zh: "燃烧 feed：最新的 Pack 燃烧，RSS 2.0，每个 Burned 事件一条、以交易链接为条目链接；/pound/feed.json 是同一列表的 JSON Feed（原始数额在 _radian 下）。把任何 RSS 转 X、Zapier 或 IFTTT 自动化指向它，每次燃烧就会自己发出去。没有 Pound 的链返回 404。",
+    },
+    limits: { en: "50 burns; a coin is named from our launches or one cached symbol() read, else by its address.", zh: "50 次燃烧；币名来自我们的发射或一次缓存的 symbol() 读取，否则显示地址。" },
+  },
   // ---- signed metadata (meta.ts) ----
   {
     method: "GET",

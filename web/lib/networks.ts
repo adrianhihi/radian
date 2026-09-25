@@ -30,6 +30,18 @@ export type QuoteAssetDef = {
   pack?: boolean;
 };
 
+// A chain a buyer can pay from for a cross-chain buy (lib/crossBuy.ts): the buyer's USDC there
+// goes through Relay to the CrossBuyReceiver on the home chain, which buys for them.
+export type CrossBuyOrigin = {
+  chainId: number;
+  label: string;
+  usdc: Address;
+  usdcDecimals: number; // 6 (Circle USDC) or 18 (Binance-Peg USDC on BNB)
+  rpc: string;
+  nativeSymbol: string; // the gas coin, for the wallet's chain definition and gas copy
+  explorer: string;
+};
+
 export type NetworkConfig = {
   key: NetworkKey;
   label: string;
@@ -79,6 +91,10 @@ export type NetworkConfig = {
   // Per-network product switches. Absent = on. Used to keep modules that are
   // deployed but not yet cleared for real money out of the UI on that network.
   features?: { templates?: boolean; delegatedBuys?: boolean };
+  // "Launch once, trade everywhere": the CrossBuyReceiver on this chain and the chains a buyer
+  // can pay from (docs/CROSS_CHAIN_BUY.md). Absent = no cross-chain buy panel. `receiver` unset
+  // = the origins are known but the receiver is not deployed here yet (the panel says so).
+  crossBuy?: { receiver?: Address; origins: CrossBuyOrigin[] };
   // keccak256 of each deployed contract's runtime code, recorded at deploy
   // (`cast keccak $(cast code <addr>)`). The site re-hashes the live code and
   // refuses to launch or trade on a mismatch (lib/identity.ts). Fill on deploy.
@@ -93,6 +109,15 @@ export type NetworkConfig = {
 };
 
 const ZERO = "0x0000000000000000000000000000000000000000" as Address;
+
+// Where a cross-chain buyer pays from. Relay serves Base, BNB and Robinhood Chain mainnet
+// (THE_POUND_RESEARCH.md §1.2, verified 2026-09-22); the USDC addresses are Circle's native
+// USDC on Base and Binance-Peg USDC on BNB. The RPCs are read for the balance only (and by the
+// wallet when it switches there); every host here must also be in middleware.ts connect-src.
+const CROSS_BUY_ORIGINS: CrossBuyOrigin[] = [
+  { chainId: 8453, label: "Base", usdc: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", usdcDecimals: 6, rpc: process.env.NEXT_PUBLIC_BASE_RPC ?? "https://mainnet.base.org", nativeSymbol: "ETH", explorer: "https://basescan.org" },
+  { chainId: 56, label: "BNB Chain", usdc: "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d", usdcDecimals: 18, rpc: process.env.NEXT_PUBLIC_BNB_RPC ?? "https://bsc-dataseed.bnbchain.org", nativeSymbol: "BNB", explorer: "https://bscscan.com" },
+];
 
 export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
   testnet: {
@@ -234,6 +259,9 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
     },
     // The Pound core (2026-09-22): protocol fees → PoundVault waterfall → PackBurner; the flywheel below is retired here
     pound: { vault: "0xf1AEB4C7F4529eF6cf1A1096fFD8629a044D20Ad", burner: "0xd8c4A6129b8b9dbaFf651A22e9504dd49358Ea6c" },
+    // CrossBuyReceiver (2026-09-24, DeployCrossBuyReceiver.s.sol on router v4). Relay does not serve
+    // the testnet (46630), so the panel shows the flow gated; the contract itself is live.
+    crossBuy: { receiver: "0xEbadbC5Bb65499c17fb68a6234893F984A4A53AA", origins: CROSS_BUY_ORIGINS },
     // $RADIAN on Robinhood testnet: priced in USDGx; ERC-20-reward flywheel (RadianStakingERC20 / RadianTreasuryERC20), 2026-09-16
     radian: {
       token: "0x5300d9Df3D687C1b037A6D124Eb6334cD9dE1B9a",
@@ -350,6 +378,9 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
     },
     // The Pound (2026-09-22): protocol share → PoundVault waterfall → PackBurner. Retires the flywheel below.
     pound: { vault: "0x184366a1DBA58011fA89161899b4E20813654330", burner: "0xBA7b0b8E33d64c14caFBd44cA808875A25713C34" },
+    // Cross-chain buy: Relay serves this chain (4663); fill `receiver` after DeployCrossBuyReceiver
+    // runs against router v4 here. Until then the panel says "not wired on this network yet".
+    crossBuy: { receiver: undefined, origins: CROSS_BUY_ORIGINS },
     // $RADIAN on Robinhood mainnet: priced in USDG; ERC-20-reward flywheel (DeployRadianERC20.s.sol, 2026-09-17, block 65107010) — retired by The Pound
     // Wall / Proof-of-Fee templates and delegated buys stay off here until the fixes from the
     // 2026-09-17 review are deployed (MAINNET_RUNBOOK.md 5f). Standard launches only.

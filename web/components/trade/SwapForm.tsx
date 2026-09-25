@@ -42,7 +42,8 @@ export type TradeToken = {
 export type Side = "buy" | "sell";
 
 export const SLIPPAGE_OPTIONS = [50, 100, 300] as const;
-const SLIPPAGE_KEY = "radian.slippageBps";
+/** the viewer's slippage tolerance (bps), shared with the cross-chain buy panel */
+export const SLIPPAGE_KEY = "radian.slippageBps";
 const BPS = 10_000n;
 const POLL_MS = 4000;
 

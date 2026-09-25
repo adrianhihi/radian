@@ -23,6 +23,7 @@ import { Spinner } from "@/components/ui/rows";
 import { AddressAvatar } from "@/components/ui/AddressAvatar";
 import { DitherChart } from "@/components/ui/DitherChart";
 import { CurveTiles } from "@/components/token/CurveTiles";
+import { CrossChainBuy } from "@/components/trade/CrossChainBuy";
 import { SwapForm, type TradeToken } from "@/components/trade/SwapForm";
 import { PERIODS, sparkValues, type Period } from "@/lib/explore";
 import type { TokenTrade } from "@/lib/indexer";
@@ -160,6 +161,7 @@ export function ChartTrade({
       </div>
       <div className="p-5">
         <SwapForm tk={tk} onTraded={onTraded} onPending={onPending} />
+        <CrossChainBuy tk={tk} onTraded={onTraded} className="mt-4" />
         <Link href="/create" className="mono-label mt-4 flex items-center justify-center gap-1.5 text-[10.5px] tracking-[.14em] text-ink-3 hover:text-brand">
           {t("detail.launchOwn")} <ArrowRight size={11} strokeWidth={1.8} aria-hidden="true" />
         </Link>

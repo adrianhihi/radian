@@ -172,6 +172,8 @@ export default function VerifyPage() {
   const others: { name: string; address: string; note: string }[] = [
     ...(net.radian.token !== "0x0000000000000000000000000000000000000000" ? [{ name: t("verify.radianToken"), address: net.radian.token, note: t("verify.radianTokenNote") }, { name: t("verify.radianCurve"), address: net.radian.curve, note: t("verify.radianCurveNote") }] : []),
     ...net.quoteAssets.filter((q) => !q.native).map((q) => ({ name: t("verify.quoteAsset", { sym: q.symbol }), address: q.address, note: q.stock?.standIn ? t("verify.standIn") : q.blurb })),
+    // the cross-chain buy's home-chain endpoint, only where it is deployed (lib/networks `crossBuy.receiver`)
+    ...(net.crossBuy?.receiver ? [{ name: t("verify.crossBuyReceiver"), address: net.crossBuy.receiver, note: t("verify.crossBuyReceiverNote") }] : []),
   ];
   const overall = !identity.checked ? "unverified" : identity.results.every((r) => r.ok) ? "match" : "mismatch";
 

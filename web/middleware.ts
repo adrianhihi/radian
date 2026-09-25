@@ -23,12 +23,16 @@ const origin = (u: string | undefined): string | null => {
   }
 };
 
-// JSON-RPC nodes and indexers per network (lib/networks.ts, incl. the env overrides Vercel may set).
+// JSON-RPC nodes and indexers per network (lib/networks.ts, incl. the env overrides Vercel may set),
+// plus the cross-chain buy's surface: the origin chains' RPCs (balance reads, and the wallet when it
+// switches there) and Relay's API (quote, chain list, fill status — lib/crossBuy.ts).
 const DATA_HOSTS = [
   "https://rpc.testnet.arc.io", // Arc testnet (no override)
   process.env.NEXT_PUBLIC_ROBINHOOD_TESTNET_RPC, "https://rpc.testnet.chain.robinhood.com",
   process.env.NEXT_PUBLIC_ROBINHOOD_RPC, "https://rpc.mainnet.chain.robinhood.com",
   process.env.NEXT_PUBLIC_BASE_RPC, "https://mainnet.base.org",
+  process.env.NEXT_PUBLIC_BNB_RPC, "https://bsc-dataseed.bnbchain.org",
+  "https://api.relay.link",
   process.env.NEXT_PUBLIC_INDEXER_URL, "https://radian-indexer-production.up.railway.app",
   process.env.NEXT_PUBLIC_ROBINHOOD_TESTNET_INDEXER_URL, "https://radian-indexer-robinhood-production.up.railway.app",
   process.env.NEXT_PUBLIC_ROBINHOOD_INDEXER_URL, "https://radian-indexer-robinhood-mainnet-production.up.railway.app",

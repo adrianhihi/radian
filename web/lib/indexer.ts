@@ -290,3 +290,63 @@ export async function fetchTxStatus(hash: string): Promise<TxStatusResult> {
     events: Array.isArray(j.events) ? j.events : [],
   };
 }
+
+// ── The Pound's burn feed (see /pound/feed.json and /pound/feed.rss in server.ts) ─────────────
+// One item per Pack burn, newest first, the transaction link as the item link: the same list any
+// RSS-to-X / Zapier / IFTTT automation reads, so the burn cards on /earn and the auto-posts agree.
+export type BurnFeedItem = {
+  id: string;
+  url: string; // the explorer's transaction page
+  txHash: string;
+  ts: number; // ms
+  token: Address;
+  symbol: string;
+  index: number | null;
+  asset: Address;
+  assetSymbol: string;
+  assetDecimals: number;
+  quoteIn: string;
+  tokensOut: string;
+  bounty: string;
+  caller: Address | null;
+  title: string;
+  text: string; // the feed's pre-written English line
+};
+export const burnFeedUrl = (kind: "rss" | "json"): string => `${INDEXER_URL}/pound/feed.${kind}`;
+
+type WireFeedItem = { id?: string; url?: string; title?: string; content_text?: string; date_published?: string; _radian?: Partial<Omit<BurnFeedItem, "id" | "url" | "title" | "text">> };
+
+/** Throws when the indexer cannot answer or the feed is malformed: the caller must show "unread", never "no burns". */
+export async function fetchBurnFeed(): Promise<BurnFeedItem[]> {
+  const j = await get<{ items?: WireFeedItem[] }>("/pound/feed.json");
+  if (!Array.isArray(j.items)) throw new Error("indexer /pound/feed.json: malformed feed");
+  const out: BurnFeedItem[] = [];
+  for (const it of j.items) {
+    const r = it._radian;
+    if (!r || typeof r.txHash !== "string" || typeof r.token !== "string") continue;
+    out.push({
+      id: typeof it.id === "string" ? it.id : r.txHash,
+      url: typeof it.url === "string" ? it.url : "",
+      txHash: r.txHash,
+      ts: typeof r.ts === "number" ? r.ts : Date.parse(it.date_published ?? "") || 0,
+      token: r.token,
+      symbol: typeof r.symbol === "string" ? r.symbol : "",
+      index: typeof r.index === "number" ? r.index : null,
+      asset: (typeof r.asset === "string" ? r.asset : "0x0000000000000000000000000000000000000000") as Address,
+      assetSymbol: typeof r.assetSymbol === "string" ? r.assetSymbol : "",
+      assetDecimals: typeof r.assetDecimals === "number" ? r.assetDecimals : 18,
+      quoteIn: typeof r.quoteIn === "string" ? r.quoteIn : "0",
+      tokensOut: typeof r.tokensOut === "string" ? r.tokensOut : "0",
+      bounty: typeof r.bounty === "string" ? r.bounty : "0",
+      caller: typeof r.caller === "string" ? r.caller : null,
+      title: typeof it.title === "string" ? it.title : "",
+      text: typeof it.content_text === "string" ? it.content_text : "",
+    });
+  }
+  return out;
+}
+
+// Per-coin burn facts the /pound Pack rows carry beyond lib/pound's PoundPack: the launch's name and
+// logo when the coin is one of ours, and the quote spent burning it so far (its Burned events summed,
+// in the pack's asset), with how many burns and when the last one landed (unix seconds).
+export type PackBurnFacts = { name?: string; logo?: string; burnedQuote?: string; burnCount?: number; lastBurnAt?: number };

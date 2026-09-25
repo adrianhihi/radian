@@ -5,7 +5,7 @@
 // fills it in. `ready` is false while that chunk is still loading, so the wallet
 // pill shows a spinner instead of flashing "Sign in" at signed-in people.
 import { createContext } from "react";
-import type { Address, WalletClient } from "viem";
+import type { Address, Chain, WalletClient } from "viem";
 
 export type WalletView = {
   /** false while the wallet provider is still loading; true once it has spoken */
@@ -21,12 +21,14 @@ export type WalletView = {
   login: () => void;
   logout: () => void;
   getWalletClient: () => Promise<{ client: WalletClient; account: Address } | null>;
+  /** the same wallet switched to another chain (a cross-chain buy's origin); a refused switch throws */
+  getWalletClientFor: (chain: Chain) => Promise<{ client: WalletClient; account: Address } | null>;
 };
 
 const none = async () => null;
 
 /** Before the Privy chunk has loaded. */
-export const LOADING_WALLET: WalletView = { ready: false, authenticated: false, address: undefined, clientType: null, wallets: [], selectWallet: () => {}, login: () => {}, logout: () => {}, getWalletClient: none };
+export const LOADING_WALLET: WalletView = { ready: false, authenticated: false, address: undefined, clientType: null, wallets: [], selectWallet: () => {}, login: () => {}, logout: () => {}, getWalletClient: none, getWalletClientFor: none };
 /** No wallet provider configured on this deployment (NEXT_PUBLIC_PRIVY_APP_ID unset). */
 export const DISABLED_WALLET: WalletView = { ...LOADING_WALLET, ready: true };
 

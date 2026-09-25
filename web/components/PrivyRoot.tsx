@@ -10,9 +10,15 @@ import { PrivyProvider, usePrivy, useWallets } from "@privy-io/react-auth";
 import { readLS, writeLS } from "@/lib/ui/storage";
 
 const WALLET_KEY = "radian.wallet";
-import { createWalletClient, custom, type Address, type WalletClient } from "viem";
-import { arcTestnet } from "@/lib/radian";
+import { createWalletClient, custom, type Address, type Chain, type WalletClient } from "viem";
+import { originChain } from "@/lib/crossBuy";
+import { activeNetwork, arcTestnet } from "@/lib/radian";
 import { WalletContext, type WalletView } from "@/lib/walletContext";
+
+// The chains a cross-chain buyer pays from (lib/networks `crossBuy.origins`). Privy only switches
+// a wallet to a chain in `supportedChains` (HOLD hit this with 4663 missing), so they are listed
+// alongside the active network; their RPCs are the same ones middleware.ts allows.
+const ORIGIN_CHAINS: Chain[] = (activeNetwork.crossBuy?.origins ?? []).map(originChain);
 
 // Privy has an unconditional effect that fetches WalletConnect's wallet directory
 // (explorer-api.walletconnect.com) even when no WalletConnect option is offered.
@@ -57,7 +63,7 @@ export default function PrivyRoot({ appId, children }: { appId: string; children
         // Users without a wallet get one automatically on first login.
         embeddedWallets: { createOnLogin: "users-without-wallets" },
         defaultChain: arcTestnet,
-        supportedChains: [arcTestnet],
+        supportedChains: [arcTestnet, ...ORIGIN_CHAINS],
       }}
     >
       <Bridge>{children}</Bridge>
@@ -98,6 +104,20 @@ function Bridge({ children }: { children: ReactNode }) {
     return { client, account: wallet.address as Address };
   }, [wallet]);
 
+  // The same wallet on another chain, for a cross-chain buy's origin leg. Unlike the home-chain
+  // path above, a refused switch is not swallowed: signing on the wrong chain would send the
+  // deposit nowhere, so the caller shows the wallet's refusal instead.
+  const getWalletClientFor = useCallback(
+    async (chain: Chain): Promise<{ client: WalletClient; account: Address } | null> => {
+      if (!wallet) return null;
+      await wallet.switchChain(chain.id);
+      const provider = await wallet.getEthereumProvider();
+      const client = createWalletClient({ chain, transport: custom(provider) });
+      return { client, account: wallet.address as Address };
+    },
+    [wallet],
+  );
+
   const value = useMemo<WalletView>(
     () => ({
       ready: ready && walletsReady,
@@ -109,8 +129,9 @@ function Bridge({ children }: { children: ReactNode }) {
       login: () => login(),
       logout: () => void logout(),
       getWalletClient,
+      getWalletClientFor,
     }),
-    [ready, walletsReady, authenticated, address, wallet, ordered, selectWallet, login, logout, getWalletClient],
+    [ready, walletsReady, authenticated, address, wallet, ordered, selectWallet, login, logout, getWalletClient, getWalletClientFor],
   );
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
 }

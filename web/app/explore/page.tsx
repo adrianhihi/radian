@@ -28,6 +28,7 @@ import { HowItWorksButton } from "@/components/explore/HowItWorks";
 import { CreatorBoard } from "@/components/explore/CreatorBoard";
 import { TokenList } from "@/components/explore/TokenList";
 import { QuickBuy } from "@/components/explore/QuickBuy";
+import { PackExploreCard } from "@/components/pound/PackExploreCard";
 
 type Tab = "top" | "tokens" | "creators" | "graduating";
 type CreatorSort = "launches" | "volume";
@@ -108,6 +109,12 @@ export default function ExplorePage() {
         {ranked.length > 0 && (
           <div className="mt-10">
             <Showcase rows={ranked.slice(0, 6)} />
+          </div>
+        )}
+
+        {net.live && net.pound && (
+          <div className="mt-6">
+            <PackExploreCard net={net} />
           </div>
         )}
 

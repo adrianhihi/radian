@@ -85,7 +85,7 @@ function SwapConsole() {
             <Panel>
               <SwapForm tk={tk} candidates={candidates.map(toTradeToken)} onToken={onToken} onTraded={refresh} />
             </Panel>
-            <TokenAside row={row} />
+            <TokenAside row={row} tk={tk} onTraded={refresh} />
           </div>
         )}
 
