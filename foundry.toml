@@ -16,6 +16,16 @@ optimizer_runs = 200
 bytecode_hash = "none"
 cbor_metadata = false
 fs_permissions = [{ access = "read", path = "./test" }]
+# LayerZero V2 (the omnichain layer, src/omni + test/omni) is vendored from the npm
+# tarballs under lib/layerzero/<package>-<version>/ (oft-evm 4.0.1, oapp-evm 0.4.1,
+# lz-evm-protocol-v2 / messagelib-v2 / v1-0.7 3.0.168, test-devtools-evm-foundry 8.0.1,
+# solidity-bytes-utils 0.8.4); the version is the directory name, so remappings.txt is
+# the pin. Those packages need OpenZeppelin files the 23-file subset in
+# lib/openzeppelin-contracts does not carry (AccessControl, ECDSA, DoubleEndedQueue...),
+# so remappings.txt scopes "@openzeppelin/contracts/" to a full OZ 5.6.1 copy for the
+# lib/layerzero/, src/omni/ and test/omni/ contexts only. Every other source keeps the
+# subset, and its bytecode is unchanged. Rule: a contract must live in one world; never
+# mix the two Ownable / ERC20 definitions in one inheritance chain.
 
 [rpc_endpoints]
 arc_testnet = "https://rpc.testnet.arc.io"
